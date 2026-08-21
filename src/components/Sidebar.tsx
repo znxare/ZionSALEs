@@ -1,4 +1,5 @@
 import { LayoutDashboard, Users, MapPin, Megaphone, Landmark, CalendarCheck, Snowflake, Upload } from 'lucide-react';
+import ConnectionStatus from '@/components/ConnectionStatus';
 
 interface Props {
   current: 'dashboard' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner' | 'reactivation';
@@ -37,26 +38,14 @@ export default function Sidebar({ current, onNavigate }: Props) {
           })}
         </nav>
 
-        {/* Profile area */}
-        <div className="mt-6 rounded-2xl border border-gray-200/60 bg-warm-surface-2 p-3">
-          <div className="flex items-center gap-2.5">
-            <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-orange-400 to-orange-600 text-[12px] font-bold text-white shadow-sm">
-              AK
-            </div>
-            <div className="min-w-0">
-              <div className="truncate text-[13px] font-semibold text-gray-700">Amit Kumar</div>
-              <div className="flex items-center gap-1 text-[10px] text-gray-400">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                Asst. Sales Mgr
-              </div>
-            </div>
-          </div>
-          <div className="mt-2.5 rounded-lg bg-white px-2.5 py-1.5 text-[10px] text-gray-400 ring-1 ring-gray-200/60">
-            Profile settings — coming soon
-          </div>
-        </div>
+        <ConnectionStatus />
 
-        <div className="mt-4 flex items-center justify-center gap-1.5 px-3 text-[11px] text-gray-400">
+        <a
+          href="https://ormcrm.com"
+          target="_blank"
+          rel="noreferrer"
+          className="mt-4 flex items-center justify-center gap-1.5 px-3 text-[11px] text-gray-400 transition hover:text-gray-600"
+        >
           <span>Zion Hills</span>
           <span className="text-gray-300">×</span>
           <svg width="14" height="14" viewBox="0 0 26 26" fill="none" aria-hidden="true" className="shrink-0">
@@ -64,7 +53,7 @@ export default function Sidebar({ current, onNavigate }: Props) {
             <path d="M10,4 L16,4 L17,7 L18,15 L13,22 L8,15 L9,7 Z" fill="#FAF8F4" />
           </svg>
           <span className="font-semibold text-gray-500">ORM</span>
-        </div>
+        </a>
       </aside>
 
       {/* Mobile bottom nav */}

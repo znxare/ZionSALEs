@@ -14,6 +14,7 @@ import LeadBank from '@/components/LeadBank';
 import DayPlanner from '@/components/DayPlanner';
 import LeadReactivation from '@/components/LeadReactivation';
 import LeadImport from '@/components/LeadImport';
+import Login, { isAuthed } from '@/components/Login';
 
 type Route =
   | { name: 'dashboard' }
@@ -55,6 +56,7 @@ function navigate(route: Route) {
 }
 
 export default function App() {
+  const [authed, setAuthed] = useState(isAuthed);
   const [route, setRoute] = useState<Route>(parseHash);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -78,8 +80,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (authed) load();
+  }, [authed, load]);
 
   useEffect(() => {
     const onHash = () => {
@@ -113,6 +115,10 @@ export default function App() {
     route.name === 'reactivation' ? 'reactivation' :
     route.name === 'dashboard' ? 'dashboard' :
     route.name === 'lead' ? 'leads' : 'dashboard';
+
+  if (!authed) {
+    return <Login onSuccess={() => setAuthed(true)} />;
+  }
 
   return (
     <div className="min-h-screen bg-warm-bg">

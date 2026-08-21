@@ -52,7 +52,6 @@ export default function TopBar({ onSearch, onAdd }: Props) {
             <div className="font-display text-[15px] font-bold tracking-tight text-[#F05A22]">
               CRM
             </div>
-            <div className="hidden text-[11px] font-medium text-gray-400 sm:block">Sales Cockpit</div>
           </div>
         </a>
 
