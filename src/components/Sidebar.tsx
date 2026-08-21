@@ -56,10 +56,14 @@ export default function Sidebar({ current, onNavigate }: Props) {
           </div>
         </div>
 
-        <div className="mt-4 px-3">
-          <img src="https://zionhills.in/wp-content/uploads/2025/05/logo.svg" alt="Zion Hills" className="mb-2 h-8 w-auto" />
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Pipeline</p>
-          <p className="mt-1 text-[12px] text-gray-400">Zion Hills Golf County</p>
+        <div className="mt-4 flex items-center justify-center gap-1.5 px-3 text-[11px] text-gray-400">
+          <span>Zion Hills</span>
+          <span className="text-gray-300">×</span>
+          <svg width="14" height="14" viewBox="0 0 26 26" fill="none" aria-hidden="true" className="shrink-0">
+            <rect width="26" height="26" rx="7" fill="#BC5A32" />
+            <path d="M10,4 L16,4 L17,7 L18,15 L13,22 L8,15 L9,7 Z" fill="#FAF8F4" />
+          </svg>
+          <span className="font-semibold text-gray-500">ORM</span>
         </div>
       </aside>
 
