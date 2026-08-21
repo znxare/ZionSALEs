@@ -5,7 +5,7 @@ import { toLocalInputValue, daysFromNow } from '@/lib/crm';
 interface Props {
   onClose: () => void;
   onPick: (when: string, summary: string) => void;
-  current: string;
+  current: string | null;
 }
 
 export default function FollowUpSheet({ onClose, onPick }: Props) {

@@ -246,23 +246,27 @@ export function endOfDay(d: Date): Date {
   return x;
 }
 
-export function isToday(iso: string): boolean {
+export function isToday(iso: string | null): boolean {
+  if (!iso) return false;
   const d = new Date(iso);
   const now = new Date();
   return startOfDay(d).getTime() === startOfDay(now).getTime();
 }
 
-export function isOverdue(iso: string): boolean {
+export function isOverdue(iso: string | null): boolean {
+  if (!iso) return false;
   return new Date(iso).getTime() < startOfDay(new Date()).getTime();
 }
 
-export function isThisMonth(iso: string): boolean {
+export function isThisMonth(iso: string | null): boolean {
+  if (!iso) return false;
   const d = new Date(iso);
   const now = new Date();
   return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
 }
 
-export function relativeDay(iso: string): string {
+export function relativeDay(iso: string | null): string {
+  if (!iso) return 'No follow-up';
   const d = new Date(iso);
   const today = startOfDay(new Date());
   const target = startOfDay(d);
@@ -274,7 +278,8 @@ export function relativeDay(iso: string): string {
   return `in ${diff} days`;
 }
 
-export function formatDate(iso: string): string {
+export function formatDate(iso: string | null): string {
+  if (!iso) return '—';
   return new Date(iso).toLocaleDateString('en-IN', {
     day: 'numeric',
     month: 'short',
@@ -282,7 +287,8 @@ export function formatDate(iso: string): string {
   });
 }
 
-export function formatTime(iso: string): string {
+export function formatTime(iso: string | null): string {
+  if (!iso) return '—';
   return new Date(iso).toLocaleTimeString('en-IN', {
     hour: 'numeric',
     minute: '2-digit',
@@ -290,11 +296,13 @@ export function formatTime(iso: string): string {
   });
 }
 
-export function formatDateTime(iso: string): string {
+export function formatDateTime(iso: string | null): string {
+  if (!iso) return '—';
   return `${formatDate(iso)}, ${formatTime(iso)}`;
 }
 
-export function toLocalInputValue(iso: string): string {
+export function toLocalInputValue(iso: string | null): string {
+  if (!iso) return '';
   const d = new Date(iso);
   const off = d.getTimezoneOffset();
   return new Date(d.getTime() - off * 60000).toISOString().slice(0, 16);

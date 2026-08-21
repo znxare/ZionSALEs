@@ -62,7 +62,7 @@ export interface Lead {
   budget: string | null;
   budget_lakhs: number | null;
   project_interest: string | null;
-  next_followup_at: string;
+  next_followup_at: string | null;
   last_contacted_at: string | null;
   last_activity_type: string | null;
   last_activity_at: string | null;

@@ -504,7 +504,7 @@ export default function LeadDetail({ id, leads, campaigns, onBack, onChanged }: 
   );
 }
 
-function FollowUpTimeline({ activities, currentFollowUp }: { activities: Activity[]; currentFollowUp: string }) {
+function FollowUpTimeline({ activities, currentFollowUp }: { activities: Activity[]; currentFollowUp: string | null }) {
   return (
     <div className="relative pl-6">
       <div className="absolute left-[7px] top-2 bottom-2 w-px bg-gray-200" />

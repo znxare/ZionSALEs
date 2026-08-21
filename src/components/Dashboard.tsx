@@ -189,7 +189,7 @@ export default function Dashboard({ leads, campaigns, loading, onOpenLead, onAdd
       const ap = statusRank(a.status);
       const bp = statusRank(b.status);
       if (ap !== bp) return ap - bp;
-      return new Date(a.next_followup_at).getTime() - new Date(b.next_followup_at).getTime();
+      return new Date(a.next_followup_at ?? 0).getTime() - new Date(b.next_followup_at ?? 0).getTime();
     }).slice(0, 8);
   }, [leads]);
 

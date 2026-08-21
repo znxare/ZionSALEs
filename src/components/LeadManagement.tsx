@@ -165,7 +165,7 @@ export default function LeadManagement({ leads, campaigns, onOpenLead, onChanged
       switch (sort) {
         case 'newest': return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
         case 'oldest': return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-        case 'followup': return new Date(a.next_followup_at).getTime() - new Date(b.next_followup_at).getTime();
+        case 'followup': return new Date(a.next_followup_at ?? 0).getTime() - new Date(b.next_followup_at ?? 0).getTime();
         case 'lastcontacted': return (new Date(b.last_activity_at ?? 0).getTime()) - (new Date(a.last_activity_at ?? 0).getTime());
         case 'name': return a.name.localeCompare(b.name);
         case 'hot': {

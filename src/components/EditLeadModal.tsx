@@ -105,7 +105,7 @@ export default function EditLeadModal({ lead, campaigns, onClose, onSaved }: Pro
               <label className="mb-1.5 block text-[12px] font-semibold uppercase tracking-wide text-gray-400">Next follow-up</label>
               <input
                 type="datetime-local"
-                value={form.next_followup_at.slice(0, 16)}
+                value={(form.next_followup_at ?? '').slice(0, 16)}
                 onChange={(e) => setForm({ ...form, next_followup_at: new Date(e.target.value).toISOString() })}
                 className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-emerald-300"
               />

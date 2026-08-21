@@ -45,7 +45,7 @@ export default function DayPlanner({ leads, onOpenLead }: Props) {
         const ao = isOverdue(a.next_followup_at) ? 0 : isToday(a.next_followup_at) ? 1 : 2;
         const bo = isOverdue(b.next_followup_at) ? 0 : isToday(b.next_followup_at) ? 1 : 2;
         if (ao !== bo) return ao - bo;
-        return new Date(a.next_followup_at).getTime() - new Date(b.next_followup_at).getTime();
+        return new Date(a.next_followup_at ?? 0).getTime() - new Date(b.next_followup_at ?? 0).getTime();
       })
       .slice(0, 15);
   }, [leads]);
