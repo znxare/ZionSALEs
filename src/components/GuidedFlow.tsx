@@ -141,7 +141,7 @@ export default function GuidedFlow({ onClose, onComplete }: Props) {
       {step === 'notes' && pendingResult && (
         <div className="animate-fade-in px-5 py-5">
           <div className="mb-5 flex items-center gap-3">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl green-gradient text-white">
+            <div className="grid h-11 w-11 place-items-center rounded-2xl brand-gradient text-white">
               <Pencil className="h-5 w-5" />
             </div>
             <h3 className="font-display text-lg font-bold tracking-tight text-gray-900">Call Notes</h3>
@@ -164,7 +164,7 @@ export default function GuidedFlow({ onClose, onComplete }: Props) {
             <button
               onClick={() => finish({ ...pendingResult, summary: notes.trim() ? `${pendingResult.summary} — ${notes.trim()}` : pendingResult.summary, notes: notes.trim() || undefined })}
               disabled={!notes.trim()}
-              className="flex flex-[1.5] items-center justify-center gap-1.5 rounded-full green-gradient py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
+              className="flex flex-[1.5] items-center justify-center gap-1.5 rounded-full brand-gradient py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
             >
               <Check className="h-4 w-4" /> Save Notes
             </button>
@@ -185,7 +185,7 @@ function Question({ icon: Icon, question, options, onPick }: {
   return (
     <div className="animate-fade-in px-5 py-5">
       <div className="mb-5 flex items-center gap-3">
-        <div className="grid h-11 w-11 place-items-center rounded-2xl green-gradient text-white">
+        <div className="grid h-11 w-11 place-items-center rounded-2xl brand-gradient text-white">
           <Icon className="h-5 w-5" />
         </div>
         <h3 className="font-display text-lg font-bold tracking-tight text-gray-900">{question}</h3>

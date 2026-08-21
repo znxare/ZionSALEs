@@ -47,7 +47,7 @@ export default function FollowUpSheet({ onClose, onPick }: Props) {
                 className="flex items-center justify-between rounded-2xl border border-gray-150 bg-white px-4 py-3.5 text-left transition hover:border-emerald-200 hover:bg-emerald-50/40"
               >
                 <span className="font-semibold text-gray-800">{o.label}</span>
-                <span className="grid h-7 w-7 place-items-center rounded-full green-gradient text-white">
+                <span className="grid h-7 w-7 place-items-center rounded-full brand-gradient text-white">
                   <Check className="h-4 w-4" />
                 </span>
               </button>
@@ -66,7 +66,7 @@ export default function FollowUpSheet({ onClose, onPick }: Props) {
               <button
                 onClick={() => custom && pick(new Date(custom).toISOString(), 'custom date')}
                 disabled={!custom}
-                className="rounded-xl green-gradient px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                className="rounded-xl brand-gradient px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
               >
                 Save
               </button>

@@ -150,7 +150,7 @@ export default function AddLeadModal({ campaigns, onClose, onCreated }: Props) {
           <button
             onClick={submit}
             disabled={saving}
-            className="flex flex-[1.5] items-center justify-center gap-1.5 rounded-full green-gradient py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
+            className="flex flex-[1.5] items-center justify-center gap-1.5 rounded-full brand-gradient py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
           >
             {saving ? 'Saving…' : 'Save Lead'}
             {!saving && <ChevronRight className="h-4 w-4" />}

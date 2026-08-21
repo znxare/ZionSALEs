@@ -143,7 +143,7 @@ export default function TopBar({ onSearch, onAdd }: Props) {
 
           <button
             onClick={onAdd}
-            className="flex items-center gap-1.5 rounded-full orange-gradient px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 sm:px-4"
+            className="flex items-center gap-1.5 rounded-full brand-gradient px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 sm:px-4"
           >
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">New Lead</span>

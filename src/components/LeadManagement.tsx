@@ -360,7 +360,7 @@ export default function LeadManagement({ leads, campaigns, onOpenLead, onChanged
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-[12px] font-semibold uppercase tracking-wide text-gray-400">Date Created:</span>
           {(['all', 'today', 'yesterday', 'this_week', 'this_month', 'last_month', 'custom'] as const).map((p) => (
-            <button key={p} onClick={() => { setRangePreset(p); setPage(0); }} className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition ${rangePreset === p ? 'green-gradient text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+            <button key={p} onClick={() => { setRangePreset(p); setPage(0); }} className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition ${rangePreset === p ? 'brand-gradient text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
               {p === 'all' ? 'All Time' : p.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
             </button>
           ))}
@@ -428,7 +428,7 @@ export default function LeadManagement({ leads, campaigns, onOpenLead, onChanged
             <button
               key={t.id}
               onClick={() => { setTab(t.id); setPage(0); }}
-              className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-[13px] font-semibold transition ${active ? 'green-gradient text-white shadow-sm' : 'bg-white text-gray-500 ring-1 ring-black/5 hover:text-gray-700'}`}
+              className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-[13px] font-semibold transition ${active ? 'brand-gradient text-white shadow-sm' : 'bg-white text-gray-500 ring-1 ring-black/5 hover:text-gray-700'}`}
             >
               {t.label}
               <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold ${active ? 'bg-white/25 text-white' : 'bg-gray-100 text-gray-500'}`}>
@@ -456,7 +456,7 @@ export default function LeadManagement({ leads, campaigns, onOpenLead, onChanged
             className={`relative flex items-center gap-1.5 rounded-full border px-3.5 py-2.5 text-sm font-medium transition ${activeFilterCount > 0 ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-black/5 bg-white text-gray-600 card-shadow'}`}
           >
             <Filter className="h-4 w-4" /> Filters
-            {activeFilterCount > 0 && <span className="grid h-5 w-5 place-items-center rounded-full green-gradient text-[11px] text-white">{activeFilterCount}</span>}
+            {activeFilterCount > 0 && <span className="grid h-5 w-5 place-items-center rounded-full brand-gradient text-[11px] text-white">{activeFilterCount}</span>}
           </button>
           <div className="relative">
             <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className="appearance-none rounded-full border border-black/5 bg-white py-2.5 pl-3.5 pr-9 text-sm font-medium text-gray-600 outline-none card-shadow focus:border-emerald-200">
@@ -465,8 +465,8 @@ export default function LeadManagement({ leads, campaigns, onOpenLead, onChanged
             <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           </div>
           <div className="flex overflow-hidden rounded-full border border-black/5 bg-white card-shadow">
-            <button onClick={() => setView('table')} className={`px-2.5 py-2.5 transition ${view === 'table' ? 'green-gradient text-white' : 'text-gray-400 hover:text-gray-600'}`}><TableIcon className="h-4 w-4" /></button>
-            <button onClick={() => setView('card')} className={`px-2.5 py-2.5 transition ${view === 'card' ? 'green-gradient text-white' : 'text-gray-400 hover:text-gray-600'}`}><LayoutGrid className="h-4 w-4" /></button>
+            <button onClick={() => setView('table')} className={`px-2.5 py-2.5 transition ${view === 'table' ? 'brand-gradient text-white' : 'text-gray-400 hover:text-gray-600'}`}><TableIcon className="h-4 w-4" /></button>
+            <button onClick={() => setView('card')} className={`px-2.5 py-2.5 transition ${view === 'card' ? 'brand-gradient text-white' : 'text-gray-400 hover:text-gray-600'}`}><LayoutGrid className="h-4 w-4" /></button>
           </div>
         </div>
       </div>
@@ -504,7 +504,7 @@ export default function LeadManagement({ leads, campaigns, onOpenLead, onChanged
               {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
-          {bulkStatus && <button onClick={applyBulkStatus} className="rounded-lg green-gradient px-3 py-1.5 text-[13px] font-semibold text-white">Apply</button>}
+          {bulkStatus && <button onClick={applyBulkStatus} className="rounded-lg brand-gradient px-3 py-1.5 text-[13px] font-semibold text-white">Apply</button>}
           <button onClick={() => setFollowUpFor({ id: [...selected][0], next_followup_at: new Date().toISOString() } as Lead)} className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-[13px] font-semibold text-emerald-700">Schedule Follow-up</button>
           <button onClick={exportCsv} className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-[13px] font-semibold text-gray-700">Quick Export</button>
           <button onClick={exportFullCsv} disabled={exporting} className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-[13px] font-semibold text-emerald-700 disabled:opacity-50">{exporting ? 'Exporting…' : 'Export with Notes'}</button>
@@ -734,7 +734,7 @@ function FilterGroup({ label, children }: { label: string; children: React.React
 
 function Chip({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
   return (
-    <button onClick={onClick} className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition ${active ? 'green-gradient text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>{label}</button>
+    <button onClick={onClick} className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition ${active ? 'brand-gradient text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>{label}</button>
   );
 }
 

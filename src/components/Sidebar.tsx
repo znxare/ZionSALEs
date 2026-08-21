@@ -20,7 +20,7 @@ export default function Sidebar({ current, onNavigate }: Props) {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="sticky top-[57px] hidden h-[calc(100vh-57px)] w-56 shrink-0 overflow-y-auto border-r border-gray-200/60 bg-[#fefcfb] px-3 py-5 lg:block">
+      <aside className="sticky top-[57px] hidden h-[calc(100vh-57px)] w-56 shrink-0 overflow-y-auto border-r border-gray-200/60 bg-warm-surface px-3 py-5 lg:block">
         <nav className="space-y-1">
           {items.map((it) => {
             const active = current === it.id;
@@ -38,7 +38,7 @@ export default function Sidebar({ current, onNavigate }: Props) {
         </nav>
 
         {/* Profile area */}
-        <div className="mt-6 rounded-2xl border border-gray-200/60 bg-[#f5f2ee] p-3">
+        <div className="mt-6 rounded-2xl border border-gray-200/60 bg-warm-surface-2 p-3">
           <div className="flex items-center gap-2.5">
             <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-orange-400 to-orange-600 text-[12px] font-bold text-white shadow-sm">
               AK
@@ -64,7 +64,7 @@ export default function Sidebar({ current, onNavigate }: Props) {
       </aside>
 
       {/* Mobile bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 z-30 flex border-t border-gray-200/60 bg-[#fefcfb]/90 backdrop-blur lg:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-30 flex border-t border-gray-200/60 bg-warm-surface/90 backdrop-blur lg:hidden">
         {items.map((it) => {
           const active = current === it.id;
           return (

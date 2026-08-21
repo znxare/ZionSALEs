@@ -185,7 +185,7 @@ export default function DayPlanner({ leads, onOpenLead }: Props) {
                   <button
                     onClick={addTodo}
                     disabled={adding || !newTitle.trim()}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-full green-gradient py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
+                    className="flex w-full items-center justify-center gap-1.5 rounded-full brand-gradient py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
                   >
                     {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                     Add Task

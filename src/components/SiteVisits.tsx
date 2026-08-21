@@ -245,7 +245,7 @@ export default function SiteVisits({ leads, campaigns, onOpenLead }: Props) {
       <div className="mb-4 flex justify-center">
         <div className="flex overflow-hidden rounded-full border border-black/5 bg-white card-shadow">
           {([['list', 'List', TableIcon], ['analytics', 'Analytics', BarChart3], ['calendar', 'Calendar', Calendar]] as const).map(([v, label, Icon]) => (
-            <button key={v} onClick={() => setView(v)} className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition ${view === v ? 'green-gradient text-white' : 'text-gray-500 hover:text-gray-700'}`}>
+            <button key={v} onClick={() => setView(v)} className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition ${view === v ? 'brand-gradient text-white' : 'text-gray-500 hover:text-gray-700'}`}>
               <Icon className="h-4 w-4" /> {label}
             </button>
           ))}
@@ -260,7 +260,7 @@ export default function SiteVisits({ leads, campaigns, onOpenLead }: Props) {
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-[12px] font-semibold uppercase tracking-wide text-gray-400">Date Range:</span>
               {(['today', 'yesterday', 'this_week', 'last_week', 'this_month', 'last_month', 'custom', 'all'] as const).map((p) => (
-                <button key={p} onClick={() => setRangePreset(p)} className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition ${rangePreset === p ? 'green-gradient text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                <button key={p} onClick={() => setRangePreset(p)} className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition ${rangePreset === p ? 'brand-gradient text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
                   {p === 'all' ? 'All Time' : p.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
                 </button>
               ))}

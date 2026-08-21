@@ -253,7 +253,7 @@ export default function LeadDetail({ id, leads, campaigns, onBack, onChanged }: 
 
       {/* Lead header */}
       <div className="overflow-hidden rounded-3xl border border-black/5 bg-white card-shadow">
-        <div className="green-gradient px-5 py-5 text-white sm:px-7">
+        <div className="brand-gradient px-5 py-5 text-white sm:px-7">
           <div className="flex items-start justify-between gap-3">
             <div>
               <h1 className="font-display text-2xl font-bold tracking-tight">{lead.name}</h1>
@@ -341,7 +341,7 @@ export default function LeadDetail({ id, leads, campaigns, onBack, onChanged }: 
               className={`relative whitespace-nowrap px-3 py-2.5 text-sm font-semibold transition ${tab === t.id ? 'text-emerald-600' : 'text-gray-400 hover:text-gray-600'}`}
             >
               {t.label}
-              {tab === t.id && <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full green-gradient" />}
+              {tab === t.id && <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full brand-gradient" />}
             </button>
           ))}
         </div>
@@ -422,7 +422,7 @@ export default function LeadDetail({ id, leads, campaigns, onBack, onChanged }: 
                   autoFocus
                   className="flex-1 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-emerald-300"
                 />
-                <button onClick={addNote} disabled={busy || !note.trim()} className="rounded-xl green-gradient px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
+                <button onClick={addNote} disabled={busy || !note.trim()} className="rounded-xl brand-gradient px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
                   <Check className="h-4 w-4" />
                 </button>
                 <button onClick={() => { setShowNoteInput(false); setNote(''); }} className="rounded-xl bg-gray-100 px-3 py-2.5 text-gray-500">
@@ -690,7 +690,7 @@ function SiteVisitModal({ leadId, visitNumber, onClose, onCreated }: {
         </div>
         <div className="sticky bottom-0 flex gap-3 border-t border-gray-100 bg-white px-5 py-4">
           <button onClick={onClose} className="flex-1 rounded-full bg-gray-100 py-3 text-sm font-semibold text-gray-600 transition hover:bg-gray-200">Cancel</button>
-          <button onClick={save} disabled={saving} className="flex flex-[1.5] items-center justify-center gap-1.5 rounded-full green-gradient py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60">
+          <button onClick={save} disabled={saving} className="flex flex-[1.5] items-center justify-center gap-1.5 rounded-full brand-gradient py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60">
             {saving ? 'Scheduling…' : `Schedule Visit ${visitNumber}`}
           </button>
         </div>

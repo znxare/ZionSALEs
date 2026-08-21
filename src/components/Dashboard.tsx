@@ -214,7 +214,7 @@ export default function Dashboard({ leads, campaigns, loading, onOpenLead, onAdd
   return (
     <div className="animate-fade-in space-y-6">
       {/* Orange ribbon hero — full-width brand banner */}
-      <div className="overflow-hidden rounded-3xl orange-gradient p-6 text-white card-shadow-lg sm:p-8">
+      <div className="overflow-hidden rounded-3xl brand-gradient p-6 text-white card-shadow-lg sm:p-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-1">
             <p className="text-sm font-medium text-orange-100/80">{greeting}, sales team.</p>
@@ -372,7 +372,7 @@ export default function Dashboard({ leads, campaigns, loading, onOpenLead, onAdd
             <p className="text-sm font-medium text-gray-500">No active follow-ups right now.</p>
             <button
               onClick={onAdd}
-              className="mt-3 inline-flex items-center gap-1.5 rounded-full orange-gradient px-4 py-2 text-sm font-semibold text-white"
+              className="mt-3 inline-flex items-center gap-1.5 rounded-full brand-gradient px-4 py-2 text-sm font-semibold text-white"
             >
               <UserPlus className="h-4 w-4" /> Add your first lead
             </button>

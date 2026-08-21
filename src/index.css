@@ -2,16 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@theme {
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-display: 'Plus Jakarta Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
-}
-
 :root {
-  --gold: #c9a227;
-  --gold-soft: #e6d08a;
-  --green: #1f6f43;
-  --green-deep: #0f3d27;
   --brand: #F05A22;
   --brand-deep: #c2410c;
   --brand-light: #fff7ed;
@@ -28,7 +19,7 @@ body {
   font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  background-color: #faf8f5;
+  background-color: var(--warm-bg);
   color: #1a1a1a;
 }
 
@@ -55,31 +46,22 @@ body {
   }
 
   .surface-warm {
-    background: #fefcfb;
+    background: var(--warm-surface);
   }
 
   .surface-warm-2 {
-    background: #f5f2ee;
+    background: var(--warm-surface-2);
   }
 
-  .gold-gradient {
-    background: linear-gradient(135deg, #F05A22 0%, #d94e1f 50%, #c2410c 100%);
-  }
-
-  .green-gradient {
-    background: linear-gradient(135deg, #F05A22 0%, #d94e1f 50%, #c2410c 100%);
-  }
-
-  .orange-gradient {
-    background: linear-gradient(135deg, #F05A22 0%, #d94e1f 50%, #c2410c 100%);
+  .brand-gradient {
+    background: linear-gradient(135deg, var(--brand) 0%, #d94e1f 50%, var(--brand-deep) 100%);
   }
 
   .brand-accent-bar {
-    box-shadow: inset 3px 0 0 0 #F05A22;
+    box-shadow: inset 3px 0 0 0 var(--brand);
   }
 
-  .text-gold { color: #a8841c; }
-  .text-brand { color: #F05A22; }
+  .text-brand { color: var(--brand); }
 
   .animate-fade-up {
     animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;

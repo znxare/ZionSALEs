@@ -476,7 +476,7 @@ export default function LeadImport({ campaigns, onImported }: Props) {
       <div className="flex items-center gap-1 overflow-x-auto pb-1">
         {STEPS.map((s, i) => (
           <div key={s.id} className="flex items-center shrink-0">
-            <div className={'flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ' + (step === s.id ? 'orange-gradient text-white shadow-sm' : step > s.id ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-400')}>
+            <div className={'flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ' + (step === s.id ? 'brand-gradient text-white shadow-sm' : step > s.id ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-400')}>
               <span>{step > s.id ? <Check className="h-3 w-3" /> : s.id}</span>
               <span className="hidden sm:inline">{s.label}</span>
             </div>
@@ -536,7 +536,7 @@ export default function LeadImport({ campaigns, onImported }: Props) {
             </div>
             <div className="flex justify-between">
               <button onClick={() => setStep(1)} className="flex items-center gap-1 rounded-full bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-200"><ChevronLeft className="h-4 w-4" /> Back</button>
-              <button onClick={() => setStep(3)} className="flex items-center gap-1.5 rounded-full orange-gradient px-5 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95">Continue <ChevronRight className="h-4 w-4" /></button>
+              <button onClick={() => setStep(3)} className="flex items-center gap-1.5 rounded-full brand-gradient px-5 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95">Continue <ChevronRight className="h-4 w-4" /></button>
             </div>
           </div>
         )}
@@ -566,7 +566,7 @@ export default function LeadImport({ campaigns, onImported }: Props) {
               <button
                 onClick={runValidation}
                 disabled={!columnMap.name || !columnMap.phone}
-                className="flex items-center gap-1.5 rounded-full orange-gradient px-5 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-full brand-gradient px-5 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-50"
               >
                 Validate Data <ChevronRight className="h-4 w-4" />
               </button>
@@ -597,7 +597,7 @@ export default function LeadImport({ campaigns, onImported }: Props) {
             )}
             <div className="flex justify-between">
               <button onClick={() => setStep(3)} className="flex items-center gap-1 rounded-full bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-200"><ChevronLeft className="h-4 w-4" /> Back</button>
-              <button onClick={runCampaignMatching} className="flex items-center gap-1.5 rounded-full orange-gradient px-5 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95">Match Campaigns <ChevronRight className="h-4 w-4" /></button>
+              <button onClick={runCampaignMatching} className="flex items-center gap-1.5 rounded-full brand-gradient px-5 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95">Match Campaigns <ChevronRight className="h-4 w-4" /></button>
             </div>
           </div>
         )}
@@ -630,9 +630,9 @@ export default function LeadImport({ campaigns, onImported }: Props) {
                     {res.decision !== 'matched' && (
                       <div className="mt-3 flex flex-wrap gap-2">
                         {res.possibleMatchId && (
-                          <button onClick={() => setCampaignDecision(idx, 'existing', res.possibleMatchId!)} className={'rounded-lg px-3 py-1.5 text-[12px] font-semibold transition ' + (res.decision === 'existing' ? 'orange-gradient text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200')}>Use: {res.possibleMatch}</button>
+                          <button onClick={() => setCampaignDecision(idx, 'existing', res.possibleMatchId!)} className={'rounded-lg px-3 py-1.5 text-[12px] font-semibold transition ' + (res.decision === 'existing' ? 'brand-gradient text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200')}>Use: {res.possibleMatch}</button>
                         )}
-                        <button onClick={() => openCampaignCreator(idx)} className={'rounded-lg px-3 py-1.5 text-[12px] font-semibold transition ' + (res.decision === 'new' ? 'orange-gradient text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200')}>Create New Campaign</button>
+                        <button onClick={() => openCampaignCreator(idx)} className={'rounded-lg px-3 py-1.5 text-[12px] font-semibold transition ' + (res.decision === 'new' ? 'brand-gradient text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200')}>Create New Campaign</button>
                         {/* Assign to any existing campaign */}
                         <div className="relative">
                           <select
@@ -653,7 +653,7 @@ export default function LeadImport({ campaigns, onImported }: Props) {
             )}
             <div className="flex justify-between">
               <button onClick={() => setStep(4)} className="flex items-center gap-1 rounded-full bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-200"><ChevronLeft className="h-4 w-4" /> Back</button>
-              <button onClick={resolveCampaignsAndContinue} className="flex items-center gap-1.5 rounded-full orange-gradient px-5 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95">Review Duplicates <ChevronRight className="h-4 w-4" /></button>
+              <button onClick={resolveCampaignsAndContinue} className="flex items-center gap-1.5 rounded-full brand-gradient px-5 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95">Review Duplicates <ChevronRight className="h-4 w-4" /></button>
             </div>
           </div>
         )}
@@ -670,17 +670,17 @@ export default function LeadImport({ campaigns, onImported }: Props) {
             {!importing && (
               <div className="flex justify-between">
                 <button onClick={() => setStep(5)} className="flex items-center gap-1 rounded-full bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-200"><ChevronLeft className="h-4 w-4" /> Back</button>
-                <button onClick={runDuplicateCheck} className="flex items-center gap-1.5 rounded-full orange-gradient px-5 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95">Check Duplicates <ChevronRight className="h-4 w-4" /></button>
+                <button onClick={runDuplicateCheck} className="flex items-center gap-1.5 rounded-full brand-gradient px-5 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95">Check Duplicates <ChevronRight className="h-4 w-4" /></button>
               </div>
             )}
             {!importing && validated.some((r) => r.category !== 'green' && r.isValid) && (
               <div className="flex justify-end">
-                <button onClick={() => setStep(7)} className="flex items-center gap-1.5 rounded-full orange-gradient px-5 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95">Preview Import <ChevronRight className="h-4 w-4" /></button>
+                <button onClick={() => setStep(7)} className="flex items-center gap-1.5 rounded-full brand-gradient px-5 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95">Preview Import <ChevronRight className="h-4 w-4" /></button>
               </div>
             )}
             {!importing && validated.every((r) => !r.isValid || r.category === 'green') && (
               <div className="flex justify-end">
-                <button onClick={() => setStep(7)} className="flex items-center gap-1.5 rounded-full orange-gradient px-5 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95">Preview Import <ChevronRight className="h-4 w-4" /></button>
+                <button onClick={() => setStep(7)} className="flex items-center gap-1.5 rounded-full brand-gradient px-5 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95">Preview Import <ChevronRight className="h-4 w-4" /></button>
               </div>
             )}
           </div>
@@ -723,7 +723,7 @@ export default function LeadImport({ campaigns, onImported }: Props) {
                 <button
                   key={tab.id}
                   onClick={() => setPreviewFilter(tab.id)}
-                  className={'rounded-full px-3 py-1.5 text-[12px] font-semibold transition ' + (previewFilter === tab.id ? 'orange-gradient text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}
+                  className={'rounded-full px-3 py-1.5 text-[12px] font-semibold transition ' + (previewFilter === tab.id ? 'brand-gradient text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}
                 >
                   {tab.label} ({tab.count})
                 </button>
@@ -776,7 +776,7 @@ export default function LeadImport({ campaigns, onImported }: Props) {
             <p className="text-[13px] text-gray-500">Only <span className="font-semibold text-emerald-700">green (new)</span> rows will be imported into the Lead Bank. All others will be skipped.</p>
             <div className="flex justify-between">
               <button onClick={() => setStep(6)} className="flex items-center gap-1 rounded-full bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-200"><ChevronLeft className="h-4 w-4" /> Back</button>
-              <button onClick={runImport} disabled={importing || previewStats.newRows === 0} className="flex items-center gap-1.5 rounded-full orange-gradient px-5 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-50">
+              <button onClick={runImport} disabled={importing || previewStats.newRows === 0} className="flex items-center gap-1.5 rounded-full brand-gradient px-5 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-50">
                 {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                 {importing ? 'Importing…' : `Import ${previewStats.newRows} Leads`}
               </button>
@@ -784,7 +784,7 @@ export default function LeadImport({ campaigns, onImported }: Props) {
             {importing && (
               <div className="space-y-2">
                 <div className="h-2 overflow-hidden rounded-full bg-gray-100">
-                  <div className="h-full orange-gradient transition-all" style={{ width: `${importProgress}%` }} />
+                  <div className="h-full brand-gradient transition-all" style={{ width: `${importProgress}%` }} />
                 </div>
                 <p className="text-center text-[12px] text-gray-500">{importProgress}%</p>
               </div>
@@ -821,7 +821,7 @@ export default function LeadImport({ campaigns, onImported }: Props) {
             )}
             <div className="flex flex-wrap gap-3">
               <button onClick={reset} className="flex items-center gap-1.5 rounded-full bg-gray-100 px-5 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-200"><RefreshCw className="h-4 w-4" /> New Import</button>
-              <a href="#/leadbank" className="flex items-center gap-1.5 rounded-full orange-gradient px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95">Go to Lead Bank <ArrowRight className="h-4 w-4" /></a>
+              <a href="#/leadbank" className="flex items-center gap-1.5 rounded-full brand-gradient px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95">Go to Lead Bank <ArrowRight className="h-4 w-4" /></a>
             </div>
           </div>
         )}
@@ -876,7 +876,7 @@ export default function LeadImport({ campaigns, onImported }: Props) {
             </div>
             <div className="mt-4 flex gap-3">
               <button onClick={() => setCreatingCampaignIdx(null)} className="flex-1 rounded-full bg-gray-100 py-3 text-sm font-semibold text-gray-600 hover:bg-gray-200">Cancel</button>
-              <button onClick={confirmCreateCampaign} disabled={!newCampaignForm.name.trim()} className="flex flex-[1.5] items-center justify-center gap-1.5 rounded-full orange-gradient py-3 text-sm font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-50">
+              <button onClick={confirmCreateCampaign} disabled={!newCampaignForm.name.trim()} className="flex flex-[1.5] items-center justify-center gap-1.5 rounded-full brand-gradient py-3 text-sm font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-50">
                 <Check className="h-4 w-4" /> Create & Assign
               </button>
             </div>

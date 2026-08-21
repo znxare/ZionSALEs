@@ -102,7 +102,7 @@ export default function LeadBank({ campaigns, onChanged }: Props) {
         </div>
         <button
           onClick={() => setPasteOpen(true)}
-          className="flex items-center gap-1.5 rounded-full green-gradient px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
+          className="flex items-center gap-1.5 rounded-full brand-gradient px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
         >
           <ClipboardPaste className="h-4 w-4" /> Paste from Excel
         </button>
@@ -392,7 +392,7 @@ function PasteFromExcelModal({ campaigns, onClose, onDone }: { campaigns: Campai
                 <button
                   onClick={checkDuplicates}
                   disabled={importing || preview.length === 0}
-                  className="flex flex-[1.5] items-center justify-center gap-1.5 rounded-full orange-gradient py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
+                  className="flex flex-[1.5] items-center justify-center gap-1.5 rounded-full brand-gradient py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
                 >
                   {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                   {importing ? 'Checking…' : 'Check for Duplicates'}
@@ -404,7 +404,7 @@ function PasteFromExcelModal({ campaigns, onClose, onDone }: { campaigns: Campai
                 <button
                   onClick={doImport}
                   disabled={importing || newRows.length === 0}
-                  className="flex flex-[1.5] items-center justify-center gap-1.5 rounded-full green-gradient py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
+                  className="flex flex-[1.5] items-center justify-center gap-1.5 rounded-full brand-gradient py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
                 >
                   {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                   {importing ? 'Importing…' : `Import ${newRows.length} Lead${newRows.length !== 1 ? 's' : ''}`}
@@ -444,7 +444,7 @@ function CallQualifyModal({
         </div>
 
         <div className="mb-4">
-          <a href={`tel:${entry.phone}`} className="flex w-full items-center justify-center gap-2 rounded-full green-gradient py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95">
+          <a href={`tel:${entry.phone}`} className="flex w-full items-center justify-center gap-2 rounded-full brand-gradient py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95">
             <Phone className="h-4 w-4" /> Dial {entry.phone}
           </a>
         </div>
@@ -455,7 +455,7 @@ function CallQualifyModal({
             <button
               key={s}
               onClick={() => setSelected(s)}
-              className={`rounded-xl px-3 py-2.5 text-[13px] font-semibold transition ${selected === s ? 'green-gradient text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+              className={`rounded-xl px-3 py-2.5 text-[13px] font-semibold transition ${selected === s ? 'brand-gradient text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
             >
               {s}
             </button>
@@ -490,7 +490,7 @@ function CallQualifyModal({
           <button
             onClick={() => selected && onConvert(entry, selected, assignCampaign, note)}
             disabled={!selected || busy}
-            className="flex flex-[1.5] items-center justify-center gap-1.5 rounded-full green-gradient py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
+            className="flex flex-[1.5] items-center justify-center gap-1.5 rounded-full brand-gradient py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
             {busy ? 'Saving…' : 'Save & Qualify'}

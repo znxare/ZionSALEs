@@ -244,7 +244,7 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
             {showArchived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
             {showArchived ? 'Show Active' : 'Archived'}
           </button>
-          <button onClick={() => setCreateOpen(true)} className="flex items-center gap-1.5 rounded-full green-gradient px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-95">
+          <button onClick={() => setCreateOpen(true)} className="flex items-center gap-1.5 rounded-full brand-gradient px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-95">
             <Plus className="h-4 w-4" /> New Campaign
           </button>
         </div>
@@ -311,7 +311,7 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
             <h3 className="font-display text-base font-bold tracking-tight text-gray-900">Lead Inflow Trend</h3>
             <div className="flex overflow-hidden rounded-full border border-gray-200">
               {(['daily', 'weekly', 'monthly'] as const).map((p) => (
-                <button key={p} onClick={() => setOverallPeriod(p)} className={`px-3 py-1 text-[12px] font-medium capitalize transition ${overallPeriod === p ? 'green-gradient text-white' : 'text-gray-500 hover:text-gray-700'}`}>{p}</button>
+                <button key={p} onClick={() => setOverallPeriod(p)} className={`px-3 py-1 text-[12px] font-medium capitalize transition ${overallPeriod === p ? 'brand-gradient text-white' : 'text-gray-500 hover:text-gray-700'}`}>{p}</button>
               ))}
             </div>
           </div>
@@ -806,7 +806,7 @@ function CampaignModal({ campaign, onClose, onSaved }: {
         </div>
         <div className="sticky bottom-0 flex gap-3 border-t border-gray-100 bg-white px-5 py-4">
           <button onClick={onClose} className="flex-1 rounded-full bg-gray-100 py-3 text-sm font-semibold text-gray-600 transition hover:bg-gray-200">Cancel</button>
-          <button onClick={save} disabled={saving} className="flex flex-[1.5] items-center justify-center gap-1.5 rounded-full green-gradient py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60">
+          <button onClick={save} disabled={saving} className="flex flex-[1.5] items-center justify-center gap-1.5 rounded-full brand-gradient py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60">
             <Save className="h-4 w-4" />{saving ? 'Saving…' : 'Save Campaign'}
           </button>
         </div>

@@ -115,7 +115,7 @@ export default function App() {
     route.name === 'lead' ? 'leads' : 'dashboard';
 
   return (
-    <div className="min-h-screen bg-[#faf8f5]">
+    <div className="min-h-screen bg-warm-bg">
       <TopBar
         onSearch={() => setSearchOpen(true)}
         onAdd={() => setAddOpen(true)}
