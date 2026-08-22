@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 interface BarChartProps {
   data: { label: string; value: number }[];
@@ -6,7 +6,7 @@ interface BarChartProps {
   color?: string;
 }
 
-export function BarChart({ data, height = 200, color = '#1f6f43' }: BarChartProps) {
+export function BarChart({ data, height = 200, color = '#F05A22' }: BarChartProps) {
   const max = useMemo(() => Math.max(1, ...data.map((d) => d.value)), [data]);
   return (
     <div className="flex items-end gap-2" style={{ height }}>
@@ -34,35 +34,88 @@ interface LineChartProps {
   color?: string;
 }
 
-export function LineChart({ data, height = 200, color = '#c9a227' }: LineChartProps) {
-  const max = useMemo(() => Math.max(1, ...data.map((d) => d.value)), [data]);
-  const width = 100;
+function niceMax(v: number): number {
+  if (v <= 0) return 1;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(v)));
+  const normalized = v / magnitude;
+  const step = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+  return step * magnitude;
+}
+
+export function LineChart({ data, height = 220, color = '#F05A22' }: LineChartProps) {
+  const [hover, setHover] = useState<number | null>(null);
+  const plotH = height - 26;
+  const rawMax = Math.max(1, ...data.map((d) => d.value));
+  const top = niceMax(rawMax);
+  const ticks = [0, top * 0.5, top].map((v) => Math.round(v));
+
   const points = data.map((d, i) => {
-    const x = (i / Math.max(1, data.length - 1)) * width;
-    const y = height - 30 - (d.value / max) * (height - 50);
-    return { x, y, ...d };
+    const xPct = data.length > 1 ? (i / (data.length - 1)) * 100 : 50;
+    const yPct = 100 - (d.value / top) * 100;
+    return { xPct, yPct, ...d };
   });
-  const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-  const areaPath = `${path} L ${width} ${height - 30} L 0 ${height - 30} Z`;
+  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.xPct} ${p.yPct}`).join(' ');
+  const areaPath = `${linePath} L 100 100 L 0 100 Z`;
+  const hasData = data.some((d) => d.value > 0);
 
   return (
-    <div className="w-full" style={{ height }}>
-      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="h-full w-full">
-        <defs>
-          <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity="0.25" />
-            <stop offset="100%" stopColor={color} stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        {areaPath && <path d={areaPath} fill="url(#lineGrad)" />}
-        <path d={path} fill="none" stroke={color} strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-        {points.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r="1.5" fill={color} vectorEffect="non-scaling-stroke" />
-        ))}
-      </svg>
-      <div className="mt-1 flex justify-between px-0.5">
+    <div className="w-full select-none">
+      <div className="flex gap-2">
+        <div className="flex shrink-0 flex-col justify-between py-0 text-right" style={{ height: plotH }}>
+          {[...ticks].reverse().map((t, i) => (
+            <span key={i} className="text-[10px] font-medium leading-none text-gray-400">{t}</span>
+          ))}
+        </div>
+
+        <div className="relative min-w-0 flex-1" style={{ height: plotH }}>
+          <div className="absolute inset-0 flex flex-col justify-between">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="border-t border-dashed border-gray-100" />
+            ))}
+          </div>
+
+          {!hasData ? (
+            <div className="absolute inset-0 flex items-center justify-center text-[12px] text-gray-300">No leads in this period</div>
+          ) : (
+            <>
+              <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full overflow-visible">
+                <defs>
+                  <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={color} stopOpacity="0.22" />
+                    <stop offset="100%" stopColor={color} stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+                <path d={areaPath} fill="url(#lineGrad)" />
+                <path d={linePath} fill="none" stroke={color} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
+              </svg>
+
+              {points.map((p, i) => (
+                <div
+                  key={i}
+                  className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer"
+                  style={{ left: `${p.xPct}%`, top: `${p.yPct}%` }}
+                  onMouseEnter={() => setHover(i)}
+                  onMouseLeave={() => setHover((h) => (h === i ? null : h))}
+                >
+                  <div
+                    className="rounded-full border-2 border-white shadow-sm transition-transform"
+                    style={{ width: hover === i ? 10 : 7, height: hover === i ? 10 : 7, background: color }}
+                  />
+                  {hover === i && (
+                    <div className="absolute bottom-full left-1/2 z-10 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-lg bg-gray-900 px-2 py-1 text-[11px] font-semibold text-white shadow-lg">
+                      {p.label}: {p.value}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-1.5 flex justify-between pl-8">
         {data.map((d, i) => (
-          <span key={i} className="text-[10px] font-medium text-gray-400">{d.label}</span>
+          <span key={i} className={'text-[10px] font-medium transition-colors ' + (hover === i ? 'text-gray-700' : 'text-gray-400')}>{d.label}</span>
         ))}
       </div>
     </div>

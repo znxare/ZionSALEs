@@ -336,7 +336,7 @@ export default function SiteVisits({ leads, campaigns, onOpenLead }: Props) {
         <div className="space-y-5">
           <div className="rounded-2xl border border-black/5 bg-white p-5 card-shadow">
             <h3 className="mb-4 font-display text-base font-bold tracking-tight text-gray-900">Site Visits by Month</h3>
-            <BarChart data={monthlyData} color="#c9a227" />
+            <BarChart data={monthlyData} />
           </div>
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="rounded-2xl border border-black/5 bg-white p-5 card-shadow">
