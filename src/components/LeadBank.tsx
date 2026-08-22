@@ -23,6 +23,7 @@ export default function LeadBank({ campaigns, onChanged }: Props) {
   const [pasteOpen, setPasteOpen] = useState(false);
   const [callEntry, setCallEntry] = useState<LeadBankEntry | null>(null);
   const [assignCampaign, setAssignCampaign] = useState<string | null>(null);
+  const [convertError, setConvertError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -58,6 +59,7 @@ export default function LeadBank({ campaigns, onChanged }: Props) {
 
   async function handleConvert(entry: LeadBankEntry, status: LeadStatus, campaignId: string | null, note: string) {
     setBusy(true);
+    setConvertError(null);
     try {
       const noteText = note.trim();
       if (noteText) {
@@ -77,10 +79,12 @@ export default function LeadBank({ campaigns, onChanged }: Props) {
       }
       onChanged();
       await load();
-    } finally {
-      setBusy(false);
       setCallEntry(null);
       setAssignCampaign(null);
+    } catch (e) {
+      setConvertError(e instanceof Error ? e.message : 'Could not save this call. Please try again.');
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -200,7 +204,8 @@ export default function LeadBank({ campaigns, onChanged }: Props) {
           assignCampaign={assignCampaign}
           setAssignCampaign={setAssignCampaign}
           busy={busy}
-          onClose={() => setCallEntry(null)}
+          error={convertError}
+          onClose={() => { setCallEntry(null); setConvertError(null); }}
           onConvert={handleConvert}
         />
       )}
@@ -419,13 +424,14 @@ function PasteFromExcelModal({ campaigns, onClose, onDone }: { campaigns: Campai
 }
 
 function CallQualifyModal({
-  entry, campaigns, assignCampaign, setAssignCampaign, busy, onClose, onConvert,
+  entry, campaigns, assignCampaign, setAssignCampaign, busy, error, onClose, onConvert,
 }: {
   entry: LeadBankEntry;
   campaigns: Campaign[];
   assignCampaign: string | null;
   setAssignCampaign: (v: string | null) => void;
   busy: boolean;
+  error: string | null;
   onClose: () => void;
   onConvert: (entry: LeadBankEntry, status: LeadStatus, campaignId: string | null, note: string) => void;
 }) {
@@ -484,6 +490,8 @@ function CallQualifyModal({
             <p className="mt-1.5 text-[11px] text-gray-400">This lead will be moved to All Leads with the selected campaign.</p>
           </div>
         )}
+
+        {error && <p className="mb-3 text-sm font-medium text-red-600">{error}</p>}
 
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 rounded-full bg-gray-100 py-3 text-sm font-semibold text-gray-600 transition hover:bg-gray-200">Cancel</button>

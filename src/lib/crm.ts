@@ -786,14 +786,8 @@ export async function convertLeadBankToLeadSafe(entry: LeadBankEntry, campaignId
     notes: entry.notes ?? null,
     inquiry_date: entry.inquiry_date ?? null,
   });
-  if (entry.notes && entry.notes.trim()) {
-    await logActivity({
-      lead_id: lead.id,
-      type: 'Note Added',
-      summary: entry.notes.trim(),
-      meta: { source: 'lead_bank' },
-    });
-  }
+  // Note: the caller (LeadBank's handleConvert) logs a 'Note Added' activity itself
+  // for both the new-lead and existing-lead paths — don't duplicate it here.
   await updateLeadBankEntry(entry.id, { status: 'Converted' });
   return lead;
 }

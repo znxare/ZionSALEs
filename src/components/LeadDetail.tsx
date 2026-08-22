@@ -49,6 +49,7 @@ export default function LeadDetail({ id, leads, campaigns, onBack, onChanged }: 
   const [sheet, setSheet] = useState<Sheet>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
+  const [noteError, setNoteError] = useState<string | null>(null);
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [tab, setTab] = useState<Tab>('timeline');
   const [editing, setEditing] = useState(false);
@@ -136,6 +137,7 @@ export default function LeadDetail({ id, leads, campaigns, onBack, onChanged }: 
   async function addNote() {
     if (!lead || !note.trim()) return;
     setBusy(true);
+    setNoteError(null);
     try {
       await recordAction(lead, 'Note Added', note.trim());
       setNote('');
@@ -143,6 +145,8 @@ export default function LeadDetail({ id, leads, campaigns, onBack, onChanged }: 
       const acts = await fetchActivities(id);
       setActivities(acts);
       onChanged();
+    } catch (e) {
+      setNoteError(e instanceof Error ? e.message : 'Could not save this note. Please try again.');
     } finally {
       setBusy(false);
     }
@@ -409,25 +413,28 @@ export default function LeadDetail({ id, leads, campaigns, onBack, onChanged }: 
           <div>
             <div className="mb-3 flex items-center justify-between">
               <p className="text-sm text-gray-500">Notes</p>
-              <button onClick={() => setShowNoteInput((v) => !v)} className="inline-flex items-center gap-1 text-[13px] font-semibold text-emerald-600 hover:text-emerald-700">
+              <button onClick={() => { setShowNoteInput((v) => !v); setNoteError(null); }} className="inline-flex items-center gap-1 text-[13px] font-semibold text-emerald-600 hover:text-emerald-700">
                 <Plus className="h-3.5 w-3.5" /> Add note
               </button>
             </div>
             {showNoteInput && (
-              <div className="mb-4 flex gap-2 animate-fade-up">
-                <input
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="Add a note…"
-                  autoFocus
-                  className="flex-1 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-emerald-300"
-                />
-                <button onClick={addNote} disabled={busy || !note.trim()} className="rounded-xl brand-gradient px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
-                  <Check className="h-4 w-4" />
-                </button>
-                <button onClick={() => { setShowNoteInput(false); setNote(''); }} className="rounded-xl bg-gray-100 px-3 py-2.5 text-gray-500">
-                  <X className="h-4 w-4" />
-                </button>
+              <div className="mb-4 animate-fade-up">
+                <div className="flex gap-2">
+                  <input
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="Add a note…"
+                    autoFocus
+                    className="flex-1 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-emerald-300"
+                  />
+                  <button onClick={addNote} disabled={busy || !note.trim()} className="rounded-xl brand-gradient px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
+                    <Check className="h-4 w-4" />
+                  </button>
+                  <button onClick={() => { setShowNoteInput(false); setNote(''); setNoteError(null); }} className="rounded-xl bg-gray-100 px-3 py-2.5 text-gray-500">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                {noteError && <p className="mt-1.5 text-[12px] font-medium text-red-600">{noteError}</p>}
               </div>
             )}
             {noteActivities.length === 0 ? (
@@ -701,7 +708,7 @@ function SiteVisitModal({ leadId, visitNumber, onClose, onCreated }: {
 
 function CallResultSheet({ leadName, onClose, onResult }: { leadName: string; onClose: () => void; onResult: (status: LeadStatus) => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg/black/40 sm:items-center" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" onClick={onClose}>
       <div
         className="w-full max-w-md animate-fade-up rounded-t-3xl bg-white p-6 shadow-2xl sm:rounded-3xl"
         onClick={(e) => e.stopPropagation()}
