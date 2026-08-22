@@ -136,6 +136,7 @@ export default function LeadImport({ campaigns, onImported }: Props) {
   const [campaignResolutions, setCampaignResolutions] = useState<CampaignResolution[]>([]);
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
+  const [importFatalError, setImportFatalError] = useState<string | null>(null);
   const [importResult, setImportResult] = useState<{
     imported: number; skippedDup: number; skippedInvalid: number; skippedConflict: number;
     campaignsCreated: number; errors: string[];
@@ -380,6 +381,7 @@ export default function LeadImport({ campaigns, onImported }: Props) {
   async function runImport() {
     setImporting(true);
     setImportProgress(0);
+    setImportFatalError(null);
     const errors: string[] = [];
     let imported = 0, skippedDup = 0, skippedInvalid = 0, skippedConflict = 0;
 
@@ -401,51 +403,56 @@ export default function LeadImport({ campaigns, onImported }: Props) {
       original_source: r.source || null,
     }));
 
-    const BATCH_SIZE = 500;
-    for (let i = 0; i < insertData.length; i += BATCH_SIZE) {
-      const batch = insertData.slice(i, i + BATCH_SIZE);
-      const { error } = await supabaseInsertLeadBank(batch);
-      if (error) {
-        errors.push(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${error}`);
-      } else {
-        imported += batch.length;
-      }
-      setImportProgress(Math.round((Math.min(i + BATCH_SIZE, insertData.length) / totalBatch) * 100));
-    }
-
-    skippedDup = validated.filter((r) => r.isValid && (r.category === 'yellow' || r.category === 'blue')).length;
-    skippedConflict = validated.filter((r) => r.isValid && r.category === 'red').length;
-    skippedInvalid = validated.filter((r) => !r.isValid).length;
-
-    const campaignsCreated = campaignResolutions.filter((r) => r.decision === 'new' && r.newCampaignId).length;
-
     try {
-      await createLeadImportRecord({
-        file_name: fileName,
-        import_type: importTypeLabel(importType!),
-        total_rows: validated.length,
-        new_rows: imported,
-        duplicate_rows: skippedDup,
-        invalid_rows: skippedInvalid,
-        conflict_rows: skippedConflict,
-        campaigns_created: campaignsCreated,
-        completed_at: new Date().toISOString(),
-      });
-    } catch {
-      errors.push('Failed to save import history record');
-    }
+      const BATCH_SIZE = 500;
+      for (let i = 0; i < insertData.length; i += BATCH_SIZE) {
+        const batch = insertData.slice(i, i + BATCH_SIZE);
+        const { error } = await supabaseInsertLeadBank(batch);
+        if (error) {
+          errors.push(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${error}`);
+        } else {
+          imported += batch.length;
+        }
+        setImportProgress(Math.round((Math.min(i + BATCH_SIZE, insertData.length) / totalBatch) * 100));
+      }
 
-    setImportResult({ imported, skippedDup, skippedInvalid, skippedConflict, campaignsCreated, errors });
-    setImporting(false);
-    setStep(9);
-    onImported();
+      skippedDup = validated.filter((r) => r.isValid && (r.category === 'yellow' || r.category === 'blue')).length;
+      skippedConflict = validated.filter((r) => r.isValid && r.category === 'red').length;
+      skippedInvalid = validated.filter((r) => !r.isValid).length;
+
+      const campaignsCreated = campaignResolutions.filter((r) => r.decision === 'new' && r.newCampaignId).length;
+
+      try {
+        await createLeadImportRecord({
+          file_name: fileName,
+          import_type: importTypeLabel(importType!),
+          total_rows: validated.length,
+          new_rows: imported,
+          duplicate_rows: skippedDup,
+          invalid_rows: skippedInvalid,
+          conflict_rows: skippedConflict,
+          campaigns_created: campaignsCreated,
+          completed_at: new Date().toISOString(),
+        });
+      } catch {
+        errors.push('Failed to save import history record');
+      }
+
+      setImportResult({ imported, skippedDup, skippedInvalid, skippedConflict, campaignsCreated, errors });
+      setStep(9);
+      onImported();
+    } catch (e) {
+      setImportFatalError(e instanceof Error ? e.message : 'Import failed due to a network or server error. You can retry — rows already imported were not duplicated.');
+    } finally {
+      setImporting(false);
+    }
   }
 
   function reset() {
     setStep(1); setImportType(null); setFileName(''); setRawRows([]);
     setHeaders([]); setColumnMap({}); setValidated([]); setCampaignResolutions([]);
     setImportResult(null); setImportProgress(0); setParseError('');
-    setPreviewFilter('all'); setCreatingCampaignIdx(null);
+    setPreviewFilter('all'); setCreatingCampaignIdx(null); setImportFatalError(null);
   }
 
   async function loadHistory() {
@@ -774,11 +781,16 @@ export default function LeadImport({ campaigns, onImported }: Props) {
             </div>
 
             <p className="text-[13px] text-gray-500">Only <span className="font-semibold text-emerald-700">green (new)</span> rows will be imported into the Lead Bank. All others will be skipped.</p>
+            {importFatalError && (
+              <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
+                <AlertCircle className="h-4 w-4 shrink-0" /> {importFatalError}
+              </div>
+            )}
             <div className="flex justify-between">
               <button onClick={() => setStep(6)} className="flex items-center gap-1 rounded-full bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-200"><ChevronLeft className="h-4 w-4" /> Back</button>
               <button onClick={runImport} disabled={importing || previewStats.newRows === 0} className="flex items-center gap-1.5 rounded-full brand-gradient px-5 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-50">
                 {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                {importing ? 'Importing…' : `Import ${previewStats.newRows} Leads`}
+                {importing ? 'Importing…' : importFatalError ? 'Retry Import' : `Import ${previewStats.newRows} Leads`}
               </button>
             </div>
             {importing && (

@@ -6,7 +6,7 @@ import { COLD_REASONS, coldReasonDays, daysFromNow, toLocalInputValue, formatDat
 interface Props {
   lead: Lead;
   onClose: () => void;
-  onConfirm: (reason: ColdReason, nextReactivationAt: string) => void;
+  onConfirm: (reason: ColdReason, nextReactivationAt: string) => Promise<void>;
 }
 
 export default function ColdReasonModal({ lead, onClose, onConfirm }: Props) {
@@ -14,6 +14,7 @@ export default function ColdReasonModal({ lead, onClose, onConfirm }: Props) {
   const [note, setNote] = useState('');
   const [customDate, setCustomDate] = useState('');
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -22,15 +23,22 @@ export default function ColdReasonModal({ lead, onClose, onConfirm }: Props) {
   }, [onClose]);
 
   const days = reason ? coldReasonDays(reason) : null;
-  const defaultDate = days ? toLocalInputValue(daysFromNow(days)).slice(0, 10) : '';
+  const defaultDate = toLocalInputValue(daysFromNow(days ?? 60)).slice(0, 10);
   const effectiveDate = customDate || defaultDate;
 
   async function confirm() {
     if (!reason) return;
+    if (!effectiveDate) {
+      setError('Choose a reactivation date.');
+      return;
+    }
     setSaving(true);
+    setError(null);
     try {
       const when = new Date(`${effectiveDate}T10:00`).toISOString();
-      onConfirm(reason as ColdReason, when);
+      await onConfirm(reason as ColdReason, when);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -102,7 +110,12 @@ export default function ColdReasonModal({ lead, onClose, onConfirm }: Props) {
             {days && !customDate && (
               <p className="mt-1 text-[11px] text-gray-400">Auto-scheduled {days} days from now ({formatDate(daysFromNow(days))}). You can change it.</p>
             )}
+            {reason === 'Other' && !customDate && (
+              <p className="mt-1 text-[11px] text-gray-400">Defaulted to 60 days from now ({formatDate(daysFromNow(60))}). You can change it.</p>
+            )}
           </div>
+
+          {error && <p className="text-sm font-medium text-red-600">{error}</p>}
         </div>
 
         <div className="sticky bottom-0 flex gap-3 border-t border-gray-100 bg-white px-5 py-4">

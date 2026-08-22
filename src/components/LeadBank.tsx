@@ -281,9 +281,7 @@ function PasteFromExcelModal({ campaigns, onClose, onDone }: { campaigns: Campai
     setImporting(true);
     try {
       const [bankPhones, leadPhones] = await Promise.all([fetchAllLeadBankPhones(), fetchAllLeadsPhones()]);
-      const existing = new Set<string>();
-      for (const key of bankPhones.keys()) existing.add(key);
-      for (const key of leadPhones.keys()) existing.add(key);
+      const existing = new Set<string>([...bankPhones, ...leadPhones]);
       setExistingPhones(existing);
 
       const inFile = new Set<string>();

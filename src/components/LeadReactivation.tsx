@@ -25,6 +25,7 @@ export default function LeadReactivation({ leads, campaigns, onOpenLead, onChang
   const [visits, setVisits] = useState<SiteVisit[]>([]);
   const [attempts, setAttempts] = useState<ReactivationAttempt[]>([]);
   const [reactivateFor, setReactivateFor] = useState<Lead | null>(null);
+  const [reactivateError, setReactivateError] = useState<string | null>(null);
   const [reasonFilter, setReasonFilter] = useState<ColdReason | 'all'>('all');
   const [campaignFilter, setCampaignFilter] = useState<string>('all');
   const [period, setPeriod] = useState<PeriodFilter>('month');
@@ -152,9 +153,15 @@ export default function LeadReactivation({ leads, campaigns, onOpenLead, onChang
 
   async function handleReactivate(outcome: ReactivationOutcome, notes?: string) {
     if (!reactivateFor) return;
-    await reactivateLead(reactivateFor, outcome, notes);
-    setReactivateFor(null);
-    onChanged();
+    setReactivateError(null);
+    try {
+      await reactivateLead(reactivateFor, outcome, notes);
+      setReactivateFor(null);
+      onChanged();
+    } catch (e) {
+      setReactivateError(e instanceof Error ? e.message : 'Could not save this reactivation. Please try again.');
+      throw e;
+    }
   }
 
   return (
@@ -406,7 +413,12 @@ export default function LeadReactivation({ leads, campaigns, onOpenLead, onChang
 
       {/* Reactivate Modal */}
       {reactivateFor && (
-        <ReactivateModal lead={reactivateFor} onClose={() => setReactivateFor(null)} onConfirm={handleReactivate} />
+        <ReactivateModal
+          lead={reactivateFor}
+          error={reactivateError}
+          onClose={() => { setReactivateFor(null); setReactivateError(null); }}
+          onConfirm={handleReactivate}
+        />
       )}
     </div>
   );
@@ -456,10 +468,11 @@ function TrendLegend({ label, value, color }: { label: string; value: number; co
   );
 }
 
-function ReactivateModal({ lead, onClose, onConfirm }: {
+function ReactivateModal({ lead, error, onClose, onConfirm }: {
   lead: Lead;
+  error: string | null;
   onClose: () => void;
-  onConfirm: (outcome: ReactivationOutcome, notes?: string) => void;
+  onConfirm: (outcome: ReactivationOutcome, notes?: string) => Promise<void>;
 }) {
   const [outcome, setOutcome] = useState<ReactivationOutcome | ''>('');
   const [notes, setNotes] = useState('');
@@ -477,7 +490,9 @@ function ReactivateModal({ lead, onClose, onConfirm }: {
     if (!outcome) return;
     setSaving(true);
     try {
-      onConfirm(outcome as ReactivationOutcome, notes || undefined);
+      await onConfirm(outcome as ReactivationOutcome, notes || undefined);
+    } catch {
+      /* error is surfaced via the `error` prop by the parent */
     } finally {
       setSaving(false);
     }
@@ -557,6 +572,8 @@ function ReactivateModal({ lead, onClose, onConfirm }: {
               This lead will be moved to <strong>Warm</strong>, a follow-up will be created, and the lead will return to the active sales pipeline.
             </div>
           )}
+
+          {error && <p className="text-sm font-medium text-red-600">{error}</p>}
         </div>
 
         <div className="sticky bottom-0 flex gap-3 border-t border-gray-100 bg-white px-5 py-4">

@@ -121,6 +121,7 @@ export default function LeadManagement({ leads, campaigns, onOpenLead, onChanged
   const [rangePreset, setRangePreset] = useState<DateRangePreset>('all');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
+  const [actionError, setActionError] = useState<string | null>(null);
   const pageSize = 50;
 
   const campaignMap = useMemo(() => {
@@ -241,26 +242,41 @@ export default function LeadManagement({ leads, campaigns, onOpenLead, onChanged
 
   async function applyBulkStatus() {
     if (!bulkStatus || selected.size === 0) return;
-    await Promise.all([...selected].map((id) => updateLead(id, { status: bulkStatus as LeadStatus })));
-    setBulkStatus('');
-    setSelected(new Set());
-    onChanged();
+    setActionError(null);
+    try {
+      await Promise.all([...selected].map((id) => updateLead(id, { status: bulkStatus as LeadStatus })));
+      setBulkStatus('');
+      setSelected(new Set());
+      onChanged();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Could not update the selected leads. Please try again.');
+    }
   }
 
   async function applyBulkFollowUp(when: string, summary: string) {
     if (selected.size === 0) return;
-    await Promise.all([...selected].map((id) => scheduleFollowUp({ id, next_followup_at: when } as Lead, when, summary)));
-    setFollowUpFor(null);
-    setSelected(new Set());
-    onChanged();
+    setActionError(null);
+    try {
+      await Promise.all([...selected].map((id) => scheduleFollowUp({ id, next_followup_at: when } as Lead, when, summary)));
+      setFollowUpFor(null);
+      setSelected(new Set());
+      onChanged();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Could not schedule follow-ups for the selected leads. Please try again.');
+    }
   }
 
   async function bulkDelete() {
     if (selected.size === 0) return;
     if (!confirm(`Delete ${selected.size} leads? This cannot be undone.`)) return;
-    await Promise.all([...selected].map((id) => deleteLead(id)));
-    setSelected(new Set());
-    onChanged();
+    setActionError(null);
+    try {
+      await Promise.all([...selected].map((id) => deleteLead(id)));
+      setSelected(new Set());
+      onChanged();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Could not delete the selected leads. Please try again.');
+    }
   }
 
   function exportCsv() {
@@ -286,15 +302,22 @@ export default function LeadManagement({ leads, campaigns, onOpenLead, onChanged
       const campaignName = (id: string | null) => id ? (campaignMap.get(id)?.name ?? '') : '';
       const cols = ['Name', 'Phone', 'Email', 'City', 'Source', 'Status', 'Campaign', 'Budget', 'Next Follow-up', 'Last Contacted', 'Last Activity', 'Site Visit', 'Booked', 'Notes', 'Created'];
       const lines = [cols.join(',')];
+
+      const CHUNK_SIZE = 20;
+      const activitiesByLead = new Map<string, Awaited<ReturnType<typeof fetchActivities>>>();
+      for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+        const chunk = rows.slice(i, i + CHUNK_SIZE);
+        const results = await Promise.all(chunk.map((l) => fetchActivities(l.id).catch(() => [])));
+        chunk.forEach((l, idx) => activitiesByLead.set(l.id, results[idx]));
+      }
+
       for (const l of rows) {
         let notes = l.notes ?? '';
-        try {
-          const acts = await fetchActivities(l.id);
-          const noteLines = acts.map((a) => `[${formatDate(a.created_at)} ${formatTime(a.created_at)}] ${a.type}: ${a.summary}`);
-          if (noteLines.length > 0) {
-            notes = notes ? notes + '\n' + noteLines.join('\n') : noteLines.join('\n');
-          }
-        } catch { /* ignore activity fetch errors */ }
+        const acts = activitiesByLead.get(l.id) ?? [];
+        const noteLines = acts.map((a) => `[${formatDate(a.created_at)} ${formatTime(a.created_at)}] ${a.type}: ${a.summary}`);
+        if (noteLines.length > 0) {
+          notes = notes ? notes + '\n' + noteLines.join('\n') : noteLines.join('\n');
+        }
         lines.push([
           l.name, l.phone, l.email ?? '', l.city ?? '', l.source, l.status,
           campaignName(l.campaign_id), l.budget ?? '',
@@ -321,27 +344,49 @@ export default function LeadManagement({ leads, campaigns, onOpenLead, onChanged
       setColdFor(lead);
       return;
     }
-    const patch: Partial<Lead> = { status };
-    if (status === 'Dead' || status === 'Junk') patch.next_followup_at = null;
-    await updateLead(lead.id, patch);
-    onChanged();
+    setActionError(null);
+    try {
+      const patch: Partial<Lead> = { status };
+      if (status === 'Dead' || status === 'Junk') patch.next_followup_at = null;
+      await updateLead(lead.id, patch);
+      onChanged();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : `Could not update ${lead.name}'s status. Please try again.`);
+    }
   }
 
   async function confirmCold(reason: ColdReason, nextReactivationAt: string) {
     if (!coldFor) return;
-    await markLeadCold(coldFor, reason, nextReactivationAt);
-    setColdFor(null);
-    onChanged();
+    setActionError(null);
+    try {
+      await markLeadCold(coldFor, reason, nextReactivationAt);
+      setColdFor(null);
+      onChanged();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Could not mark this lead cold. Please try again.');
+      throw e;
+    }
   }
 
   async function inlineFollowUp(lead: Lead, value: string) {
     if (!value) return;
-    await updateLead(lead.id, { next_followup_at: new Date(value).toISOString() });
-    onChanged();
+    setActionError(null);
+    try {
+      await updateLead(lead.id, { next_followup_at: new Date(value).toISOString() });
+      onChanged();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : `Could not reschedule ${lead.name}'s follow-up. Please try again.`);
+    }
   }
 
   return (
     <div className="animate-fade-in space-y-5">
+      {actionError && (
+        <div className="flex items-center justify-between rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {actionError}
+          <button onClick={() => setActionError(null)} className="ml-3 shrink-0 rounded-full p-1 text-red-400 hover:bg-red-100"><X className="h-4 w-4" /></button>
+        </div>
+      )}
       {/* Summary + date range card */}
       <div className="rounded-2xl border border-black/5 bg-white p-5 card-shadow">
         {/* Stats row */}
@@ -496,7 +541,15 @@ export default function LeadManagement({ leads, campaigns, onOpenLead, onChanged
       {/* Bulk action bar */}
       {selected.size > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2 animate-fade-up rounded-2xl border border-emerald-200 bg-emerald-50/70 px-4 py-3">
-          <span className="text-sm font-bold text-emerald-800">{selected.size} selected</span>
+          <span className="text-sm font-bold text-emerald-800">
+            {selected.size} selected
+            {selected.size < filtered.length && selected.size === paged.length && ' (this page)'}
+          </span>
+          {selected.size === paged.length && filtered.length > paged.length && (
+            <button onClick={() => setSelected(new Set(filtered.map((l) => l.id)))} className="text-[12px] font-semibold text-emerald-700 underline decoration-emerald-300 underline-offset-2 hover:text-emerald-800">
+              Select all {filtered.length} matching filters
+            </button>
+          )}
           <div className="mx-1 h-5 w-px bg-emerald-200" />
           <div className="relative">
             <select value={bulkStatus} onChange={(e) => setBulkStatus(e.target.value as LeadStatus)} className="appearance-none rounded-lg border border-emerald-200 bg-white py-1.5 pl-3 pr-8 text-[13px] font-medium text-gray-700 outline-none">

@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { X, User, Phone, MapPin, Megaphone, ChevronRight, Tag } from 'lucide-react';
-import { createLead, sourceFromCampaignType, smartDefaults, type Lead, type Campaign } from '@/lib/crm';
+import { X, User, Phone, MapPin, Megaphone, ChevronRight, Tag, AlertTriangle } from 'lucide-react';
+import { createLead, findLeadByPhone, sourceFromCampaignType, smartDefaults, type Lead, type Campaign } from '@/lib/crm';
+import { normalizePhone } from '@/lib/normalize';
 import type { LeadPriority } from '@/lib/supabase';
 
 interface Props {
@@ -17,6 +18,7 @@ export default function AddLeadModal({ campaigns, onClose, onCreated }: Props) {
   const [source, setSource] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [duplicate, setDuplicate] = useState<{ id: string; name: string } | null>(null);
 
   const selectedCampaign = campaigns.find((c) => c.id === campaignId) ?? null;
   const derivedSource = selectedCampaign ? sourceFromCampaignType(selectedCampaign.type) : 'Walk-in';
@@ -28,9 +30,23 @@ export default function AddLeadModal({ campaigns, onClose, onCreated }: Props) {
       setError('Name and phone are required.');
       return;
     }
+    if (normalizePhone(phone).length < 7) {
+      setError('Enter a valid phone number.');
+      return;
+    }
     try {
       setSaving(true);
       setError(null);
+
+      if (!duplicate) {
+        const existing = await findLeadByPhone(phone);
+        if (existing) {
+          setDuplicate(existing);
+          setSaving(false);
+          return;
+        }
+      }
+
       const followUpAt = new Date(Date.now() + 2 * 86400000).toISOString();
       const lead = await createLead({
         name: name.trim(),
@@ -81,6 +97,7 @@ export default function AddLeadModal({ campaigns, onClose, onCreated }: Props) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Rahul Sharma"
+              maxLength={100}
               className="w-full bg-transparent text-[15px] font-medium text-gray-900 outline-none placeholder:text-gray-300"
             />
           </Field>
@@ -88,9 +105,10 @@ export default function AddLeadModal({ campaigns, onClose, onCreated }: Props) {
           <Field icon={Phone} label="Phone number">
             <input
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => { setPhone(e.target.value); setDuplicate(null); }}
               placeholder="+91 98765 43210"
               inputMode="tel"
+              maxLength={20}
               className="w-full bg-transparent text-[15px] font-medium text-gray-900 outline-none placeholder:text-gray-300"
             />
           </Field>
@@ -100,6 +118,7 @@ export default function AddLeadModal({ campaigns, onClose, onCreated }: Props) {
               value={city}
               onChange={(e) => setCity(e.target.value)}
               placeholder="Bengaluru"
+              maxLength={60}
               className="w-full bg-transparent text-[15px] font-medium text-gray-900 outline-none placeholder:text-gray-300"
             />
           </Field>
@@ -109,6 +128,7 @@ export default function AddLeadModal({ campaigns, onClose, onCreated }: Props) {
               value={source}
               onChange={(e) => setSource(e.target.value)}
               placeholder={derivedSource}
+              maxLength={60}
               className="w-full bg-transparent text-[15px] font-medium text-gray-900 outline-none placeholder:text-gray-300"
             />
           </Field>
@@ -137,6 +157,13 @@ export default function AddLeadModal({ campaigns, onClose, onCreated }: Props) {
             Next follow-up auto-scheduled for <span className="font-bold">2 days</span> from now. You can change it later.
           </div>
 
+          {duplicate && (
+            <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>A lead with this phone number already exists: <b>{duplicate.name}</b>. Save again to create a separate lead anyway.</span>
+            </div>
+          )}
+
           {error && <p className="text-sm font-medium text-red-600">{error}</p>}
         </div>
 
@@ -152,7 +179,7 @@ export default function AddLeadModal({ campaigns, onClose, onCreated }: Props) {
             disabled={saving}
             className="flex flex-[1.5] items-center justify-center gap-1.5 rounded-full brand-gradient py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
           >
-            {saving ? 'Saving…' : 'Save Lead'}
+            {saving ? 'Saving…' : duplicate ? 'Create Anyway' : 'Save Lead'}
             {!saving && <ChevronRight className="h-4 w-4" />}
           </button>
         </div>

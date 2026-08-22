@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
-import { X, Save } from 'lucide-react';
+import { X, Save, AlertTriangle } from 'lucide-react';
 import type { Lead, LeadSource, LeadStatus, Campaign } from '@/lib/supabase';
-import { updateLead, SOURCES, STATUSES } from '@/lib/crm';
+import { updateLead, findLeadByPhone, SOURCES, STATUSES } from '@/lib/crm';
+import { normalizePhone } from '@/lib/normalize';
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface Props {
   lead: Lead;
@@ -25,6 +28,7 @@ export default function EditLeadModal({ lead, campaigns, onClose, onSaved }: Pro
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [duplicate, setDuplicate] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -37,9 +41,25 @@ export default function EditLeadModal({ lead, campaigns, onClose, onSaved }: Pro
       setError('Name and phone are required.');
       return;
     }
+    if (normalizePhone(form.phone).length < 7) {
+      setError('Enter a valid phone number.');
+      return;
+    }
+    if (form.email.trim() && !EMAIL_RE.test(form.email.trim())) {
+      setError('Enter a valid email address.');
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
+      if (!duplicate && normalizePhone(form.phone) !== normalizePhone(lead.phone)) {
+        const existing = await findLeadByPhone(form.phone, lead.id);
+        if (existing) {
+          setDuplicate(existing);
+          setSaving(false);
+          return;
+        }
+      }
       const patch: Partial<Lead> = {
         name: form.name.trim(),
         phone: form.phone.trim(),
@@ -75,12 +95,12 @@ export default function EditLeadModal({ lead, campaigns, onClose, onSaved }: Pro
 
         <div className="space-y-4 px-5 py-5">
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Full name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} placeholder="Rahul Sharma" />
-            <Input label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} placeholder="+91 98765 43210" />
+            <Input label="Full name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} placeholder="Rahul Sharma" maxLength={100} />
+            <Input label="Phone" value={form.phone} onChange={(v) => { setForm({ ...form, phone: v }); setDuplicate(null); }} placeholder="+91 98765 43210" maxLength={20} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} placeholder="name@email.com" />
-            <Input label="City" value={form.city} onChange={(v) => setForm({ ...form, city: v })} placeholder="Bengaluru" />
+            <Input label="Email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} placeholder="name@email.com" type="email" maxLength={100} />
+            <Input label="City" value={form.city} onChange={(v) => setForm({ ...form, city: v })} placeholder="Bengaluru" maxLength={60} />
           </div>
 
           <Select label="Lead source" value={form.source} onChange={(v) => setForm({ ...form, source: v as LeadSource })} options={SOURCES} />
@@ -119,9 +139,17 @@ export default function EditLeadModal({ lead, campaigns, onClose, onSaved }: Pro
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
               rows={3}
               placeholder="Add notes…"
+              maxLength={2000}
               className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-emerald-300"
             />
           </div>
+
+          {duplicate && (
+            <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>Another lead already uses this phone number: <b>{duplicate.name}</b>. Save again to keep this number anyway.</span>
+            </div>
+          )}
 
           {error && <p className="text-sm font-medium text-red-600">{error}</p>}
         </div>
@@ -136,7 +164,7 @@ export default function EditLeadModal({ lead, campaigns, onClose, onSaved }: Pro
             className="flex flex-[1.5] items-center justify-center gap-1.5 rounded-full brand-gradient py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
           >
             <Save className="h-4 w-4" />
-            {saving ? 'Saving…' : 'Save Changes'}
+            {saving ? 'Saving…' : duplicate ? 'Save Anyway' : 'Save Changes'}
           </button>
         </div>
       </div>
@@ -144,7 +172,7 @@ export default function EditLeadModal({ lead, campaigns, onClose, onSaved }: Pro
   );
 }
 
-function Input({ label, value, onChange, placeholder, type = 'text' }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string }) {
+function Input({ label, value, onChange, placeholder, type = 'text', maxLength }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string; maxLength?: number }) {
   return (
     <div>
       <label className="mb-1.5 block text-[12px] font-semibold uppercase tracking-wide text-gray-400">{label}</label>
@@ -153,6 +181,7 @@ function Input({ label, value, onChange, placeholder, type = 'text' }: { label: 
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
+        maxLength={maxLength}
         className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-emerald-300"
       />
     </div>

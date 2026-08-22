@@ -26,10 +26,12 @@ type Route =
   | { name: 'campaigns' }
   | { name: 'reactivation' }
   | { name: 'lead'; id: string }
-  | { name: 'search' };
+  | { name: 'search' }
+  | { name: 'notfound' };
 
 function parseHash(): Route {
   const h = window.location.hash.replace(/^#\/?/, '');
+  if (h === '' || h === '/') return { name: 'dashboard' };
   if (h.startsWith('lead/')) return { name: 'lead', id: h.slice(5) };
   if (h === 'search') return { name: 'search' };
   if (h === 'leads') return { name: 'leads' };
@@ -39,7 +41,7 @@ function parseHash(): Route {
   if (h === 'sitevisits') return { name: 'sitevisits' };
   if (h === 'campaigns') return { name: 'campaigns' };
   if (h === 'reactivation') return { name: 'reactivation' };
-  return { name: 'dashboard' };
+  return { name: 'notfound' };
 }
 
 function navigate(route: Route) {
@@ -113,7 +115,6 @@ export default function App() {
     route.name === 'sitevisits' ? 'sitevisits' :
     route.name === 'campaigns' ? 'campaigns' :
     route.name === 'reactivation' ? 'reactivation' :
-    route.name === 'dashboard' ? 'dashboard' :
     route.name === 'lead' ? 'leads' : 'dashboard';
 
   if (!authed) {
@@ -220,6 +221,16 @@ export default function App() {
               leads={leads}
               onOpenLead={(id) => go({ name: 'lead', id })}
             />
+          )}
+
+          {route.name === 'notfound' && (
+            <div className="py-24 text-center">
+              <p className="font-display text-lg font-bold text-gray-900">Page not found</p>
+              <p className="mt-1 text-sm text-gray-500">There's nothing at this address.</p>
+              <button onClick={() => go({ name: 'dashboard' })} className="mt-4 text-sm font-semibold text-emerald-600 hover:text-emerald-700">
+                Back to Dashboard
+              </button>
+            </div>
           )}
         </main>
       </div>

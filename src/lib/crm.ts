@@ -82,6 +82,21 @@ export async function fetchActivities(leadId: string): Promise<Activity[]> {
   return (data ?? []) as Activity[];
 }
 
+// Lightweight server-side lookup for a single phone number — used to warn about
+// duplicates in Add/Edit Lead without pulling every lead's phone to the client.
+export async function findLeadByPhone(phone: string, excludeId?: string): Promise<{ id: string; name: string } | null> {
+  const normalized = normalizePhone(phone);
+  if (!normalized) return null;
+  let query = supabase
+    .from('leads')
+    .select('id, name')
+    .filter('phone', 'ilike', `%${normalized}%`);
+  if (excludeId) query = query.neq('id', excludeId);
+  const { data, error } = await query.limit(1).maybeSingle();
+  if (error) throw error;
+  return data as { id: string; name: string } | null;
+}
+
 export async function createLead(input: LeadInsert): Promise<Lead> {
   const { data, error } = await supabase
     .from('leads')
@@ -699,36 +714,32 @@ export async function updateLeadImportRecord(id: string, patch: Partial<LeadImpo
   if (error) throw error;
 }
 
-export async function fetchAllLeadBankPhones(): Promise<Map<string, string[]>> {
+// Only phone numbers are needed for duplicate-detection lookups — selecting just
+// that column (instead of id/email too) roughly halves the payload on large tables.
+export async function fetchAllLeadBankPhones(): Promise<Set<string>> {
   const { data, error } = await supabase
     .from('lead_bank')
-    .select('id, phone, email');
+    .select('phone');
   if (error) throw error;
-  const map = new Map<string, string[]>();
+  const set = new Set<string>();
   for (const row of data ?? []) {
     const key = normalizePhone(row.phone ?? '');
-    if (key) {
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(row.id);
-    }
+    if (key) set.add(key);
   }
-  return map;
+  return set;
 }
 
-export async function fetchAllLeadsPhones(): Promise<Map<string, string[]>> {
+export async function fetchAllLeadsPhones(): Promise<Set<string>> {
   const { data, error } = await supabase
     .from('leads')
-    .select('id, phone, email');
+    .select('phone');
   if (error) throw error;
-  const map = new Map<string, string[]>();
+  const set = new Set<string>();
   for (const row of data ?? []) {
     const key = normalizePhone(row.phone ?? '');
-    if (key) {
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(row.id);
-    }
+    if (key) set.add(key);
   }
-  return map;
+  return set;
 }
 
 export async function batchInsertLeadBank(rows: LeadBankInsert[]): Promise<{ inserted: number; errors: string[] }> {

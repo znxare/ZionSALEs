@@ -62,6 +62,9 @@ const COUNTRY_FLAG: { code: string; flag: string; name: string }[] = [
   { code: '9665', flag: '🇸🇦', name: 'Saudi Arabia' },
 ];
 
+// Sorted longest-code-first, once, so lookups don't re-sort per call.
+const COUNTRY_FLAG_SORTED = [...COUNTRY_FLAG].sort((a, b) => b.code.length - a.code.length);
+
 export function phoneCountryFlag(phone: string): { flag: string; name: string } | null {
   if (!phone) return null;
   const digits = phone.replace(/\D/g, '');
@@ -74,8 +77,7 @@ export function phoneCountryFlag(phone: string): { flag: string; name: string } 
   if (ten || with91 || with0) return { flag: '🇮🇳', name: 'India' };
 
   // Try matching country codes (longest first)
-  const sorted = [...COUNTRY_FLAG].sort((a, b) => b.code.length - a.code.length);
-  for (const c of sorted) {
+  for (const c of COUNTRY_FLAG_SORTED) {
     if (digits.startsWith(c.code)) return { flag: c.flag, name: c.name };
   }
   return null;

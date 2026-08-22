@@ -55,8 +55,16 @@ export default function LeadDetail({ id, leads, campaigns, onBack, onChanged }: 
   const [editing, setEditing] = useState(false);
   const [coldFor, setColdFor] = useState<Lead | null>(null);
   const [reactivationAttempts, setReactivationAttempts] = useState<ReactivationAttempt[]>([]);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
   const load = useCallback(async () => {
+    if (!UUID_RE.test(id)) {
+      setLead(null);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       const [l, acts, svs, ras] = await Promise.all([fetchLead(id), fetchActivities(id), fetchSiteVisits(id), fetchReactivationAttempts(id)]);
@@ -64,6 +72,8 @@ export default function LeadDetail({ id, leads, campaigns, onBack, onChanged }: 
       setActivities(acts);
       setSiteVisits(svs);
       setReactivationAttempts(ras);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Could not load this lead.');
     } finally {
       setLoading(false);
     }
@@ -74,6 +84,7 @@ export default function LeadDetail({ id, leads, campaigns, onBack, onChanged }: 
   async function doAction(type: ActivityType, summary: string, patch: Partial<Lead> = {}) {
     if (!lead || busy) return;
     setBusy(true);
+    setActionError(null);
     try {
       const { lead: updated } = await recordAction(lead, type, summary, patch);
       setLead(updated);
@@ -81,6 +92,8 @@ export default function LeadDetail({ id, leads, campaigns, onBack, onChanged }: 
       setActivities(acts);
       onChanged();
       setSheet('followup');
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Could not save this action. Please try again.');
     } finally {
       setBusy(false);
     }
@@ -89,6 +102,7 @@ export default function LeadDetail({ id, leads, campaigns, onBack, onChanged }: 
   async function handleGuidedResult(result: { type: ActivityType; summary: string; patch: Partial<Lead>; followUpInDays?: number; siteVisitAt?: string; notes?: string }) {
     if (!lead) return;
     setBusy(true);
+    setActionError(null);
     try {
       let patch = { ...result.patch };
       let when = result.followUpInDays ? daysFromNow(result.followUpInDays) : lead.next_followup_at;
@@ -114,6 +128,8 @@ export default function LeadDetail({ id, leads, campaigns, onBack, onChanged }: 
       setActivities(acts);
       onChanged();
       setSheet(null);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Could not save this call. Please try again.');
     } finally {
       setBusy(false);
     }
@@ -122,6 +138,7 @@ export default function LeadDetail({ id, leads, campaigns, onBack, onChanged }: 
   async function handleFollowUp(when: string, summary: string) {
     if (!lead) return;
     setBusy(true);
+    setActionError(null);
     try {
       const { lead: updated } = await scheduleFollowUp(lead, when, summary);
       setLead(updated);
@@ -129,6 +146,8 @@ export default function LeadDetail({ id, leads, campaigns, onBack, onChanged }: 
       setActivities(acts);
       onChanged();
       setSheet(null);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Could not schedule this follow-up. Please try again.');
     } finally {
       setBusy(false);
     }
@@ -155,13 +174,18 @@ export default function LeadDetail({ id, leads, campaigns, onBack, onChanged }: 
   async function handleDelete() {
     if (!lead) return;
     if (!confirm(`Delete ${lead.name}? This cannot be undone.`)) return;
-    await deleteLead(lead.id);
-    onChanged();
-    onBack();
+    try {
+      await deleteLead(lead.id);
+      onChanged();
+      onBack();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Could not delete this lead. Please try again.');
+    }
   }
 
   async function handleCompleteSiteVisit() {
     if (!lead) return;
+    setActionError(null);
     // Find the most recent scheduled site visit and mark it completed.
     const scheduled = siteVisits.filter((v) => v.status === 'Scheduled').sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime());
     if (scheduled.length > 0) {
@@ -172,6 +196,8 @@ export default function LeadDetail({ id, leads, campaigns, onBack, onChanged }: 
         await load();
         onChanged();
         setSheet('followup');
+      } catch (e) {
+        setActionError(e instanceof Error ? e.message : 'Could not complete this site visit. Please try again.');
       } finally {
         setBusy(false);
       }
@@ -184,6 +210,8 @@ export default function LeadDetail({ id, leads, campaigns, onBack, onChanged }: 
         setActivities(await fetchActivities(id));
         onChanged();
         setSheet('followup');
+      } catch (e) {
+        setActionError(e instanceof Error ? e.message : 'Could not complete this site visit. Please try again.');
       } finally {
         setBusy(false);
       }
@@ -202,10 +230,15 @@ export default function LeadDetail({ id, leads, campaigns, onBack, onChanged }: 
 
   async function confirmCold(reason: ColdReason, nextReactivationAt: string) {
     if (!coldFor) return;
-    await markLeadCold(coldFor, reason, nextReactivationAt);
-    setColdFor(null);
-    await load();
-    onChanged();
+    setActionError(null);
+    try {
+      await markLeadCold(coldFor, reason, nextReactivationAt);
+      setColdFor(null);
+      await load();
+      onChanged();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Could not mark this lead cold. Please try again.');
+    }
   }
 
   if (loading && !lead) {
@@ -219,7 +252,7 @@ export default function LeadDetail({ id, leads, campaigns, onBack, onChanged }: 
   if (!lead) {
     return (
       <div className="py-24 text-center">
-        <p className="text-gray-500">Lead not found.</p>
+        <p className="text-gray-500">{actionError ? 'Could not load this lead.' : 'Lead not found.'}</p>
         <button onClick={onBack} className="mt-3 text-sm font-semibold text-emerald-600">Back to leads</button>
       </div>
     );
@@ -243,6 +276,12 @@ export default function LeadDetail({ id, leads, campaigns, onBack, onChanged }: 
 
   return (
     <div className="animate-fade-in">
+      {actionError && (
+        <div className="mb-4 flex items-center justify-between rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {actionError}
+          <button onClick={() => setActionError(null)} className="ml-3 shrink-0 rounded-full p-1 text-red-400 hover:bg-red-100"><X className="h-4 w-4" /></button>
+        </div>
+      )}
       <div className="mb-4 flex items-center justify-between">
         <button onClick={onBack} className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 transition hover:text-gray-800">
           <ArrowLeft className="h-4 w-4" /> All Leads

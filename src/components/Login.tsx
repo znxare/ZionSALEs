@@ -21,6 +21,10 @@ export default function Login({ onSuccess }: { onSuccess: () => void }) {
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (!username.trim() || !password.trim()) {
+      setError('Enter your username and password.');
+      return;
+    }
     if (username === VALID_USERNAME && password === VALID_PASSWORD) {
       localStorage.setItem(AUTH_KEY, 'true');
       onSuccess();

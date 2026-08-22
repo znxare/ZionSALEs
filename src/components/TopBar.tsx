@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Search, Plus, Bell, MapPin, Clock, X } from 'lucide-react';
+import { Search, Plus, Bell, MapPin, Clock, X, LogOut, ChevronDown } from 'lucide-react';
 import type { SiteVisit } from '@/lib/supabase';
 import { fetchAllSiteVisits, isToday, formatDate, formatTime, relativeDay } from '@/lib/crm';
+import { logout } from '@/components/Login';
 
 interface Props {
   onSearch: () => void;
@@ -10,8 +11,10 @@ interface Props {
 
 export default function TopBar({ onSearch, onAdd }: Props) {
   const [notifOpen, setNotifOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [visits, setVisits] = useState<SiteVisit[]>([]);
   const notifRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchAllSiteVisits().then(setVisits).catch(() => {});
@@ -26,6 +29,16 @@ export default function TopBar({ onSearch, onAdd }: Props) {
     if (notifOpen) document.addEventListener('mousedown', onClick);
     return () => document.removeEventListener('mousedown', onClick);
   }, [notifOpen]);
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileOpen(false);
+      }
+    };
+    if (profileOpen) document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [profileOpen]);
 
   const upcomingVisits = visits
     .filter((v) => {
@@ -127,17 +140,34 @@ export default function TopBar({ onSearch, onAdd }: Props) {
           </div>
 
           {/* Profile */}
-          <div className="flex items-center gap-2 rounded-full border border-gray-200/60 surface-warm py-1 pl-1 pr-2 card-shadow sm:pr-3">
-            <div className="grid h-7 w-7 place-items-center rounded-full bg-gradient-to-br from-orange-400 to-orange-600 text-[11px] font-bold text-white shadow-sm">
-              AK
-            </div>
-            <div className="hidden leading-tight sm:block">
-              <div className="text-[12px] font-semibold text-gray-700">Amit Kumar</div>
-              <div className="flex items-center gap-1 text-[10px] text-gray-400">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                Asst. Sales Manager
+          <div className="relative" ref={profileRef}>
+            <button
+              onClick={() => setProfileOpen((v) => !v)}
+              className="flex items-center gap-2 rounded-full border border-gray-200/60 surface-warm py-1 pl-1 pr-2 card-shadow transition hover:bg-white sm:pr-3"
+            >
+              <div className="grid h-7 w-7 place-items-center rounded-full bg-gradient-to-br from-orange-400 to-orange-600 text-[11px] font-bold text-white shadow-sm">
+                AK
               </div>
-            </div>
+              <div className="hidden leading-tight sm:block">
+                <div className="text-[12px] font-semibold text-gray-700">Amit Kumar</div>
+                <div className="flex items-center gap-1 text-[10px] text-gray-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  Asst. Sales Manager
+                </div>
+              </div>
+              <ChevronDown className="hidden h-3.5 w-3.5 text-gray-400 sm:block" />
+            </button>
+
+            {profileOpen && (
+              <div className="absolute right-0 top-full mt-2 w-44 animate-scale-in overflow-hidden rounded-2xl border border-black/5 bg-white shadow-xl">
+                <button
+                  onClick={logout}
+                  className="flex w-full items-center gap-2 px-4 py-3 text-sm font-medium text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
+                >
+                  <LogOut className="h-4 w-4" /> Log out
+                </button>
+              </div>
+            )}
           </div>
 
           <button
