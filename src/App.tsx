@@ -133,7 +133,7 @@ export default function App() {
           onNavigate={(r) => go({ name: r })}
         />
 
-        <main className="min-w-0 flex-1 px-4 pb-28 pt-4 sm:px-6 lg:px-8 lg:pb-8">
+        <main className="min-w-0 flex-1 px-4 pb-8 pt-4 sm:px-6 lg:px-8">
           {error && (
             <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
