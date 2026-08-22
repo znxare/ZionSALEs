@@ -598,7 +598,7 @@ export default function LeadManagement({ leads, campaigns, onOpenLead, onChanged
                         </button>
                       </td>
                       <td className="px-4 py-3">
-                        <button onClick={() => onOpenLead(l.id)} className="font-semibold text-gray-900 hover:text-emerald-600">{l.name}</button>
+                        <button onClick={() => onOpenLead(l.id)} className="text-left font-semibold text-gray-900 hover:text-emerald-600">{l.name}</button>
                         {l.city && <div className="text-[11px] text-gray-400">{l.city}</div>}
                       </td>
                       <td className="px-4 py-3 text-[13px] text-gray-600">
@@ -633,7 +633,7 @@ export default function LeadManagement({ leads, campaigns, onOpenLead, onChanged
                       </td>
                       <td className="px-4 py-3 text-[13px] text-gray-400">{formatDate(l.created_at)}</td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-0.5 opacity-0 transition group-hover:opacity-100">
+                        <div className="flex items-center justify-end gap-0.5">
                           <RowAction icon={Phone} color="text-emerald-600" onClick={() => window.open(`tel:${l.phone}`)} title="Call" />
                           <RowAction icon={MessageCircle} color="text-green-600" onClick={() => window.open(`https://wa.me/${l.phone.replace(/\D/g, '')}`)} title="WhatsApp" />
                           <RowAction icon={CalendarClock} color="text-amber-600" onClick={() => setFollowUpFor(l)} title="Schedule Follow-up" />

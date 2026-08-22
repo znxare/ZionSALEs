@@ -247,7 +247,7 @@ export default function LeadReactivation({ leads, campaigns, onOpenLead, onChang
                 return (
                   <tr key={lead.id} className="group transition hover:bg-gray-50/60">
                     <td className="px-4 py-3">
-                      <button onClick={() => onOpenLead(lead.id)} className="font-semibold text-gray-900 hover:text-orange-600">
+                      <button onClick={() => onOpenLead(lead.id)} className="text-left font-semibold text-gray-900 hover:text-orange-600">
                         {lead.name}
                       </button>
                       {overdueDays > 0 && <span className="ml-2 rounded-full bg-red-50 px-1.5 py-0.5 text-[9px] font-bold text-red-600">OVERDUE</span>}

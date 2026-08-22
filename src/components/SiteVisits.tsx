@@ -313,7 +313,7 @@ export default function SiteVisits({ leads, campaigns, onOpenLead }: Props) {
                   ) : prospects.map((r) => (
                     <tr key={r.leadId} className="group border-t border-gray-100 transition hover:bg-gray-50/60">
                       <td className="px-4 py-3">
-                        <button onClick={() => onOpenLead(r.leadId)} className="font-semibold text-gray-900 hover:text-emerald-600">{r.name}</button>
+                        <button onClick={() => onOpenLead(r.leadId)} className="text-left font-semibold text-gray-900 hover:text-emerald-600">{r.name}</button>
                       </td>
                       <td className="px-4 py-3 text-[13px] text-gray-600">{r.phone}</td>
                       <td className="px-4 py-3">
