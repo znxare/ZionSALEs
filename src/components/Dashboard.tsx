@@ -2,11 +2,12 @@ import { useMemo, useState, useEffect } from 'react';
 import {
   CalendarClock, AlertTriangle, Flame, MapPin, CheckCircle2, UserPlus, ArrowRight,
   TrendingUp, Award, Snowflake,
-  Phone, MessageCircle, X, ChevronRight, Zap,
+  Phone, MessageCircle, X, ChevronRight, Zap, Quote as QuoteIcon,
 } from 'lucide-react';
 import type { Lead, Campaign, SiteVisit, ReactivationAttempt } from '@/lib/supabase';
 import { isToday, isOverdue, isThisMonth, relativeDay, formatTime, fetchAllSiteVisits, fetchAllReactivationAttempts } from '@/lib/crm';
 import { statusStyles } from '@/lib/styles';
+import { quoteOfTheDay } from '@/lib/quotes';
 
 interface Props {
   leads: Lead[];
@@ -106,6 +107,7 @@ export default function Dashboard({ leads, campaigns, loading, onOpenLead, onAdd
   const [visits, setVisits] = useState<SiteVisit[]>([]);
   const [reactAttempts, setReactAttempts] = useState<ReactivationAttempt[]>([]);
   const [popupType, setPopupType] = useState<'today' | 'overdue' | null>(null);
+  const quote = useMemo(() => quoteOfTheDay(), []);
 
   useEffect(() => {
     fetchAllSiteVisits().then(setVisits).catch(() => {});
@@ -259,6 +261,17 @@ export default function Dashboard({ leads, campaigns, loading, onOpenLead, onAdd
               <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </button>
           )}
+        </div>
+      </div>
+
+      {/* Quote of the day */}
+      <div className="flex items-start gap-3 rounded-2xl border border-orange-200/50 bg-gradient-to-br from-orange-50/60 to-white px-5 py-4 card-shadow">
+        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-orange-100 text-orange-600 shadow-sm">
+          <QuoteIcon className="h-4 w-4" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-[14px] italic leading-relaxed text-gray-700">“{quote.text}”</p>
+          <p className="mt-1.5 text-[12px] font-semibold text-orange-600">— {quote.author}</p>
         </div>
       </div>
 
