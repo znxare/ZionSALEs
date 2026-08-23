@@ -4,7 +4,7 @@ const url = import.meta.env.VITE_SUPABASE_URL as string;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
 export const supabase = createClient(url, anonKey, {
-  auth: { persistSession: false },
+  auth: { persistSession: true, autoRefreshToken: true },
 });
 
 export type LeadStatus =
@@ -84,11 +84,20 @@ export interface Activity {
   type: ActivityType;
   summary: string;
   meta: Record<string, unknown> | null;
+  actor_id: string | null;
+  actor_name: string | null;
+  created_at: string;
+}
+
+export interface Profile {
+  id: string;
+  full_name: string;
+  role: string;
   created_at: string;
 }
 
 export type LeadInsert = Omit<Lead, 'id' | 'created_at' | 'cold_reason' | 'cold_since' | 'next_reactivation_at' | 'inquiry_date'> & Partial<Pick<Lead, 'cold_reason' | 'cold_since' | 'next_reactivation_at' | 'inquiry_date'>>;
-export type ActivityInsert = Omit<Activity, 'id' | 'created_at'>;
+export type ActivityInsert = Omit<Activity, 'id' | 'created_at' | 'actor_id' | 'actor_name'>;
 
 export type TourStatus =
   | 'Scheduled'

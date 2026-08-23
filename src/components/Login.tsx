@@ -1,35 +1,39 @@
 import { useState } from 'react';
-import { Lock } from 'lucide-react';
-
-const VALID_USERNAME = 'Zion';
-const VALID_PASSWORD = 'Zion@championreef';
-const AUTH_KEY = 'zion_crm_authed';
-
-export function isAuthed(): boolean {
-  return localStorage.getItem(AUTH_KEY) === 'true';
-}
-
-export function logout() {
-  localStorage.removeItem(AUTH_KEY);
-  window.location.reload();
-}
+import { Lock, UserPlus } from 'lucide-react';
+import { signIn, signUp } from '@/lib/auth';
 
 export default function Login({ onSuccess }: { onSuccess: () => void }) {
-  const [username, setUsername] = useState('');
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [role, setRole] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!username.trim() || !password.trim()) {
-      setError('Enter your username and password.');
+    setError(null);
+    setInfo(null);
+    if (!email.trim() || !password.trim() || (mode === 'signup' && !fullName.trim())) {
+      setError('Fill in all required fields.');
       return;
     }
-    if (username === VALID_USERNAME && password === VALID_PASSWORD) {
-      localStorage.setItem(AUTH_KEY, 'true');
-      onSuccess();
-    } else {
-      setError('Incorrect username or password.');
+    try {
+      setBusy(true);
+      if (mode === 'signin') {
+        await signIn(email.trim(), password);
+        onSuccess();
+      } else {
+        await signUp(email.trim(), password, fullName, role);
+        setInfo('Account created. If email confirmation is required, check your inbox — otherwise, sign in now.');
+        setMode('signin');
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong.');
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -37,19 +41,43 @@ export default function Login({ onSuccess }: { onSuccess: () => void }) {
     <div className="flex min-h-screen items-center justify-center bg-warm-bg px-4">
       <div className="w-full max-w-sm rounded-2xl border border-gray-200/60 bg-white p-7 card-shadow-lg">
         <div className="grid h-11 w-11 place-items-center rounded-2xl brand-gradient text-white">
-          <Lock className="h-5 w-5" />
+          {mode === 'signin' ? <Lock className="h-5 w-5" /> : <UserPlus className="h-5 w-5" />}
         </div>
         <h1 className="mt-4 font-display text-xl font-bold text-gray-900">Zion Hills CRM</h1>
-        <p className="mt-1 text-sm text-gray-500">Sign in to continue.</p>
+        <p className="mt-1 text-sm text-gray-500">{mode === 'signin' ? 'Sign in to continue.' : 'Create your account.'}</p>
 
         <form onSubmit={submit} className="mt-6 space-y-3.5">
+          {mode === 'signup' && (
+            <>
+              <div>
+                <label className="mb-1.5 block text-[12px] font-semibold uppercase tracking-wide text-gray-400">Full name</label>
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  autoFocus
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-300"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-[12px] font-semibold uppercase tracking-wide text-gray-400">Role (optional)</label>
+                <input
+                  type="text"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  placeholder="Asst. Sales Manager"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-300"
+                />
+              </div>
+            </>
+          )}
           <div>
-            <label className="mb-1.5 block text-[12px] font-semibold uppercase tracking-wide text-gray-400">Username</label>
+            <label className="mb-1.5 block text-[12px] font-semibold uppercase tracking-wide text-gray-400">Email</label>
             <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              autoFocus
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoFocus={mode === 'signin'}
               className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-300"
             />
           </div>
@@ -64,14 +92,23 @@ export default function Login({ onSuccess }: { onSuccess: () => void }) {
           </div>
 
           {error && <p className="text-[13px] font-medium text-red-600">{error}</p>}
+          {info && <p className="text-[13px] font-medium text-emerald-600">{info}</p>}
 
           <button
             type="submit"
-            className="w-full rounded-xl brand-gradient py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
+            disabled={busy}
+            className="w-full rounded-xl brand-gradient py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
           >
-            Sign in
+            {busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create account'}
           </button>
         </form>
+
+        <button
+          onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(null); setInfo(null); }}
+          className="mt-4 w-full text-center text-[13px] font-medium text-gray-500 hover:text-gray-700"
+        >
+          {mode === 'signin' ? "New here? Create an account" : 'Already have an account? Sign in'}
+        </button>
       </div>
     </div>
   );

@@ -214,8 +214,9 @@ export default function Dashboard({ leads, campaigns, loading, onOpenLead, onAdd
   return (
     <div className="animate-fade-in space-y-6">
       {/* Orange ribbon hero — full-width brand banner */}
-      <div className="overflow-hidden rounded-3xl brand-gradient p-6 text-white card-shadow-lg sm:p-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="relative overflow-hidden rounded-3xl brand-gradient p-6 text-white card-shadow-lg sm:p-8">
+        <div className="bg-dot-pattern pointer-events-none absolute inset-0" aria-hidden="true" />
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-1">
             <p className="text-sm font-medium text-orange-100/80">{greeting}, sales team.</p>
             <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">

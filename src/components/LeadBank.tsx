@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Phone, Trash2, Upload, X, Check, Flame, Snowflake, Sun, Search,
-  ClipboardPaste, Megaphone, User, Loader2,
+  ClipboardPaste, Megaphone, User, Loader2, MessageCircle,
 } from 'lucide-react';
 import type { Campaign, LeadBankEntry, LeadBankStatus, LeadStatus } from '@/lib/supabase';
 import {
@@ -447,9 +447,17 @@ function CallQualifyModal({
           <button onClick={onClose} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
         </div>
 
-        <div className="mb-4">
-          <a href={`tel:${entry.phone}`} className="flex w-full items-center justify-center gap-2 rounded-full brand-gradient py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95">
-            <Phone className="h-4 w-4" /> Dial {entry.phone}
+        <div className="mb-4 flex gap-2">
+          <a href={`tel:${entry.phone}`} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-orange-50 py-3 text-sm font-semibold text-orange-700 ring-1 ring-orange-200 transition hover:bg-orange-100">
+            <Phone className="h-4 w-4" /> Call Now
+          </a>
+          <a
+            href={`https://wa.me/${entry.phone.replace(/\D/g, '')}`}
+            target="_blank"
+            rel="noreferrer"
+            className="flex flex-1 items-center justify-center gap-2 rounded-full bg-green-50 py-3 text-sm font-semibold text-green-700 ring-1 ring-green-200 transition hover:bg-green-100"
+          >
+            <MessageCircle className="h-4 w-4" /> Send WhatsApp
           </a>
         </div>
 

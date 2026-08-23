@@ -14,7 +14,9 @@ import LeadBank from '@/components/LeadBank';
 import DayPlanner from '@/components/DayPlanner';
 import LeadReactivation from '@/components/LeadReactivation';
 import LeadImport from '@/components/LeadImport';
-import Login, { isAuthed } from '@/components/Login';
+import ActivityLog from '@/components/ActivityLog';
+import Login from '@/components/Login';
+import { getSession, onAuthChange, type CurrentUser } from '@/lib/auth';
 
 type Route =
   | { name: 'dashboard' }
@@ -25,6 +27,7 @@ type Route =
   | { name: 'sitevisits' }
   | { name: 'campaigns' }
   | { name: 'reactivation' }
+  | { name: 'activitylog' }
   | { name: 'lead'; id: string }
   | { name: 'search' }
   | { name: 'notfound' };
@@ -41,6 +44,7 @@ function parseHash(): Route {
   if (h === 'sitevisits') return { name: 'sitevisits' };
   if (h === 'campaigns') return { name: 'campaigns' };
   if (h === 'reactivation') return { name: 'reactivation' };
+  if (h === 'activitylog') return { name: 'activitylog' };
   return { name: 'notfound' };
 }
 
@@ -55,10 +59,12 @@ function navigate(route: Route) {
   else if (route.name === 'sitevisits') window.location.hash = '/sitevisits';
   else if (route.name === 'campaigns') window.location.hash = '/campaigns';
   else if (route.name === 'reactivation') window.location.hash = '/reactivation';
+  else if (route.name === 'activitylog') window.location.hash = '/activitylog';
 }
 
 export default function App() {
-  const [authed, setAuthed] = useState(isAuthed);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [route, setRoute] = useState<Route>(parseHash);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -80,6 +86,16 @@ export default function App() {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    getSession()
+      .then(setCurrentUser)
+      .finally(() => setAuthChecked(true));
+    const { data: sub } = onAuthChange((user) => setCurrentUser(user));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  const authed = currentUser !== null;
 
   useEffect(() => {
     if (authed) load();
@@ -107,7 +123,7 @@ export default function App() {
 
   const go = useCallback((r: Route) => navigate(r), []);
 
-  const sidebarCurrent: 'dashboard' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner' | 'reactivation' =
+  const sidebarCurrent: 'dashboard' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner' | 'reactivation' | 'activitylog' =
     route.name === 'leads' ? 'leads' :
     route.name === 'leadbank' ? 'leadbank' :
     route.name === 'import' ? 'import' :
@@ -115,15 +131,25 @@ export default function App() {
     route.name === 'sitevisits' ? 'sitevisits' :
     route.name === 'campaigns' ? 'campaigns' :
     route.name === 'reactivation' ? 'reactivation' :
+    route.name === 'activitylog' ? 'activitylog' :
     route.name === 'lead' ? 'leads' : 'dashboard';
 
+  if (!authChecked) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-warm-bg">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-orange-200 border-t-orange-600" />
+      </div>
+    );
+  }
+
   if (!authed) {
-    return <Login onSuccess={() => setAuthed(true)} />;
+    return <Login onSuccess={() => {}} />;
   }
 
   return (
     <div className="min-h-screen bg-warm-bg">
       <TopBar
+        user={currentUser}
         onSearch={() => setSearchOpen(true)}
         onAdd={() => setAddOpen(true)}
       />
@@ -204,6 +230,10 @@ export default function App() {
               onOpenLead={(id) => go({ name: 'lead', id })}
               onChanged={load}
             />
+          )}
+
+          {route.name === 'activitylog' && (
+            <ActivityLog onOpenLead={(id) => go({ name: 'lead', id })} />
           )}
 
           {route.name === 'lead' && (

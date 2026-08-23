@@ -1,5 +1,6 @@
 import { supabase, type Lead, type LeadInsert, type Activity, type ActivityInsert, type LeadSource, type LeadStatus, type Tour, type TourInsert, type TourStatus, type TourOutcome, type InterestLevel, type Campaign, type CampaignInsert, type CampaignType, type CampaignPlatform, type SiteVisit, type SiteVisitInsert, type SiteVisitStatus, type LeadBankEntry, type LeadBankInsert, type LeadBankStatus, type Todo, type TodoInsert, type ColdReason, type ReactivationOutcome, type ReactivationAttempt, type ReactivationAttemptInsert, type LeadImport, type LeadImportInsert } from './supabase';
 import { normalizePhone } from './normalize';
+import { getCurrentUser } from './auth';
 
 export type { Lead, LeadInsert, Activity, ActivityInsert, LeadSource, LeadStatus, Tour, TourInsert, TourStatus, TourOutcome, InterestLevel, Campaign, CampaignInsert, CampaignType, CampaignPlatform, SiteVisit, SiteVisitInsert, SiteVisitStatus, LeadBankEntry, LeadBankInsert, LeadBankStatus, Todo, TodoInsert, ColdReason, ReactivationOutcome, ReactivationAttempt, ReactivationAttemptInsert, LeadImport, LeadImportInsert };
 
@@ -82,15 +83,47 @@ export async function fetchActivities(leadId: string): Promise<Activity[]> {
   return (data ?? []) as Activity[];
 }
 
+export interface ActivityFeedEntry extends Activity {
+  lead_name: string | null;
+}
+
+// Global feed for the Activity Log page — recent actions across every lead, by everyone.
+export async function fetchRecentActivities(limit = 100): Promise<ActivityFeedEntry[]> {
+  const { data, error } = await supabase
+    .from('activities')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  const activities = (data ?? []) as Activity[];
+
+  const leadIds = Array.from(new Set(activities.map((a) => a.lead_id)));
+  if (leadIds.length === 0) return [];
+
+  const { data: leadRows, error: leadError } = await supabase
+    .from('leads')
+    .select('id, name')
+    .in('id', leadIds);
+  if (leadError) throw leadError;
+  const nameById = new Map((leadRows ?? []).map((l) => [l.id as string, l.name as string]));
+
+  return activities.map((a) => ({ ...a, lead_name: nameById.get(a.lead_id) ?? null }));
+}
+
 // Lightweight server-side lookup for a single phone number — used to warn about
 // duplicates in Add/Edit Lead without pulling every lead's phone to the client.
 export async function findLeadByPhone(phone: string, excludeId?: string): Promise<{ id: string; name: string } | null> {
   const normalized = normalizePhone(phone);
   if (!normalized) return null;
+  // Stored phone numbers keep the user's original formatting (e.g. "+91 98765 43210"),
+  // so a plain substring match on the normalized digits misses numbers split up by
+  // spaces/dashes/the country code. Match the digits in order with anything allowed
+  // between them instead.
+  const pattern = `%${normalized.split('').join('%')}%`;
   let query = supabase
     .from('leads')
     .select('id, name')
-    .filter('phone', 'ilike', `%${normalized}%`);
+    .filter('phone', 'ilike', pattern);
   if (excludeId) query = query.neq('id', excludeId);
   const { data, error } = await query.limit(1).maybeSingle();
   if (error) throw error;
@@ -133,9 +166,10 @@ export async function deleteLead(id: string): Promise<void> {
 }
 
 export async function logActivity(input: ActivityInsert): Promise<Activity> {
+  const actor = getCurrentUser();
   const { data, error } = await supabase
     .from('activities')
-    .insert(input)
+    .insert({ ...input, actor_id: actor?.id ?? null, actor_name: actor?.full_name ?? null })
     .select()
     .single();
   if (error) throw error;

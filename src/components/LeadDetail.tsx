@@ -487,6 +487,7 @@ export default function LeadDetail({ id, leads, campaigns, onBack, onChanged }: 
                       <span className="text-[11px] text-gray-400">{formatDate(a.created_at)} · {formatTime(a.created_at)}</span>
                     </div>
                     <p className="text-sm text-gray-700">{a.summary}</p>
+                    {a.actor_name && <p className="mt-1 text-[11px] text-gray-400">by {a.actor_name}</p>}
                   </div>
                 ))}
               </div>
@@ -517,6 +518,7 @@ export default function LeadDetail({ id, leads, campaigns, onBack, onChanged }: 
       {sheet === 'callResult' && (
         <CallResultSheet
           leadName={lead.name}
+          phone={lead.phone}
           onClose={() => setSheet(null)}
           onResult={handleCallResult}
         />
@@ -605,6 +607,7 @@ function Timeline({ activities }: { activities: Activity[] }) {
                 </span>
               </div>
               <p className="mt-0.5 text-[13px] text-gray-500">{a.summary}</p>
+              {a.actor_name && <p className="mt-1 text-[11px] text-gray-400">by {a.actor_name}</p>}
             </div>
           </div>
         ))}
@@ -745,7 +748,7 @@ function SiteVisitModal({ leadId, visitNumber, onClose, onCreated }: {
   );
 }
 
-function CallResultSheet({ leadName, onClose, onResult }: { leadName: string; onClose: () => void; onResult: (status: LeadStatus) => void }) {
+function CallResultSheet({ leadName, phone, onClose, onResult }: { leadName: string; phone: string; onClose: () => void; onResult: (status: LeadStatus) => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" onClick={onClose}>
       <div
@@ -756,6 +759,14 @@ function CallResultSheet({ leadName, onClose, onResult }: { leadName: string; on
           <h3 className="font-display text-lg font-bold text-gray-900">Log Call — {leadName}</h3>
           <button onClick={onClose} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
         </div>
+        <a
+          href={`https://wa.me/${phone.replace(/\D/g, '')}`}
+          target="_blank"
+          rel="noreferrer"
+          className="mb-4 flex items-center justify-center gap-2 rounded-xl bg-green-50 px-3 py-2.5 text-[13px] font-semibold text-green-700 ring-1 ring-green-200 transition hover:bg-green-100"
+        >
+          <MessageCircle className="h-4 w-4" /> Send WhatsApp
+        </a>
         <p className="mb-4 text-sm text-gray-500">Select the new status for this lead:</p>
         <div className="grid grid-cols-2 gap-2">
           {STATUSES.map((s) => (

@@ -2,14 +2,22 @@ import { useEffect, useRef, useState } from 'react';
 import { Search, Plus, Bell, MapPin, Clock, X, LogOut, ChevronDown } from 'lucide-react';
 import type { SiteVisit } from '@/lib/supabase';
 import { fetchAllSiteVisits, isToday, formatDate, formatTime, relativeDay } from '@/lib/crm';
-import { logout } from '@/components/Login';
+import { signOutUser, type CurrentUser } from '@/lib/auth';
 
 interface Props {
+  user: CurrentUser | null;
   onSearch: () => void;
   onAdd: () => void;
 }
 
-export default function TopBar({ onSearch, onAdd }: Props) {
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+export default function TopBar({ user, onSearch, onAdd }: Props) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [visits, setVisits] = useState<SiteVisit[]>([]);
@@ -146,13 +154,13 @@ export default function TopBar({ onSearch, onAdd }: Props) {
               className="flex items-center gap-2 rounded-full border border-gray-200/60 surface-warm py-1 pl-1 pr-2 card-shadow transition hover:bg-white sm:pr-3"
             >
               <div className="grid h-7 w-7 place-items-center rounded-full bg-gradient-to-br from-orange-400 to-orange-600 text-[11px] font-bold text-white shadow-sm">
-                AK
+                {initialsOf(user?.full_name ?? '?')}
               </div>
               <div className="hidden leading-tight sm:block">
-                <div className="text-[12px] font-semibold text-gray-700">Amit Kumar</div>
+                <div className="text-[12px] font-semibold text-gray-700">{user?.full_name ?? '—'}</div>
                 <div className="flex items-center gap-1 text-[10px] text-gray-400">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  Asst. Sales Manager
+                  {user?.role ?? ''}
                 </div>
               </div>
               <ChevronDown className="hidden h-3.5 w-3.5 text-gray-400 sm:block" />
@@ -161,7 +169,7 @@ export default function TopBar({ onSearch, onAdd }: Props) {
             {profileOpen && (
               <div className="absolute right-0 top-full mt-2 w-44 animate-scale-in overflow-hidden rounded-2xl border border-black/5 bg-white shadow-xl">
                 <button
-                  onClick={logout}
+                  onClick={() => signOutUser()}
                   className="flex w-full items-center gap-2 px-4 py-3 text-sm font-medium text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
                 >
                   <LogOut className="h-4 w-4" /> Log out

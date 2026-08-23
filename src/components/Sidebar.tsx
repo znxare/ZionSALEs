@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { LayoutDashboard, Users, MapPin, Megaphone, Landmark, CalendarCheck, Snowflake, Upload, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Users, MapPin, Megaphone, Landmark, CalendarCheck, Snowflake, Upload, Menu, X, History } from 'lucide-react';
 import ConnectionStatus from '@/components/ConnectionStatus';
 
 interface Props {
-  current: 'dashboard' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner' | 'reactivation';
-  onNavigate: (route: 'dashboard' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner' | 'reactivation') => void;
+  current: 'dashboard' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner' | 'reactivation' | 'activitylog';
+  onNavigate: (route: 'dashboard' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner' | 'reactivation' | 'activitylog') => void;
 }
 
 const items = [
@@ -16,7 +16,21 @@ const items = [
   { id: 'planner' as const, label: 'Day Planner', icon: CalendarCheck },
   { id: 'campaigns' as const, label: 'Campaigns', icon: Megaphone },
   { id: 'reactivation' as const, label: 'Reactivation', icon: Snowflake },
+  { id: 'activitylog' as const, label: 'Activity Log', icon: History },
 ];
+
+// Each tab gets its own accent, echoing the semantic colors used on the Dashboard's KPI cards.
+const TAB_COLORS: Record<Props['current'], { bg: string; text: string; ring: string; icon: string; border: string }> = {
+  dashboard: { bg: 'bg-orange-50', text: 'text-orange-700', ring: 'ring-orange-200/60', icon: 'text-orange-600', border: 'border-orange-500' },
+  leads: { bg: 'bg-slate-100', text: 'text-slate-700', ring: 'ring-slate-200/60', icon: 'text-slate-600', border: 'border-slate-400' },
+  leadbank: { bg: 'bg-violet-50', text: 'text-violet-700', ring: 'ring-violet-200/60', icon: 'text-violet-600', border: 'border-violet-500' },
+  import: { bg: 'bg-teal-50', text: 'text-teal-700', ring: 'ring-teal-200/60', icon: 'text-teal-600', border: 'border-teal-500' },
+  sitevisits: { bg: 'bg-blue-50', text: 'text-blue-700', ring: 'ring-blue-200/60', icon: 'text-blue-600', border: 'border-blue-500' },
+  planner: { bg: 'bg-amber-50', text: 'text-amber-700', ring: 'ring-amber-200/60', icon: 'text-amber-600', border: 'border-amber-500' },
+  campaigns: { bg: 'bg-pink-50', text: 'text-pink-700', ring: 'ring-pink-200/60', icon: 'text-pink-600', border: 'border-pink-500' },
+  reactivation: { bg: 'bg-sky-50', text: 'text-sky-700', ring: 'ring-sky-200/60', icon: 'text-sky-600', border: 'border-sky-500' },
+  activitylog: { bg: 'bg-indigo-50', text: 'text-indigo-700', ring: 'ring-indigo-200/60', icon: 'text-indigo-600', border: 'border-indigo-500' },
+};
 
 function ZionOrmLink() {
   return (
@@ -52,13 +66,14 @@ export default function Sidebar({ current, onNavigate }: Props) {
         <nav className="space-y-1">
           {items.map((it) => {
             const active = current === it.id;
+            const c = TAB_COLORS[it.id];
             return (
               <button
                 key={it.id}
                 onClick={() => onNavigate(it.id)}
-                className={'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ' + (active ? 'bg-orange-50 text-orange-700 ring-1 ring-orange-200/60 brand-accent-bar' : 'text-gray-600 hover:bg-gray-100/80')}
+                className={'flex w-full items-center gap-3 rounded-xl border-l-[3px] px-3 py-2.5 text-sm font-medium transition ' + (active ? c.bg + ' ' + c.text + ' ring-1 ' + c.ring + ' ' + c.border : 'border-transparent text-gray-600 hover:bg-gray-100/80')}
               >
-                <it.icon className={'h-4.5 w-4.5 ' + (active ? 'text-orange-600' : '')} />
+                <it.icon className={'h-4.5 w-4.5 ' + (active ? c.icon : '')} />
                 {it.label}
               </button>
             );
@@ -93,13 +108,14 @@ export default function Sidebar({ current, onNavigate }: Props) {
             <nav className="space-y-1">
               {items.map((it) => {
                 const active = current === it.id;
+                const c = TAB_COLORS[it.id];
                 return (
                   <button
                     key={it.id}
                     onClick={() => go(it.id)}
-                    className={'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ' + (active ? 'bg-orange-50 text-orange-700 ring-1 ring-orange-200/60 brand-accent-bar' : 'text-gray-600 hover:bg-gray-100/80')}
+                    className={'flex w-full items-center gap-3 rounded-xl border-l-[3px] px-3 py-2.5 text-sm font-medium transition ' + (active ? c.bg + ' ' + c.text + ' ring-1 ' + c.ring + ' ' + c.border : 'border-transparent text-gray-600 hover:bg-gray-100/80')}
                   >
-                    <it.icon className={'h-4.5 w-4.5 ' + (active ? 'text-orange-600' : '')} />
+                    <it.icon className={'h-4.5 w-4.5 ' + (active ? c.icon : '')} />
                     {it.label}
                   </button>
                 );
