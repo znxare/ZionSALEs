@@ -175,7 +175,7 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
   }, [campaignMetrics]);
 
   // Overall lead trend across ALL campaigns (for main view)
-  const [overallPeriod, setOverallPeriod] = useState<TimelinePeriod>('weekly');
+  const [overallPeriod, setOverallPeriod] = useState<TimelinePeriod>('monthly');
   const overallTrendData = useMemo(() => {
     const buckets = new Map<string, number>();
     const now = new Date();
