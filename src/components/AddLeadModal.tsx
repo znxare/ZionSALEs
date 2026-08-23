@@ -1,21 +1,23 @@
 import { useState } from 'react';
-import { X, User, Phone, MapPin, Megaphone, ChevronRight, Tag, AlertTriangle } from 'lucide-react';
-import { createLead, findLeadByPhone, sourceFromCampaignType, smartDefaults, type Lead, type Campaign } from '@/lib/crm';
+import { X, User, Phone, MapPin, Megaphone, ChevronRight, Tag, AlertTriangle, UserCog } from 'lucide-react';
+import { createLead, findLeadByPhone, sourceFromCampaignType, smartDefaults, type Lead, type Campaign, type Profile } from '@/lib/crm';
 import { normalizePhone } from '@/lib/normalize';
 import type { LeadPriority } from '@/lib/supabase';
 
 interface Props {
   campaigns: Campaign[];
+  profiles: Profile[];
   onClose: () => void;
   onCreated: (lead: Lead) => void;
 }
 
-export default function AddLeadModal({ campaigns, onClose, onCreated }: Props) {
+export default function AddLeadModal({ campaigns, profiles, onClose, onCreated }: Props) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
   const [campaignId, setCampaignId] = useState('');
   const [source, setSource] = useState('');
+  const [assignedTo, setAssignedTo] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [duplicate, setDuplicate] = useState<{ id: string; name: string } | null>(null);
@@ -64,7 +66,7 @@ export default function AddLeadModal({ campaigns, onClose, onCreated }: Props) {
         last_contacted_at: null,
         last_activity_type: null,
         last_activity_at: null,
-        assigned_to: null,
+        assigned_to: assignedTo || null,
         site_visit_at: null,
         booked_at: null,
         notes: null,
@@ -152,6 +154,17 @@ export default function AddLeadModal({ campaigns, onClose, onCreated }: Props) {
               </select>
             </div>
           </div>
+
+          <Field icon={UserCog} label="Assigned to">
+            <select
+              value={assignedTo}
+              onChange={(e) => setAssignedTo(e.target.value)}
+              className="w-full bg-transparent text-[15px] font-medium text-gray-900 outline-none"
+            >
+              <option value="">Unassigned</option>
+              {profiles.map((p) => <option key={p.id} value={p.full_name}>{p.full_name}</option>)}
+            </select>
+          </Field>
 
           <div className="rounded-xl bg-emerald-50/60 px-4 py-2.5 text-[12px] text-emerald-700">
             Next follow-up auto-scheduled for <span className="font-bold">2 days</span> from now. You can change it later.

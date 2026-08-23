@@ -63,14 +63,14 @@ export async function signIn(email: string, password: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function signUp(email: string, password: string, fullName: string, role: string): Promise<void> {
+export async function signUp(email: string, password: string, fullName: string): Promise<void> {
   const { data, error } = await supabase.auth.signUp({ email, password });
   if (error) throw error;
   if (!data.user) throw new Error('Could not create account — check your email to confirm, then sign in.');
 
   const { error: profileError } = await supabase
     .from('profiles')
-    .insert({ id: data.user.id, full_name: fullName.trim(), role: role.trim() || 'Sales Team' });
+    .insert({ id: data.user.id, full_name: fullName.trim() });
   if (profileError) throw profileError;
 }
 

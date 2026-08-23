@@ -5,7 +5,7 @@ import {
   Users, Flame, Sun, Snowflake, CheckCircle2,
   CheckSquare, Square, BarChart3, Download,
 } from 'lucide-react';
-import type { Lead, LeadStatus, LeadSource, Campaign, ColdReason } from '@/lib/supabase';
+import type { Lead, LeadStatus, LeadSource, Campaign, ColdReason, Profile } from '@/lib/supabase';
 import {
   SOURCES, STATUSES, isToday, isOverdue, isFollowUpRequired,
   formatDate, formatTime, relativeDay, updateLead, deleteLead, scheduleFollowUp,
@@ -27,6 +27,7 @@ type DateRangePreset = 'all' | 'today' | 'yesterday' | 'this_week' | 'this_month
 interface Props {
   leads: Lead[];
   campaigns: Campaign[];
+  profiles: Profile[];
   onOpenLead: (id: string) => void;
   onChanged: () => void;
 }
@@ -102,7 +103,7 @@ function getRange(preset: DateRangePreset, customStart: string, customEnd: strin
   }
 }
 
-export default function LeadManagement({ leads, campaigns, onOpenLead, onChanged }: Props) {
+export default function LeadManagement({ leads, campaigns, profiles, onOpenLead, onChanged }: Props) {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortKey>('newest');
   const [view, setView] = useState<ViewMode>('table');
@@ -720,7 +721,7 @@ export default function LeadManagement({ leads, campaigns, onOpenLead, onChanged
 
       {/* Modals */}
       {editing && (
-        <EditLeadModal lead={editing} campaigns={campaigns} onClose={() => setEditing(null)} onSaved={(updated) => { setEditing(null); if (updated.status === 'Cold' && editing.status !== 'Cold' && !updated.cold_reason) { setColdFor(updated); } else { onChanged(); } void updated; }} />
+        <EditLeadModal lead={editing} campaigns={campaigns} profiles={profiles} onClose={() => setEditing(null)} onSaved={(updated) => { setEditing(null); if (updated.status === 'Cold' && editing.status !== 'Cold' && !updated.cold_reason) { setColdFor(updated); } else { onChanged(); } void updated; }} />
       )}
       {coldFor && (
         <ColdReasonModal lead={coldFor} onClose={() => setColdFor(null)} onConfirm={confirmCold} />

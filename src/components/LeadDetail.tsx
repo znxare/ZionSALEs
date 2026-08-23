@@ -4,7 +4,7 @@ import {
   CalendarClock, Flame, Trash2, Check, ChevronRight, Clock, Plus, X, Pencil,
   User, Award, CheckCircle2,
 } from 'lucide-react';
-import type { Lead, Activity, ActivityType, Campaign, SiteVisit, InterestLevel, TourOutcome, ColdReason, LeadStatus } from '@/lib/supabase';
+import type { Lead, Activity, ActivityType, Campaign, SiteVisit, InterestLevel, TourOutcome, ColdReason, LeadStatus, Profile } from '@/lib/supabase';
 import {
   fetchLead, fetchActivities, recordAction, scheduleFollowUp,
   completeSiteVisit, completeSiteVisitById, updateLead, deleteLead, fetchSiteVisits, createSiteVisit,
@@ -25,6 +25,7 @@ interface Props {
   id: string;
   leads: Lead[];
   campaigns: Campaign[];
+  profiles: Profile[];
   onBack: () => void;
   onChanged: () => void;
 }
@@ -40,7 +41,7 @@ const tabConfig: { id: Tab; label: string }[] = [
   { id: 'reactivation', label: 'Reactivation History' },
 ];
 
-export default function LeadDetail({ id, leads, campaigns, onBack, onChanged }: Props) {
+export default function LeadDetail({ id, leads, campaigns, profiles, onBack, onChanged }: Props) {
   const [lead, setLead] = useState<Lead | null>(leads.find((l) => l.id === id) ?? null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [siteVisits, setSiteVisits] = useState<SiteVisit[]>([]);
@@ -312,10 +313,11 @@ export default function LeadDetail({ id, leads, campaigns, onBack, onChanged }: 
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-px bg-gray-100 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-px bg-gray-100 sm:grid-cols-5">
           <Meta label="Source" value={lead.source} />
           <Meta label="City" value={lead.city || '—'} />
           <Meta label="Email" value={lead.email || '—'} />
+          <Meta label="Assigned to" value={lead.assigned_to || 'Unassigned'} />
           <Meta label="Created" value={formatDate(lead.created_at)} />
         </div>
 
@@ -533,6 +535,7 @@ export default function LeadDetail({ id, leads, campaigns, onBack, onChanged }: 
         <EditLeadModal
           lead={lead}
           campaigns={campaigns}
+          profiles={profiles}
           onClose={() => setEditing(false)}
           onSaved={(updated) => { setEditing(false); setLead(updated); if (updated.status === 'Cold' && lead.status !== 'Cold' && !updated.cold_reason) { setColdFor(updated); } else { onChanged(); } }}
         />

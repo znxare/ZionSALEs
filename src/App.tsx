@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { fetchLeads, fetchCampaigns, type Lead, type Campaign } from '@/lib/crm';
+import { fetchLeads, fetchCampaigns, fetchProfiles, type Lead, type Campaign, type Profile } from '@/lib/crm';
 import Dashboard from '@/components/Dashboard';
 import LeadDetail from '@/components/LeadDetail';
 import LeadManagement from '@/components/LeadManagement';
@@ -68,6 +68,7 @@ export default function App() {
   const [route, setRoute] = useState<Route>(parseHash);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -77,9 +78,10 @@ export default function App() {
     try {
       setLoading(true);
       setError(null);
-      const [leadData, campaignData] = await Promise.all([fetchLeads(), fetchCampaigns()]);
+      const [leadData, campaignData, profileData] = await Promise.all([fetchLeads(), fetchCampaigns(), fetchProfiles()]);
       setLeads(leadData);
       setCampaigns(campaignData);
+      setProfiles(profileData);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load data');
     } finally {
@@ -182,6 +184,7 @@ export default function App() {
             <LeadManagement
               leads={leads}
               campaigns={campaigns}
+              profiles={profiles}
               onOpenLead={(id) => go({ name: 'lead', id })}
               onChanged={load}
             />
@@ -241,6 +244,7 @@ export default function App() {
               id={route.id}
               leads={leads}
               campaigns={campaigns}
+              profiles={profiles}
               onBack={() => go({ name: 'leads' })}
               onChanged={load}
             />
@@ -270,6 +274,7 @@ export default function App() {
       {addOpen && (
         <AddLeadModal
           campaigns={campaigns}
+          profiles={profiles}
           onClose={() => setAddOpen(false)}
           onCreated={(lead) => {
             setAddOpen(false);

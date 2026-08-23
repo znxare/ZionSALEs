@@ -1,8 +1,8 @@
-import { supabase, type Lead, type LeadInsert, type Activity, type ActivityInsert, type LeadSource, type LeadStatus, type Tour, type TourInsert, type TourStatus, type TourOutcome, type InterestLevel, type Campaign, type CampaignInsert, type CampaignType, type CampaignPlatform, type SiteVisit, type SiteVisitInsert, type SiteVisitStatus, type LeadBankEntry, type LeadBankInsert, type LeadBankStatus, type Todo, type TodoInsert, type ColdReason, type ReactivationOutcome, type ReactivationAttempt, type ReactivationAttemptInsert, type LeadImport, type LeadImportInsert } from './supabase';
+import { supabase, type Lead, type LeadInsert, type Activity, type ActivityInsert, type LeadSource, type LeadStatus, type Tour, type TourInsert, type TourStatus, type TourOutcome, type InterestLevel, type Campaign, type CampaignInsert, type CampaignType, type CampaignPlatform, type SiteVisit, type SiteVisitInsert, type SiteVisitStatus, type LeadBankEntry, type LeadBankInsert, type LeadBankStatus, type Todo, type TodoInsert, type ColdReason, type ReactivationOutcome, type ReactivationAttempt, type ReactivationAttemptInsert, type LeadImport, type LeadImportInsert, type Profile } from './supabase';
 import { normalizePhone } from './normalize';
 import { getCurrentUser } from './auth';
 
-export type { Lead, LeadInsert, Activity, ActivityInsert, LeadSource, LeadStatus, Tour, TourInsert, TourStatus, TourOutcome, InterestLevel, Campaign, CampaignInsert, CampaignType, CampaignPlatform, SiteVisit, SiteVisitInsert, SiteVisitStatus, LeadBankEntry, LeadBankInsert, LeadBankStatus, Todo, TodoInsert, ColdReason, ReactivationOutcome, ReactivationAttempt, ReactivationAttemptInsert, LeadImport, LeadImportInsert };
+export type { Lead, LeadInsert, Activity, ActivityInsert, LeadSource, LeadStatus, Tour, TourInsert, TourStatus, TourOutcome, InterestLevel, Campaign, CampaignInsert, CampaignType, CampaignPlatform, SiteVisit, SiteVisitInsert, SiteVisitStatus, LeadBankEntry, LeadBankInsert, LeadBankStatus, Todo, TodoInsert, ColdReason, ReactivationOutcome, ReactivationAttempt, ReactivationAttemptInsert, LeadImport, LeadImportInsert, Profile };
 
 export const SOURCES: LeadSource[] = [
   'Walk-in', 'Website', 'Referral', 'Call', 'Social Media', 'Other',
@@ -13,8 +13,6 @@ export const SOURCES: LeadSource[] = [
 export const STATUSES: LeadStatus[] = [
   'Hot', 'Warm', 'Cold', 'Calling', 'Dead', 'Junk',
 ];
-
-export const SALESPEOPLE = ['Aarav Mehta', 'Diya Sharma', 'Kabir Singh', 'Unassigned'];
 
 export const CAMPAIGN_TYPES: CampaignType[] = ['Google Search', 'Meta Lead Ads', 'Instagram Reels', 'Referral Drive', 'Golf Championship Event', 'Email Campaign', 'WhatsApp Campaign', 'Property Expo', 'Corporate Tie-up', 'Walk-in', 'Organic', 'Other'];
 
@@ -71,6 +69,16 @@ export async function fetchLead(id: string): Promise<Lead | null> {
     .maybeSingle();
   if (error) throw error;
   return data as Lead | null;
+}
+
+// The team roster — used to populate "Assigned to" pickers when creating/editing a lead.
+export async function fetchProfiles(): Promise<Profile[]> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .order('full_name', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as Profile[];
 }
 
 export async function fetchActivities(leadId: string): Promise<Activity[]> {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Save, AlertTriangle } from 'lucide-react';
-import type { Lead, LeadSource, LeadStatus, Campaign } from '@/lib/supabase';
+import type { Lead, LeadSource, LeadStatus, Campaign, Profile } from '@/lib/supabase';
 import { updateLead, findLeadByPhone, SOURCES, STATUSES } from '@/lib/crm';
 import { normalizePhone } from '@/lib/normalize';
 
@@ -9,11 +9,12 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 interface Props {
   lead: Lead;
   campaigns: Campaign[];
+  profiles: Profile[];
   onClose: () => void;
   onSaved: (lead: Lead) => void;
 }
 
-export default function EditLeadModal({ lead, campaigns, onClose, onSaved }: Props) {
+export default function EditLeadModal({ lead, campaigns, profiles, onClose, onSaved }: Props) {
   const currentCampaignId = lead.campaign_id && campaigns.some((c) => c.id === lead.campaign_id) ? lead.campaign_id : '';
   const [form, setForm] = useState({
     name: lead.name,
@@ -23,6 +24,7 @@ export default function EditLeadModal({ lead, campaigns, onClose, onSaved }: Pro
     source: lead.source,
     status: lead.status,
     campaign_id: currentCampaignId,
+    assigned_to: lead.assigned_to ?? '',
     notes: lead.notes ?? '',
     next_followup_at: lead.next_followup_at,
   });
@@ -68,6 +70,7 @@ export default function EditLeadModal({ lead, campaigns, onClose, onSaved }: Pro
         source: form.source,
         status: form.status,
         campaign_id: form.campaign_id || null,
+        assigned_to: form.assigned_to || null,
         notes: form.notes.trim() || null,
         next_followup_at: (form.status === 'Dead' || form.status === 'Junk') ? null : form.next_followup_at,
       };
@@ -117,6 +120,18 @@ export default function EditLeadModal({ lead, campaigns, onClose, onSaved }: Pro
               ) : (
                 campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)
               )}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-[12px] font-semibold uppercase tracking-wide text-gray-400">Assigned to</label>
+            <select
+              value={form.assigned_to}
+              onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
+              className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-emerald-300"
+            >
+              <option value="">Unassigned</option>
+              {profiles.map((p) => <option key={p.id} value={p.full_name}>{p.full_name}</option>)}
             </select>
           </div>
 
