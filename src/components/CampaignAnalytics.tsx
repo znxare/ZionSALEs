@@ -370,6 +370,9 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
                   {m.campaign.platform && <span>· {m.campaign.platform}</span>}
                   {m.campaign.start_date && <span>· {formatDate(m.campaign.start_date)}</span>}
                 </div>
+                {m.campaign.description && (
+                  <p className="mt-1.5 text-[12px] text-gray-500">{m.campaign.description}</p>
+                )}
               </div>
               <div className="flex items-center gap-1">
                 <button onClick={() => setEditing(m.campaign)} className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"><Pencil className="h-4 w-4" /></button>
