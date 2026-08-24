@@ -457,16 +457,19 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
         <div className="mb-6 rounded-2xl border border-black/5 bg-white p-5 card-shadow">
           <h3 className="mb-4 font-display text-base font-bold tracking-tight text-gray-900">Campaign Comparison</h3>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[700px]">
+            <table className="w-full min-w-[860px]">
               <thead>
                 <tr className="text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400">
                   <th className="px-3 py-2">Campaign</th>
                   <th className="px-3 py-2">Total Leads</th>
-                  <th className="px-3 py-2">Cost/Lead</th>
-                  <th className="px-3 py-2">Hot %</th>
+                  <th className="px-3 py-2">Hot</th>
+                  <th className="px-3 py-2">Warm</th>
+                  <th className="px-3 py-2">Cold</th>
                   <th className="px-3 py-2">Calling</th>
+                  <th className="px-3 py-2">Dead</th>
+                  <th className="px-3 py-2">Junk</th>
                   <th className="px-3 py-2">Visit Rate</th>
-                  <th className="px-3 py-2">Booking Rate</th>
+                  <th className="px-3 py-2">Sales Rate</th>
                   <th className="px-3 py-2">Quality Score</th>
                   <th className="px-3 py-2">Rating</th>
                 </tr>
@@ -476,9 +479,12 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
                   <tr key={m.campaign.id} className="border-t border-gray-100">
                     <td className="px-3 py-2.5 font-semibold text-gray-900">{m.campaign.name}</td>
                     <td className="px-3 py-2.5 text-[13px] text-gray-600">{m.total}</td>
-                    <td className="px-3 py-2.5 text-[13px] text-gray-600">{m.costPerLead !== null ? `₹${m.costPerLead}` : '—'}</td>
-                    <td className="px-3 py-2.5 text-[13px] text-gray-600">{m.total > 0 ? Math.round((m.hot / m.total) * 100) : 0}%</td>
-                    <td className="px-3 py-2.5 text-[13px] text-cyan-600 font-medium">{m.calling}</td>
+                    <td className="px-3 py-2.5 text-[13px] font-medium text-red-600">{m.hot}</td>
+                    <td className="px-3 py-2.5 text-[13px] font-medium text-amber-600">{m.warm}</td>
+                    <td className="px-3 py-2.5 text-[13px] font-medium text-sky-600">{m.cold}</td>
+                    <td className="px-3 py-2.5 text-[13px] font-medium text-cyan-600">{m.calling}</td>
+                    <td className="px-3 py-2.5 text-[13px] font-medium text-gray-500">{m.dead}</td>
+                    <td className="px-3 py-2.5 text-[13px] font-medium text-gray-400">{m.junk}</td>
                     <td className="px-3 py-2.5 text-[13px] text-gray-600">{m.total > 0 ? Math.round((m.siteVisitDone / m.total) * 100) : 0}%</td>
                     <td className="px-3 py-2.5 text-[13px] font-semibold text-emerald-600">{m.conversionRate}%</td>
                     <td className="px-3 py-2.5 text-[13px] font-bold text-gray-900">{m.qualityScore}%</td>
@@ -497,7 +503,7 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
                 <tr className="border-t-2 border-gray-200 bg-gray-50/80 font-bold">
                   <td className="px-3 py-2.5 text-gray-900">Total</td>
                   <td className="px-3 py-2.5 text-gray-900">{campaignMetrics.reduce((sum, m) => sum + m.total, 0)}</td>
-                  <td colSpan={7} />
+                  <td colSpan={10} />
                 </tr>
               </tfoot>
             </table>
