@@ -13,6 +13,7 @@ import SiteVisits from '@/components/SiteVisits';
 import LeadBank from '@/components/LeadBank';
 import DayPlanner from '@/components/DayPlanner';
 import LeadReactivation from '@/components/LeadReactivation';
+import SalesBattleCard from '@/components/SalesBattleCard';
 import LeadImport from '@/components/LeadImport';
 import ActivityLog from '@/components/ActivityLog';
 import Login from '@/components/Login';
@@ -27,6 +28,7 @@ type Route =
   | { name: 'sitevisits' }
   | { name: 'campaigns' }
   | { name: 'reactivation' }
+  | { name: 'battlecard' }
   | { name: 'activitylog' }
   | { name: 'lead'; id: string }
   | { name: 'search' }
@@ -44,6 +46,7 @@ function parseHash(): Route {
   if (h === 'sitevisits') return { name: 'sitevisits' };
   if (h === 'campaigns') return { name: 'campaigns' };
   if (h === 'reactivation') return { name: 'reactivation' };
+  if (h === 'battlecard') return { name: 'battlecard' };
   if (h === 'activitylog') return { name: 'activitylog' };
   return { name: 'notfound' };
 }
@@ -59,6 +62,7 @@ function navigate(route: Route) {
   else if (route.name === 'sitevisits') window.location.hash = '/sitevisits';
   else if (route.name === 'campaigns') window.location.hash = '/campaigns';
   else if (route.name === 'reactivation') window.location.hash = '/reactivation';
+  else if (route.name === 'battlecard') window.location.hash = '/battlecard';
   else if (route.name === 'activitylog') window.location.hash = '/activitylog';
 }
 
@@ -125,7 +129,7 @@ export default function App() {
 
   const go = useCallback((r: Route) => navigate(r), []);
 
-  const sidebarCurrent: 'dashboard' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner' | 'reactivation' | 'activitylog' =
+  const sidebarCurrent: 'dashboard' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner' | 'reactivation' | 'battlecard' | 'activitylog' =
     route.name === 'leads' ? 'leads' :
     route.name === 'leadbank' ? 'leadbank' :
     route.name === 'import' ? 'import' :
@@ -133,6 +137,7 @@ export default function App() {
     route.name === 'sitevisits' ? 'sitevisits' :
     route.name === 'campaigns' ? 'campaigns' :
     route.name === 'reactivation' ? 'reactivation' :
+    route.name === 'battlecard' ? 'battlecard' :
     route.name === 'activitylog' ? 'activitylog' :
     route.name === 'lead' ? 'leads' : 'dashboard';
 
@@ -234,6 +239,8 @@ export default function App() {
               onChanged={load}
             />
           )}
+
+          {route.name === 'battlecard' && <SalesBattleCard />}
 
           {route.name === 'activitylog' && (
             <ActivityLog onOpenLead={(id) => go({ name: 'lead', id })} />
