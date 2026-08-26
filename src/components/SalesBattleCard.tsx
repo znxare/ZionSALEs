@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Flag, AlertTriangle, CheckCircle2, Minus, Sparkles,
-  Plus, X, ChevronDown, ChevronUp, Car, ExternalLink,
+  Plus, X, ChevronDown, ChevronUp, Car, ExternalLink, Search, FileText,
 } from 'lucide-react';
 import {
   CONDOS, VILLAS, DEFAULT_COMPETITORS, ZION_AMENITIES, AMENITY_LABELS, DRIVE_TIMES, OBJECTIONS,
   inr, inrShort, lac, type Competitor, type AmenityKey,
 } from '@/lib/battleCard';
+import { FAQ_ENTRIES, FAQ_CATEGORIES, type FaqEntry } from '@/lib/faq';
 
-type Section = 'overview' | 'condos' | 'villas' | 'compare' | 'why' | 'objections';
+type Section = 'overview' | 'condos' | 'villas' | 'compare' | 'why' | 'faq' | 'objections';
 
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'overview', label: 'Overview' },
@@ -16,6 +17,7 @@ const SECTIONS: { id: Section; label: string }[] = [
   { id: 'villas', label: 'Villas' },
   { id: 'compare', label: 'Market Compare' },
   { id: 'why', label: 'Why Zion Hills' },
+  { id: 'faq', label: 'FAQ' },
   { id: 'objections', label: 'Handling Objections' },
 ];
 
@@ -63,6 +65,7 @@ export default function SalesBattleCard() {
       {section === 'villas' && <VillasSection />}
       {section === 'compare' && <CompareSection />}
       {section === 'why' && <WhySection />}
+      {section === 'faq' && <FaqSection />}
       {section === 'objections' && <ObjectionsSection />}
     </div>
   );
@@ -564,6 +567,107 @@ function EfficiencyBar({ label, value, pct, highlight }: { label: string; value:
         <div className={`h-full rounded-md ${highlight ? 'bg-gradient-to-r from-amber-400 to-emerald-500' : 'bg-gray-300'}`} style={{ width: `${pct}%` }} />
       </div>
       <span className="text-right text-[12.5px] font-bold text-gray-800">{value}</span>
+    </div>
+  );
+}
+
+// ---------- FAQ ----------
+
+const SOURCE_LABEL: Record<FaqEntry['source'], string> = {
+  'construction-agreement': 'Construction Agreement',
+  'faq-2022': '2022 Call Script',
+  both: 'Both sources',
+};
+const SOURCE_TINT: Record<FaqEntry['source'], string> = {
+  'construction-agreement': 'bg-emerald-50 text-emerald-700',
+  'faq-2022': 'bg-amber-50 text-amber-700',
+  both: 'bg-violet-50 text-violet-700',
+};
+
+function FaqSection() {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState<Set<string>>(new Set());
+
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const filtered = q
+      ? FAQ_ENTRIES.filter((f) => f.q.toLowerCase().includes(q) || f.a.toLowerCase().includes(q) || f.category.toLowerCase().includes(q))
+      : FAQ_ENTRIES;
+    const byCategory = new Map<string, FaqEntry[]>();
+    FAQ_CATEGORIES.forEach((c) => byCategory.set(c, []));
+    filtered.forEach((f) => byCategory.get(f.category)?.push(f));
+    return byCategory;
+  }, [query]);
+
+  const totalResults = Array.from(results.values()).reduce((s, arr) => s + arr.length, 0);
+
+  function toggle(id: string) {
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start gap-2.5 rounded-2xl border border-black/5 bg-amber-50/60 p-4 card-shadow">
+        <FileText className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+        <p className="text-[12.5px] leading-relaxed text-gray-700">
+          Sourced from the Phase II Construction Agreement (Mar 2025 draft) and an internal 2022 call-handling script. The 2022 document contained several unresolved, contradicting figures (green fees, completion dates, home counts) — those were left out rather than guessed. Draft terms may change before final execution; confirm anything commercial or legal with sales ops before quoting.
+        </p>
+      </div>
+
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-300" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search questions — e.g. warranty, payment, flooring, location…"
+          className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none focus:border-emerald-300"
+        />
+      </div>
+
+      <p className="text-[11.5px] text-gray-400">{totalResults} {totalResults === 1 ? 'question' : 'questions'}{query && ` matching "${query}"`}</p>
+
+      {totalResults === 0 ? (
+        <div className="rounded-2xl border border-black/5 bg-white p-8 text-center text-sm text-gray-400 card-shadow">
+          No questions match "{query}". Try a different word.
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {FAQ_CATEGORIES.map((cat) => {
+            const entries = results.get(cat) ?? [];
+            if (entries.length === 0) return null;
+            return (
+              <div key={cat}>
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{cat}</p>
+                <div className="space-y-2">
+                  {entries.map((f) => {
+                    const isOpen = open.has(f.id);
+                    return (
+                      <div key={f.id} className="overflow-hidden rounded-2xl border border-black/5 bg-white card-shadow">
+                        <button
+                          onClick={() => toggle(f.id)}
+                          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                        >
+                          <span className="text-[13px] font-semibold text-gray-900">{f.q}</span>
+                          <span className="flex shrink-0 items-center gap-2">
+                            <span className={`rounded-full px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide ${SOURCE_TINT[f.source]}`}>{SOURCE_LABEL[f.source]}</span>
+                            {isOpen ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+                          </span>
+                        </button>
+                        {isOpen && <p className="px-4 pb-3.5 text-[12.5px] leading-relaxed text-gray-500">{f.a}</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

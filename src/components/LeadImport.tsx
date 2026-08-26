@@ -13,6 +13,7 @@ import {
 } from '@/lib/crm';
 import { normalizePhone, normalizeEmail, normalizeCampaignName, similarity } from '@/lib/normalize';
 import { supabase } from '@/lib/supabase';
+import { assertWritable } from '@/lib/demoMode';
 
 interface Props {
   campaigns: Campaign[];
@@ -993,6 +994,7 @@ function DupBox({ label, value, color }: { label: string; value: number; color: 
 }
 
 async function supabaseInsertLeadBank(rows: Record<string, unknown>[]): Promise<{ error: string | null }> {
+  assertWritable();
   const { error } = await supabase.from('lead_bank').insert(rows);
   return { error: error?.message ?? null };
 }

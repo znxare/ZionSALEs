@@ -18,6 +18,9 @@ import LeadImport from '@/components/LeadImport';
 import ActivityLog from '@/components/ActivityLog';
 import Login from '@/components/Login';
 import { getSession, onAuthChange, type CurrentUser } from '@/lib/auth';
+import { isDemoMode } from '@/lib/demoMode';
+
+const DEMO_USER: CurrentUser = { id: 'demo', email: null, full_name: 'Demo Viewer', role: 'Read-only Demo' };
 
 type Route =
   | { name: 'dashboard' }
@@ -94,6 +97,11 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (isDemoMode) {
+      setCurrentUser(DEMO_USER);
+      setAuthChecked(true);
+      return;
+    }
     getSession()
       .then(setCurrentUser)
       .finally(() => setAuthChecked(true));
@@ -155,6 +163,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-warm-bg">
+      {isDemoMode && (
+        <div className="bg-gray-900 px-4 py-1.5 text-center text-[12px] font-medium text-white">
+          You're viewing a live demo — read-only. Changes aren't saved.
+        </div>
+      )}
       <TopBar
         user={currentUser}
         onSearch={() => setSearchOpen(true)}

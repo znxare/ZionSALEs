@@ -503,7 +503,27 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
                 <tr className="border-t-2 border-gray-200 bg-gray-50/80 font-bold">
                   <td className="px-3 py-2.5 text-gray-900">Total</td>
                   <td className="px-3 py-2.5 text-gray-900">{campaignMetrics.reduce((sum, m) => sum + m.total, 0)}</td>
-                  <td colSpan={10} />
+                  <td className="px-3 py-2.5 text-red-600">{campaignMetrics.reduce((sum, m) => sum + m.hot, 0)}</td>
+                  <td className="px-3 py-2.5 text-amber-600">{campaignMetrics.reduce((sum, m) => sum + m.warm, 0)}</td>
+                  <td className="px-3 py-2.5 text-sky-600">{campaignMetrics.reduce((sum, m) => sum + m.cold, 0)}</td>
+                  <td className="px-3 py-2.5 text-cyan-600">{campaignMetrics.reduce((sum, m) => sum + m.calling, 0)}</td>
+                  <td className="px-3 py-2.5 text-gray-500">{campaignMetrics.reduce((sum, m) => sum + m.dead, 0)}</td>
+                  <td className="px-3 py-2.5 text-gray-400">{campaignMetrics.reduce((sum, m) => sum + m.junk, 0)}</td>
+                  <td className="px-3 py-2.5 text-gray-600">
+                    {(() => {
+                      const totalLeads = campaignMetrics.reduce((sum, m) => sum + m.total, 0);
+                      const totalVisits = campaignMetrics.reduce((sum, m) => sum + m.siteVisitDone, 0);
+                      return totalLeads > 0 ? Math.round((totalVisits / totalLeads) * 100) : 0;
+                    })()}%
+                  </td>
+                  <td className="px-3 py-2.5 text-emerald-600">
+                    {(() => {
+                      const totalLeads = campaignMetrics.reduce((sum, m) => sum + m.total, 0);
+                      const totalBookings = campaignMetrics.reduce((sum, m) => sum + m.bookings, 0);
+                      return totalLeads > 0 ? Math.round((totalBookings / totalLeads) * 100) : 0;
+                    })()}%
+                  </td>
+                  <td colSpan={2} />
                 </tr>
               </tfoot>
             </table>

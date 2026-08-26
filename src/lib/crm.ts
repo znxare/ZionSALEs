@@ -1,6 +1,7 @@
 import { supabase, type Lead, type LeadInsert, type Activity, type ActivityInsert, type LeadSource, type LeadStatus, type Tour, type TourInsert, type TourStatus, type TourOutcome, type InterestLevel, type Campaign, type CampaignInsert, type CampaignType, type CampaignPlatform, type SiteVisit, type SiteVisitInsert, type SiteVisitStatus, type LeadBankEntry, type LeadBankInsert, type LeadBankStatus, type Todo, type TodoInsert, type ColdReason, type ReactivationOutcome, type ReactivationAttempt, type ReactivationAttemptInsert, type LeadImport, type LeadImportInsert, type Profile } from './supabase';
 import { normalizePhone } from './normalize';
 import { getCurrentUser } from './auth';
+import { assertWritable } from './demoMode';
 
 export type { Lead, LeadInsert, Activity, ActivityInsert, LeadSource, LeadStatus, Tour, TourInsert, TourStatus, TourOutcome, InterestLevel, Campaign, CampaignInsert, CampaignType, CampaignPlatform, SiteVisit, SiteVisitInsert, SiteVisitStatus, LeadBankEntry, LeadBankInsert, LeadBankStatus, Todo, TodoInsert, ColdReason, ReactivationOutcome, ReactivationAttempt, ReactivationAttemptInsert, LeadImport, LeadImportInsert, Profile };
 
@@ -139,6 +140,7 @@ export async function findLeadByPhone(phone: string, excludeId?: string): Promis
 }
 
 export async function createLead(input: LeadInsert): Promise<Lead> {
+  assertWritable();
   const { data, error } = await supabase
     .from('leads')
     .insert(input)
@@ -158,6 +160,7 @@ export async function createLead(input: LeadInsert): Promise<Lead> {
 }
 
 export async function updateLead(id: string, patch: Partial<Lead>): Promise<Lead> {
+  assertWritable();
   const { data, error } = await supabase
     .from('leads')
     .update(patch)
@@ -169,11 +172,13 @@ export async function updateLead(id: string, patch: Partial<Lead>): Promise<Lead
 }
 
 export async function deleteLead(id: string): Promise<void> {
+  assertWritable();
   const { error } = await supabase.from('leads').delete().eq('id', id);
   if (error) throw error;
 }
 
 export async function logActivity(input: ActivityInsert): Promise<Activity> {
+  assertWritable();
   const actor = getCurrentUser();
   const { data, error } = await supabase
     .from('activities')
@@ -381,6 +386,7 @@ export async function fetchTours(): Promise<Tour[]> {
 }
 
 export async function createTour(input: TourInsert): Promise<Tour> {
+  assertWritable();
   const { data, error } = await supabase
     .from('tours')
     .insert(input)
@@ -408,6 +414,7 @@ export async function createTour(input: TourInsert): Promise<Tour> {
 }
 
 export async function updateTour(id: string, patch: Partial<Tour>): Promise<Tour> {
+  assertWritable();
   const { data, error } = await supabase
     .from('tours')
     .update(patch)
@@ -419,6 +426,7 @@ export async function updateTour(id: string, patch: Partial<Tour>): Promise<Tour
 }
 
 export async function deleteTour(id: string): Promise<void> {
+  assertWritable();
   const { error } = await supabase.from('tours').delete().eq('id', id);
   if (error) throw error;
 }
@@ -508,16 +516,19 @@ export async function fetchCampaigns(includeArchived = false): Promise<Campaign[
 }
 
 export async function archiveCampaign(id: string): Promise<void> {
+  assertWritable();
   const { error } = await supabase.from('campaigns').update({ archived: true }).eq('id', id);
   if (error) throw error;
 }
 
 export async function unarchiveCampaign(id: string): Promise<void> {
+  assertWritable();
   const { error } = await supabase.from('campaigns').update({ archived: false }).eq('id', id);
   if (error) throw error;
 }
 
 export async function createCampaign(input: CampaignInsert): Promise<Campaign> {
+  assertWritable();
   const { data, error } = await supabase
     .from('campaigns')
     .insert(input)
@@ -528,6 +539,7 @@ export async function createCampaign(input: CampaignInsert): Promise<Campaign> {
 }
 
 export async function updateCampaign(id: string, patch: Partial<Campaign>): Promise<Campaign> {
+  assertWritable();
   const { data, error } = await supabase
     .from('campaigns')
     .update(patch)
@@ -539,6 +551,7 @@ export async function updateCampaign(id: string, patch: Partial<Campaign>): Prom
 }
 
 export async function deleteCampaign(id: string): Promise<void> {
+  assertWritable();
   const { error } = await supabase.from('campaigns').delete().eq('id', id);
   if (error) throw error;
 }
@@ -595,6 +608,7 @@ export async function fetchAllSiteVisits(): Promise<SiteVisit[]> {
 }
 
 export async function createSiteVisit(input: SiteVisitInsert): Promise<SiteVisit> {
+  assertWritable();
   const { data, error } = await supabase
     .from('site_visits')
     .insert(input)
@@ -620,6 +634,7 @@ export async function createSiteVisit(input: SiteVisitInsert): Promise<SiteVisit
 }
 
 export async function updateSiteVisit(id: string, patch: Partial<SiteVisit>): Promise<SiteVisit> {
+  assertWritable();
   const { data, error } = await supabase
     .from('site_visits')
     .update(patch)
@@ -631,12 +646,14 @@ export async function updateSiteVisit(id: string, patch: Partial<SiteVisit>): Pr
 }
 
 export async function deleteSiteVisit(id: string): Promise<void> {
+  assertWritable();
   const { error } = await supabase.from('site_visits').delete().eq('id', id);
   if (error) throw error;
 }
 
 // Mark a site visit completed (can be called multiple times for repeat visits).
 export async function completeSiteVisitById(visitId: string, leadId: string): Promise<void> {
+  assertWritable();
   const { data: visit, error: fetchErr } = await supabase
     .from('site_visits')
     .select('*')
@@ -675,6 +692,7 @@ export async function fetchLeadBank(): Promise<LeadBankEntry[]> {
 }
 
 export async function createLeadBankEntry(input: LeadBankInsert): Promise<LeadBankEntry> {
+  assertWritable();
   const { data, error } = await supabase
     .from('lead_bank')
     .insert(input)
@@ -685,11 +703,13 @@ export async function createLeadBankEntry(input: LeadBankInsert): Promise<LeadBa
 }
 
 export async function updateLeadBankEntry(id: string, patch: Partial<LeadBankEntry>): Promise<void> {
+  assertWritable();
   const { error } = await supabase.from('lead_bank').update(patch).eq('id', id);
   if (error) throw error;
 }
 
 export async function deleteLeadBankEntry(id: string): Promise<void> {
+  assertWritable();
   const { error } = await supabase.from('lead_bank').delete().eq('id', id);
   if (error) throw error;
 }
@@ -742,6 +762,7 @@ export async function fetchLeadImports(): Promise<LeadImport[]> {
 }
 
 export async function createLeadImportRecord(input: LeadImportInsert): Promise<LeadImport> {
+  assertWritable();
   const { data, error } = await supabase
     .from('lead_imports')
     .insert(input)
@@ -752,6 +773,7 @@ export async function createLeadImportRecord(input: LeadImportInsert): Promise<L
 }
 
 export async function updateLeadImportRecord(id: string, patch: Partial<LeadImport>): Promise<void> {
+  assertWritable();
   const { error } = await supabase.from('lead_imports').update(patch).eq('id', id);
   if (error) throw error;
 }
@@ -785,6 +807,7 @@ export async function fetchAllLeadsPhones(): Promise<Set<string>> {
 }
 
 export async function batchInsertLeadBank(rows: LeadBankInsert[]): Promise<{ inserted: number; errors: string[] }> {
+  assertWritable();
   const BATCH_SIZE = 500;
   let inserted = 0;
   const errors: string[] = [];
@@ -855,6 +878,7 @@ export async function fetchTodos(): Promise<Todo[]> {
 }
 
 export async function createTodo(input: TodoInsert): Promise<Todo> {
+  assertWritable();
   const { data, error } = await supabase
     .from('todos')
     .insert(input)
@@ -865,11 +889,13 @@ export async function createTodo(input: TodoInsert): Promise<Todo> {
 }
 
 export async function updateTodo(id: string, patch: Partial<Todo>): Promise<void> {
+  assertWritable();
   const { error } = await supabase.from('todos').update(patch).eq('id', id);
   if (error) throw error;
 }
 
 export async function deleteTodo(id: string): Promise<void> {
+  assertWritable();
   const { error } = await supabase.from('todos').delete().eq('id', id);
   if (error) throw error;
 }
@@ -955,6 +981,7 @@ export async function fetchAllReactivationAttempts(): Promise<ReactivationAttemp
 }
 
 export async function createReactivationAttempt(input: ReactivationAttemptInsert): Promise<ReactivationAttempt> {
+  assertWritable();
   const { data, error } = await supabase
     .from('reactivation_attempts')
     .insert(input)
