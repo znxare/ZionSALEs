@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { Search, Plus, Bell, MapPin, Clock, X, LogOut, ChevronDown } from 'lucide-react';
+import { Search, Plus, Bell, MapPin, Clock, X, LogOut, ChevronDown, HelpCircle } from 'lucide-react';
 import type { SiteVisit } from '@/lib/supabase';
 import { fetchAllSiteVisits, isToday, formatDate, formatTime, relativeDay } from '@/lib/crm';
 import { signOutUser, type CurrentUser } from '@/lib/auth';
+import { isDemoMode } from '@/lib/demoMode';
 
 interface Props {
   user: CurrentUser | null;
   onSearch: () => void;
   onAdd: () => void;
+  onShowGuide?: () => void;
 }
 
 function initialsOf(name: string): string {
@@ -17,7 +19,7 @@ function initialsOf(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-export default function TopBar({ user, onSearch, onAdd }: Props) {
+export default function TopBar({ user, onSearch, onAdd, onShowGuide }: Props) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [visits, setVisits] = useState<SiteVisit[]>([]);
@@ -64,19 +66,36 @@ export default function TopBar({ user, onSearch, onAdd }: Props) {
     <header className="sticky top-0 z-30 glass border-b border-black/5">
       <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between px-3 py-2.5 sm:px-6 sm:py-3 lg:px-8">
         <a href="#/" className="flex items-center gap-2.5">
-          <img
-            src="https://zionhills.in/wp-content/uploads/2025/05/logo.svg"
-            alt="Zion Hills"
-            className="h-8 w-auto sm:h-9"
-          />
+          {isDemoMode ? (
+            <svg width="32" height="32" viewBox="0 0 26 26" fill="none" aria-hidden="true" className="shrink-0">
+              <rect width="26" height="26" rx="7" fill="#BC5A32" />
+              <path d="M10,4 L16,4 L17,7 L18,15 L13,22 L8,15 L9,7 Z" fill="#FAF8F4" />
+            </svg>
+          ) : (
+            <img
+              src="https://zionhills.in/wp-content/uploads/2025/05/logo.svg"
+              alt="Zion Hills"
+              className="h-8 w-auto sm:h-9"
+            />
+          )}
           <div className="leading-tight">
-            <div className="font-display text-[15px] font-bold tracking-tight text-[#F05A22]">
-              CRM
+            <div className={'font-display text-[15px] font-bold tracking-tight ' + (isDemoMode ? 'text-[#BC5A32]' : 'text-[#F05A22]')}>
+              {isDemoMode ? 'ORM CRM' : 'CRM'}
             </div>
           </div>
         </a>
 
         <div className="flex items-center gap-1.5 sm:gap-2">
+          {isDemoMode && onShowGuide && (
+            <button
+              onClick={onShowGuide}
+              aria-label="How to use this demo"
+              className="grid h-9 w-9 place-items-center rounded-full border border-black/5 bg-white/70 text-gray-500 transition hover:bg-white hover:text-gray-700 card-shadow"
+            >
+              <HelpCircle className="h-4 w-4" />
+            </button>
+          )}
+
           <button
             onClick={onSearch}
             className="flex items-center gap-2 rounded-full border border-black/5 bg-white/70 px-3 py-2 text-sm font-medium text-gray-500 transition hover:bg-white hover:text-gray-700 card-shadow sm:px-4"

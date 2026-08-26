@@ -16,6 +16,7 @@ import LeadReactivation from '@/components/LeadReactivation';
 import SalesBattleCard from '@/components/SalesBattleCard';
 import LeadImport from '@/components/LeadImport';
 import ActivityLog from '@/components/ActivityLog';
+import DemoGuide from '@/components/DemoGuide';
 import Login from '@/components/Login';
 import { getSession, onAuthChange, type CurrentUser } from '@/lib/auth';
 import { isDemoMode } from '@/lib/demoMode';
@@ -80,6 +81,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [showGuide, setShowGuide] = useState(isDemoMode);
 
   const load = useCallback(async () => {
     try {
@@ -172,6 +174,7 @@ export default function App() {
         user={currentUser}
         onSearch={() => setSearchOpen(true)}
         onAdd={() => setAddOpen(true)}
+        onShowGuide={() => setShowGuide(true)}
       />
 
       <div className="mx-auto flex w-full max-w-[1400px]">
@@ -315,6 +318,8 @@ export default function App() {
           onClose={() => setSearchOpen(false)}
         />
       )}
+
+      {isDemoMode && showGuide && <DemoGuide onClose={() => setShowGuide(false)} />}
     </div>
   );
 }

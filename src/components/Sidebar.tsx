@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { LayoutDashboard, Users, MapPin, Megaphone, Landmark, CalendarCheck, Snowflake, Upload, Menu, X, History, Flag } from 'lucide-react';
 import ConnectionStatus from '@/components/ConnectionStatus';
+import { isDemoMode } from '@/lib/demoMode';
 
 interface Props {
   current: 'dashboard' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner' | 'reactivation' | 'battlecard' | 'activitylog';
@@ -42,7 +43,7 @@ function ZionOrmLink() {
       rel="noreferrer"
       className="mt-4 flex items-center justify-center gap-1.5 px-3 text-[11px] text-gray-400 transition hover:text-gray-600"
     >
-      <span>Zion Hills</span>
+      <span>{isDemoMode ? 'Demo' : 'Zion Hills'}</span>
       <span className="text-gray-300">×</span>
       <svg width="14" height="14" viewBox="0 0 26 26" fill="none" aria-hidden="true" className="shrink-0">
         <rect width="26" height="26" rx="7" fill="#BC5A32" />
