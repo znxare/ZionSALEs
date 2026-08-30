@@ -17,19 +17,32 @@ export function getCurrentUser(): CurrentUser | null {
 }
 
 async function loadProfile(session: Session): Promise<CurrentUser> {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', session.user.id)
-    .maybeSingle();
-  if (error) throw error;
-  const profile = data as Profile | null;
-  return {
+  // A valid session already tells us who this is — build that fallback first so a
+  // flaky connection (e.g. mobile data during a site tour) can never turn a real,
+  // logged-in user into "nobody" and strip authorship off anything they log.
+  const fallback: CurrentUser = {
     id: session.user.id,
     email: session.user.email ?? null,
-    full_name: profile?.full_name ?? session.user.email ?? 'Team member',
-    role: profile?.role ?? 'Sales Team',
+    full_name: session.user.email ?? 'Team member',
+    role: 'Sales Team',
   };
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', session.user.id)
+      .maybeSingle();
+    if (error) throw error;
+    const profile = data as Profile | null;
+    return {
+      id: session.user.id,
+      email: session.user.email ?? null,
+      full_name: profile?.full_name ?? fallback.full_name,
+      role: profile?.role ?? fallback.role,
+    };
+  } catch {
+    return fallback;
+  }
 }
 
 export async function getSession(): Promise<CurrentUser | null> {

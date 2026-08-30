@@ -435,10 +435,9 @@ export default function LeadManagement({ leads, campaigns, profiles, onOpenLead,
         {/* Analytics panel */}
         {showAnalytics && (
           <div className="mt-4 space-y-4 animate-fade-up border-t border-gray-100 pt-4">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <AnalyticsCard label="Total Leads" value={String(rangeAnalytics.totalLeads)} />
               <AnalyticsCard label="Campaigns" value={String(rangeAnalytics.campaignData.length)} />
-              <AnalyticsCard label="Statuses" value={String(rangeAnalytics.statusData.length)} />
             </div>
             <div className="grid gap-4 lg:grid-cols-2">
               <div className="rounded-2xl border border-gray-100 bg-gray-50/50 p-4">
