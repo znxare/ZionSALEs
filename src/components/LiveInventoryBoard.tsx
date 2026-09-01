@@ -1,9 +1,21 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import {
-  LayoutGrid, Search, X, Maximize2, List as ListIcon, Map as MapIcon,
-  BedDouble, CheckCircle2, Trash2, Receipt,
+  LayoutGrid, Search, X, Maximize2, List as ListIcon, Map as MapIcon, ChevronDown,
+  BedDouble, CheckCircle2, Trash2, Receipt, Tag, Clock3,
 } from 'lucide-react';
 import { SAMPLE_PLOTS, PHASES, PLOT_STATUSES, BEDROOM_OPTIONS, STATUS_COLORS, type Plot, type PlotStatus } from '@/lib/inventory';
+
+const STAT_TINT: Record<PlotStatus, { border: string; from: string; iconBg: string; iconText: string; ring: string }> = {
+  Available: { border: 'border-emerald-200/60 hover:border-emerald-300/60', from: 'from-emerald-50/60', iconBg: 'bg-emerald-100', iconText: 'text-emerald-600', ring: 'ring-emerald-400' },
+  Sold: { border: 'border-gray-200/60 hover:border-gray-300/60', from: 'from-gray-50/60', iconBg: 'bg-gray-100', iconText: 'text-gray-500', ring: 'ring-gray-400' },
+  'On-Hold': { border: 'border-sky-200/60 hover:border-sky-300/60', from: 'from-sky-50/60', iconBg: 'bg-sky-100', iconText: 'text-sky-600', ring: 'ring-sky-400' },
+};
+
+const STAT_ICON: Record<PlotStatus, typeof CheckCircle2> = {
+  Available: CheckCircle2,
+  Sold: Tag,
+  'On-Hold': Clock3,
+};
 
 function formatL(lacs: number) {
   return `₹${lacs.toLocaleString('en-IN', { maximumFractionDigits: 2, minimumFractionDigits: 2 })} L`;
@@ -64,51 +76,60 @@ export default function LiveInventoryBoard() {
         </div>
       </div>
 
-      {/* Legend / stats */}
-      <div className="grid grid-cols-3 gap-3">
+      {/* KPI cards — same language as the Dashboard's stat tiles */}
+      <div className="grid grid-cols-3 gap-3 sm:gap-4">
         {PLOT_STATUSES.map((s) => {
-          const c = STATUS_COLORS[s];
+          const t = STAT_TINT[s];
+          const Icon = STAT_ICON[s];
+          const active = statusFilter === s;
           return (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(statusFilter === s ? 'All' : s)}
-              className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left transition ${
-                statusFilter === s ? `${c.bg} ${c.border} ring-1 ${c.ring}` : 'border-black/5 bg-white hover:bg-gray-50'
-              }`}
-            >
-              <span className="flex items-center gap-2 text-[13px] font-medium text-gray-700">
-                <span className={`h-2.5 w-2.5 rounded-full ${c.dot}`} />
-                {s}
-              </span>
-              <span className="font-display text-lg font-bold text-gray-900">{counts[s]}</span>
+            <button key={s} onClick={() => setStatusFilter(active ? 'All' : s)} className="group text-left">
+              <div
+                className={`rounded-2xl border bg-gradient-to-br to-white p-4 card-shadow transition hover:shadow-md ${t.border} ${t.from} ${
+                  active ? `ring-2 ring-offset-1 ${t.ring}` : ''
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className={`grid h-10 w-10 place-items-center rounded-xl shadow-sm ${t.iconBg} ${t.iconText}`}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <span className="font-display text-2xl font-bold tracking-tight text-gray-900">{counts[s]}</span>
+                </div>
+                <div className="mt-3 text-[13px] font-medium text-gray-600">{s}</div>
+              </div>
             </button>
           );
         })}
       </div>
 
-      {/* Toolbar */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-black/5 bg-white p-3 card-shadow sm:flex-row sm:items-center sm:flex-wrap">
-        <div className="relative flex-1 min-w-[160px]">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+      {/* Toolbar — pill controls, matching the filter bar on All Leads */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[180px] flex-1">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search plot number…"
-            className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+            className="w-full rounded-full border border-black/5 bg-white py-2.5 pl-11 pr-4 text-sm font-medium text-gray-900 outline-none card-shadow placeholder:text-gray-400 focus:border-emerald-200"
           />
         </div>
-        <select
-          value={phaseFilter}
-          onChange={(e) => setPhaseFilter(e.target.value)}
-          className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-emerald-400"
-        >
-          <option value="All">All phases</option>
-          {PHASES.map((p) => <option key={p} value={p}>{p}</option>)}
-        </select>
-        <div className="flex rounded-xl border border-gray-200 bg-gray-50 p-1">
+
+        <div className="relative">
+          <select
+            value={phaseFilter}
+            onChange={(e) => setPhaseFilter(e.target.value)}
+            className="appearance-none rounded-full border border-black/5 bg-white py-2.5 pl-3.5 pr-9 text-sm font-medium text-gray-600 outline-none card-shadow focus:border-emerald-200"
+          >
+            <option value="All">All phases</option>
+            {PHASES.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        </div>
+
+        <div className="flex overflow-hidden rounded-full border border-black/5 bg-white card-shadow">
           <button
             onClick={() => setBedroomFilter('All')}
-            className={`rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition ${bedroomFilter === 'All' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+            className={`px-3.5 py-2.5 text-sm font-medium transition ${bedroomFilter === 'All' ? 'brand-gradient text-white' : 'text-gray-500 hover:text-gray-700'}`}
           >
             All BHK
           </button>
@@ -116,30 +137,32 @@ export default function LiveInventoryBoard() {
             <button
               key={b}
               onClick={() => setBedroomFilter(b)}
-              className={`rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition ${bedroomFilter === b ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+              className={`px-3.5 py-2.5 text-sm font-medium transition ${bedroomFilter === b ? 'brand-gradient text-white' : 'text-gray-500 hover:text-gray-700'}`}
             >
               {b}BHK
             </button>
           ))}
         </div>
+
         {statusFilter !== 'All' && (
           <button
             onClick={() => setStatusFilter('All')}
-            className="flex items-center gap-1 rounded-xl border border-gray-200 px-3 py-2 text-[12.5px] font-medium text-gray-500 hover:bg-gray-50"
+            className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-sm font-medium text-emerald-700 card-shadow"
           >
-            <X className="h-3.5 w-3.5" /> Clear status filter
+            <X className="h-3.5 w-3.5" /> Clear status
           </button>
         )}
-        <div className="flex rounded-xl border border-gray-200 bg-gray-50 p-1">
+
+        <div className="ml-auto flex overflow-hidden rounded-full border border-black/5 bg-white card-shadow">
           <button
             onClick={() => setView('map')}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition ${view === 'map' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+            className={`flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium transition ${view === 'map' ? 'brand-gradient text-white' : 'text-gray-500 hover:text-gray-700'}`}
           >
             <MapIcon className="h-3.5 w-3.5" /> Map
           </button>
           <button
             onClick={() => setView('list')}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition ${view === 'list' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+            className={`flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium transition ${view === 'list' ? 'brand-gradient text-white' : 'text-gray-500 hover:text-gray-700'}`}
           >
             <ListIcon className="h-3.5 w-3.5" /> List
           </button>
