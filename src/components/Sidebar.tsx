@@ -13,7 +13,7 @@ const items = [
   { id: 'leadbank' as const, label: 'Lead Bank', icon: Landmark },
   { id: 'import' as const, label: 'Lead Import', icon: Upload },
   { id: 'sitevisits' as const, label: 'Site Visits', icon: MapPin },
-  { id: 'inventory' as const, label: 'Live Inventory Board', icon: LayoutGrid, badge: 'DEV' },
+  { id: 'inventory' as const, label: 'Live Inventory Board', icon: LayoutGrid },
   { id: 'planner' as const, label: 'Day Planner', icon: CalendarCheck },
   { id: 'campaigns' as const, label: 'Campaigns', icon: Megaphone },
   { id: 'reactivation' as const, label: 'Reactivation', icon: Snowflake },
