@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { LayoutDashboard, Users, MapPin, Megaphone, Landmark, CalendarCheck, Snowflake, Upload, Menu, X, History, Flag } from 'lucide-react';
+import { LayoutDashboard, Users, MapPin, Megaphone, Landmark, CalendarCheck, Snowflake, Upload, Menu, X, History, Flag, LayoutGrid } from 'lucide-react';
 import ConnectionStatus from '@/components/ConnectionStatus';
 import { isDemoMode } from '@/lib/demoMode';
 
 interface Props {
-  current: 'dashboard' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner' | 'reactivation' | 'battlecard' | 'activitylog';
-  onNavigate: (route: 'dashboard' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner' | 'reactivation' | 'battlecard' | 'activitylog') => void;
+  current: 'dashboard' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner' | 'reactivation' | 'battlecard' | 'activitylog' | 'inventory';
+  onNavigate: (route: 'dashboard' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner' | 'reactivation' | 'battlecard' | 'activitylog' | 'inventory') => void;
 }
 
 const items = [
@@ -14,6 +14,7 @@ const items = [
   { id: 'leadbank' as const, label: 'Lead Bank', icon: Landmark },
   { id: 'import' as const, label: 'Lead Import', icon: Upload },
   { id: 'sitevisits' as const, label: 'Site Visits', icon: MapPin },
+  { id: 'inventory' as const, label: 'Live Inventory Board', icon: LayoutGrid, badge: 'DEV' },
   { id: 'planner' as const, label: 'Day Planner', icon: CalendarCheck },
   { id: 'campaigns' as const, label: 'Campaigns', icon: Megaphone },
   { id: 'reactivation' as const, label: 'Reactivation', icon: Snowflake },
@@ -28,6 +29,7 @@ const TAB_COLORS: Record<Props['current'], { bg: string; text: string; ring: str
   leadbank: { bg: 'bg-violet-50', text: 'text-violet-700', ring: 'ring-violet-200/60', icon: 'text-violet-600', border: 'border-violet-500' },
   import: { bg: 'bg-teal-50', text: 'text-teal-700', ring: 'ring-teal-200/60', icon: 'text-teal-600', border: 'border-teal-500' },
   sitevisits: { bg: 'bg-blue-50', text: 'text-blue-700', ring: 'ring-blue-200/60', icon: 'text-blue-600', border: 'border-blue-500' },
+  inventory: { bg: 'bg-lime-50', text: 'text-lime-700', ring: 'ring-lime-200/60', icon: 'text-lime-600', border: 'border-lime-500' },
   planner: { bg: 'bg-amber-50', text: 'text-amber-700', ring: 'ring-amber-200/60', icon: 'text-amber-600', border: 'border-amber-500' },
   campaigns: { bg: 'bg-pink-50', text: 'text-pink-700', ring: 'ring-pink-200/60', icon: 'text-pink-600', border: 'border-pink-500' },
   reactivation: { bg: 'bg-sky-50', text: 'text-sky-700', ring: 'ring-sky-200/60', icon: 'text-sky-600', border: 'border-sky-500' },
