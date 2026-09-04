@@ -1,0 +1,33 @@
+name: Nightly database backup
+
+# Safety net for the Free-tier Supabase project (Free tier has no automatic
+# backups at all). Dumps the full production database every night and keeps
+# it as a downloadable workflow artifact for 30 days. To restore, download
+# the .sql.gz from a run under Actions -> this workflow -> Artifacts, then
+# run: gunzip -c backup.sql.gz | psql "$PROD_SUPABASE_DB_URL"
+
+on:
+  schedule:
+    - cron: '30 20 * * *' # ~02:00 IST
+  workflow_dispatch: {}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Dump database
+        run: |
+          npx --yes supabase db dump --db-url "${{ secrets.PROD_SUPABASE_DB_URL }}" -f backup.sql
+          gzip backup.sql
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: backup.sql.gz
+          retention-days: 30
