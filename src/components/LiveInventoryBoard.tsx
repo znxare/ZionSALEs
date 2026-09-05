@@ -1,7 +1,7 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type WheelEvent as ReactWheelEvent } from 'react';
 import {
   LayoutGrid, Search, X, Maximize2, List as ListIcon, Map as MapIcon, ChevronDown,
-  BedDouble, CheckCircle2, Trash2, Receipt, Tag, Clock3,
+  BedDouble, CheckCircle2, Trash2, Receipt, Tag, Clock3, Plus, Minus, RotateCcw,
 } from 'lucide-react';
 import { SAMPLE_PLOTS, PHASES, PLOT_STATUSES, BEDROOM_OPTIONS, STATUS_COLORS, type Plot, type PlotStatus } from '@/lib/inventory';
 
@@ -200,6 +200,117 @@ export default function LiveInventoryBoard() {
   );
 }
 
+const ZOOM_MIN = 1;
+const ZOOM_MAX = 5;
+
+/** Pinch-to-zoom, drag-to-pan, scroll-to-zoom wrapper, plus +/- buttons for devices without gestures. */
+function ZoomPanMap({ children }: { children: ReactNode }) {
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ startDist: number; startZoom: number } | null>(null);
+  const dragged = useRef(false);
+
+  function clamp(z: number) {
+    return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
+  }
+
+  function onPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  }
+
+  function onPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
+    if (!pointers.current.has(e.pointerId)) return;
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const pts = Array.from(pointers.current.values());
+
+    if (pts.length === 2) {
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      if (!pinch.current) {
+        pinch.current = { startDist: dist, startZoom: zoom };
+      } else {
+        dragged.current = true;
+        setZoom(clamp(pinch.current.startZoom * (dist / pinch.current.startDist)));
+      }
+    } else if (pts.length === 1 && zoom > 1) {
+      const dx = e.movementX;
+      const dy = e.movementY;
+      if (dx || dy) {
+        dragged.current = true;
+        setPan((p) => ({ x: p.x + dx, y: p.y + dy }));
+      }
+    }
+  }
+
+  function endPointer(e: ReactPointerEvent<HTMLDivElement>) {
+    pointers.current.delete(e.pointerId);
+    if (pointers.current.size < 2) pinch.current = null;
+  }
+
+  function onWheel(e: ReactWheelEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setZoom((z) => clamp(z - e.deltaY * 0.0015));
+  }
+
+  function onClickCapture(e: ReactMouseEvent<HTMLDivElement>) {
+    if (dragged.current) {
+      e.stopPropagation();
+      dragged.current = false;
+    }
+  }
+
+  function zoomBy(delta: number) {
+    setZoom((z) => clamp(z + delta));
+  }
+
+  function reset() {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }
+
+  const isReset = zoom === 1 && pan.x === 0 && pan.y === 0;
+
+  return (
+    <div
+      className="absolute inset-0 touch-none select-none overflow-hidden"
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endPointer}
+      onPointerCancel={endPointer}
+      onPointerLeave={endPointer}
+      onWheel={onWheel}
+      onClickCapture={onClickCapture}
+    >
+      <div
+        className="h-full w-full"
+        style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: 'center center' }}
+      >
+        {children}
+      </div>
+
+      {/* Zoom controls */}
+      <div className="absolute bottom-3 left-3 z-30 flex flex-col overflow-hidden rounded-xl border border-black/5 bg-white/95 shadow backdrop-blur">
+        <button onClick={() => zoomBy(0.6)} aria-label="Zoom in" className="p-2.5 text-gray-600 hover:bg-gray-50 active:bg-gray-100">
+          <Plus className="h-4 w-4" />
+        </button>
+        <div className="h-px bg-gray-100" />
+        <button onClick={() => zoomBy(-0.6)} aria-label="Zoom out" className="p-2.5 text-gray-600 hover:bg-gray-50 active:bg-gray-100">
+          <Minus className="h-4 w-4" />
+        </button>
+        {!isReset && (
+          <>
+            <div className="h-px bg-gray-100" />
+            <button onClick={reset} aria-label="Reset zoom" className="p-2.5 text-gray-600 hover:bg-gray-50 active:bg-gray-100">
+              <RotateCcw className="h-3.5 w-3.5" />
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function MasterPlanBoard({ plots, onSelect, onExpand }: { plots: Plot[]; onSelect: (p: Plot) => void; onExpand?: () => void }) {
   const [loaded, setLoaded] = useState(false);
   return (
@@ -210,40 +321,49 @@ function MasterPlanBoard({ plots, onSelect, onExpand }: { plots: Plot[]; onSelec
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-600" />
           </div>
         )}
-        <img
-          src="/zion-hills-master-plan.svg"
-          alt="Zion Hills master plan"
-          onLoad={() => setLoaded(true)}
-          className={`absolute inset-0 h-full w-full object-contain transition-opacity ${loaded ? 'opacity-100' : 'opacity-0'}`}
-        />
-        {loaded && plots.map((p) => {
-          const c = STATUS_COLORS[p.status];
-          return (
-            <button
-              key={p.id}
-              onClick={() => onSelect(p)}
-              style={{ left: `${p.positionPct.x}%`, top: `${p.positionPct.y}%` }}
-              className="group absolute z-10 -translate-x-1/2 -translate-y-1/2 focus:outline-none"
-            >
-              <span className={`relative z-10 block h-2 w-2 rounded-full ring-1 ring-white shadow ${c.dot} transition group-hover:z-30 group-hover:h-3 group-hover:w-3`} />
 
-              {/* Hover tooltip */}
-              <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 w-max max-w-[220px] -translate-x-1/2 rounded-lg bg-gray-900/95 px-2.5 py-1.5 text-left text-white opacity-0 shadow-xl transition group-hover:opacity-100">
-                <div className="text-[11.5px] font-bold">Plot {p.plotNo} · {p.status}</div>
-                <div className="text-[10.5px] text-white/70">{p.bedrooms}BHK · {p.phase} · {formatCr(p.cost.totalCostLacs)}</div>
-              </div>
-            </button>
-          );
-        })}
+        <ZoomPanMap>
+          <div className="relative h-full w-full">
+            <img
+              src="/zion-hills-master-plan.svg"
+              alt="Zion Hills master plan"
+              onLoad={() => setLoaded(true)}
+              className={`absolute inset-0 h-full w-full object-contain transition-opacity ${loaded ? 'opacity-100' : 'opacity-0'}`}
+              draggable={false}
+            />
+            {loaded && plots.map((p) => {
+              const c = STATUS_COLORS[p.status];
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => onSelect(p)}
+                  style={{ left: `${p.positionPct.x}%`, top: `${p.positionPct.y}%` }}
+                  className="group absolute z-10 -translate-x-1/2 -translate-y-1/2 p-2 focus:outline-none"
+                >
+                  <span className={`relative z-10 block h-2 w-2 rounded-full ring-1 ring-white shadow ${c.dot} transition group-hover:z-30 group-hover:h-3 group-hover:w-3`} />
+
+                  {/* Hover tooltip (desktop) */}
+                  <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-max max-w-[220px] -translate-x-1/2 rounded-lg bg-gray-900/95 px-2.5 py-1.5 text-left text-white opacity-0 shadow-xl transition group-hover:opacity-100 sm:block">
+                    <div className="text-[11.5px] font-bold">Plot {p.plotNo} · {p.status}</div>
+                    <div className="text-[10.5px] text-white/70">{p.bedrooms}BHK · {p.phase} · {formatCr(p.cost.totalCostLacs)}</div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </ZoomPanMap>
 
         {onExpand && (
           <button
             onClick={onExpand}
-            className="absolute right-3 top-3 z-10 flex items-center gap-1.5 rounded-lg bg-white/90 px-2.5 py-1.5 text-[11.5px] font-semibold text-gray-600 shadow backdrop-blur hover:bg-white"
+            className="absolute right-3 top-3 z-30 flex items-center gap-1.5 rounded-lg bg-white/90 px-2.5 py-1.5 text-[11.5px] font-semibold text-gray-600 shadow backdrop-blur hover:bg-white"
           >
             <Maximize2 className="h-3.5 w-3.5" /> Expand
           </button>
         )}
+      </div>
+      <div className="border-t border-gray-100 px-3 py-1.5 text-center text-[10.5px] text-gray-400 sm:hidden">
+        Pinch or use +/- to zoom in, then tap a plot
       </div>
     </div>
   );
