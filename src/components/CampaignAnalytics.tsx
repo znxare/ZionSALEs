@@ -300,26 +300,6 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
         <span className="ml-auto text-[12px] text-gray-400">{dateFilteredLeads.length} leads in range</span>
       </div>
 
-      {/* Auto Insights */}
-      {insights.length > 0 && (
-        <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {insights.map((ins, i) => (
-            <div key={i} className="flex items-center gap-3 rounded-2xl border border-black/5 bg-white p-4 card-shadow">
-              <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${
-                ins.type === 'best' ? 'bg-emerald-50 text-emerald-600' :
-                ins.type === 'conversion' ? 'bg-amber-50 text-amber-600' :
-                ins.type === 'visits' ? 'bg-violet-50 text-violet-600' :
-                ins.type === 'lowest' ? 'bg-red-50 text-red-500' :
-                'bg-orange-50 text-orange-600'
-              }`}>
-                <ins.icon className="h-4.5 w-4.5" />
-              </div>
-              <p className="text-[13px] font-medium text-gray-700">{ins.text}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* Lead Trend - Monthly/Weekly */}
       {dateFilteredLeads.length > 0 && (
         <div className="mb-6 rounded-2xl border border-black/5 bg-white p-5 card-shadow">
@@ -524,6 +504,26 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
         <div className="mb-6 rounded-2xl border border-black/5 bg-white p-5 card-shadow">
           <h3 className="mb-4 font-display text-base font-bold tracking-tight text-gray-900">Lead Status</h3>
           <InteractiveStatusGrid leads={dateFilteredLeads} />
+        </div>
+      )}
+
+      {/* Auto Insights */}
+      {insights.length > 0 && (
+        <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {insights.map((ins, i) => (
+            <div key={i} className="flex items-center gap-3 rounded-2xl border border-black/5 bg-white p-4 card-shadow">
+              <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${
+                ins.type === 'best' ? 'bg-emerald-50 text-emerald-600' :
+                ins.type === 'conversion' ? 'bg-amber-50 text-amber-600' :
+                ins.type === 'visits' ? 'bg-violet-50 text-violet-600' :
+                ins.type === 'lowest' ? 'bg-red-50 text-red-500' :
+                'bg-orange-50 text-orange-600'
+              }`}>
+                <ins.icon className="h-4.5 w-4.5" />
+              </div>
+              <p className="text-[13px] font-medium text-gray-700">{ins.text}</p>
+            </div>
+          ))}
         </div>
       )}
 
