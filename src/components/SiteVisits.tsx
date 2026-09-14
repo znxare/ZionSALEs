@@ -7,6 +7,7 @@ import {
 import type { Lead, Campaign, SiteVisit } from '@/lib/supabase';
 import {
   fetchAllSiteVisits, formatDate, formatTime, formatDateTime, isToday, isThisWeek, isThisMonth,
+  UNASSIGNED_CAMPAIGN_LABEL,
 } from '@/lib/crm';
 import { BarChart, DonutChart } from './charts';
 
@@ -130,7 +131,7 @@ export default function SiteVisits({ leads, campaigns, onOpenLead }: Props) {
         visits: vList.length,
         latest: sorted[0].scheduled_at,
         status: lead?.status ?? '—',
-        campaign: campaign?.name ?? 'Organic/Walk-in',
+        campaign: campaign?.name ?? UNASSIGNED_CAMPAIGN_LABEL,
       };
     });
     if (q) return rows.filter((r) => r.name.toLowerCase().includes(q) || r.phone.includes(q));
@@ -156,7 +157,7 @@ export default function SiteVisits({ leads, campaigns, onOpenLead }: Props) {
     visits.forEach((v) => {
       const lead = leadMap.get(v.lead_id);
       const camp = lead?.campaign_id ? campaignMap.get(lead.campaign_id) : null;
-      const k = camp?.name ?? 'Organic/Walk-in';
+      const k = camp?.name ?? UNASSIGNED_CAMPAIGN_LABEL;
       m.set(k, (m.get(k) ?? 0) + 1);
     });
     return [...m.entries()].map(([label, value], i) => ({ label, value, color: CHART_COLORS[i % CHART_COLORS.length] }));

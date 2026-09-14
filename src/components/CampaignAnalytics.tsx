@@ -9,7 +9,7 @@ import {
   fetchCampaigns, createCampaign, updateCampaign, deleteCampaign,
   archiveCampaign, unarchiveCampaign,
   CAMPAIGN_TYPES, CAMPAIGN_PLATFORMS, formatDate,
-  leadQualityScore,
+  leadQualityScore, UNASSIGNED_CAMPAIGN_LABEL,
 } from '@/lib/crm';
 import { BarChart, LineChart, DonutChart } from './charts';
 
@@ -120,7 +120,7 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
       fromCampaigns.push({
         campaign: {
           id: 'organic',
-          name: 'Organic / Unassigned',
+          name: UNASSIGNED_CAMPAIGN_LABEL,
           type: 'Organic' as CampaignType,
           platform: null,
           start_date: null,

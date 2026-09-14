@@ -7,7 +7,7 @@ import type { Campaign, LeadBankEntry, LeadBankStatus, LeadStatus } from '@/lib/
 import {
   fetchLeadBank, createLeadBankEntry, updateLeadBankEntry, deleteLeadBankEntry,
   convertLeadBankToLeadSafe, fetchAllLeadBankPhones, fetchAllLeadsPhones,
-  STATUSES, recordAction, fetchLead,
+  STATUSES, recordAction, fetchLead, UNASSIGNED_CAMPAIGN_LABEL,
 } from '@/lib/crm';
 import { normalizePhone, phoneCountryFlag } from '@/lib/normalize';
 
@@ -490,7 +490,7 @@ function CallQualifyModal({
               onChange={(e) => setAssignCampaign(e.target.value || null)}
               className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-300"
             >
-              <option value="">— Organic / Walk-in —</option>
+              <option value="">— {UNASSIGNED_CAMPAIGN_LABEL} —</option>
               {campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
             <p className="mt-1.5 text-[11px] text-gray-400">This lead will be moved to All Leads with the selected campaign.</p>
