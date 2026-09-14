@@ -18,7 +18,7 @@ export const CAMPAIGN_TYPES: CampaignType[] = ['Google Search', 'Meta Lead Ads',
 
 // Shared display name for leads with no campaign_id — every screen that groups leads
 // by campaign should use this one label instead of hardcoding its own variant.
-export const UNASSIGNED_CAMPAIGN_LABEL = 'Organic / Unassigned';
+export const UNASSIGNED_CAMPAIGN_LABEL = 'Other Organic Sources - (referrals/George Sir/ Direct call and Visit/etc)';
 
 export const CAMPAIGN_PLATFORMS: CampaignPlatform[] = ['Google', 'Meta', 'Instagram', 'WhatsApp', 'Email', 'Referral', 'Event', 'Other'];
 
