@@ -308,6 +308,7 @@ export default function LeadReactivation({ leads, campaigns, onOpenLead, onChang
               ))}
             </div>
           </div>
+          <p className="mb-4 -mt-2 text-[12px] text-gray-400">Counts leads by the date they were marked Cold, not when they were created — the clearest view of what's driving leads cold in the pipeline right now.</p>
           {reasonDistribution.length === 0 ? (
             <p className="py-8 text-center text-sm text-gray-400">{reasonPeriod === 'month' ? 'No leads went cold this month.' : 'No cold leads yet.'}</p>
           ) : (
