@@ -339,7 +339,7 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
             <p className="mt-1 text-[12px] text-gray-400">Create a campaign to start tracking lead quality by source.</p>
           </div>
         )}
-        {campaignMetrics.filter((m) => m.campaign.id !== 'organic').map((m) => (
+        {campaignMetrics.map((m) => (
           <div key={m.campaign.id} className="rounded-2xl border border-black/5 bg-white p-5 card-shadow transition hover:shadow-md">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -354,15 +354,17 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
                   <p className="mt-1.5 text-[12px] text-gray-500">{m.campaign.description}</p>
                 )}
               </div>
-              <div className="flex items-center gap-1">
-                <button onClick={() => setEditing(m.campaign)} className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"><Pencil className="h-4 w-4" /></button>
-                {m.campaign.archived ? (
-                  <button onClick={() => withErrorHandling(async () => { await unarchiveCampaign(m.campaign.id); await load(); onLeadsChanged(); }, 'Could not restore this campaign. Please try again.')} title="Restore" className="rounded-lg p-1.5 text-gray-400 transition hover:bg-emerald-50 hover:text-emerald-600"><ArchiveRestore className="h-4 w-4" /></button>
-                ) : (
-                  <button onClick={() => withErrorHandling(async () => { await archiveCampaign(m.campaign.id); await load(); onLeadsChanged(); }, 'Could not archive this campaign. Please try again.')} title="Archive" className="rounded-lg p-1.5 text-gray-400 transition hover:bg-amber-50 hover:text-amber-600"><Archive className="h-4 w-4" /></button>
-                )}
-                <button onClick={() => { if (confirm('Delete this campaign? Leads will be unlinked.')) withErrorHandling(async () => { await deleteCampaign(m.campaign.id); await load(); onLeadsChanged(); }, 'Could not delete this campaign. Please try again.'); }} className="rounded-lg p-1.5 text-gray-400 transition hover:bg-red-50 hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
-              </div>
+              {m.campaign.id !== 'organic' && (
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setEditing(m.campaign)} className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"><Pencil className="h-4 w-4" /></button>
+                  {m.campaign.archived ? (
+                    <button onClick={() => withErrorHandling(async () => { await unarchiveCampaign(m.campaign.id); await load(); onLeadsChanged(); }, 'Could not restore this campaign. Please try again.')} title="Restore" className="rounded-lg p-1.5 text-gray-400 transition hover:bg-emerald-50 hover:text-emerald-600"><ArchiveRestore className="h-4 w-4" /></button>
+                  ) : (
+                    <button onClick={() => withErrorHandling(async () => { await archiveCampaign(m.campaign.id); await load(); onLeadsChanged(); }, 'Could not archive this campaign. Please try again.')} title="Archive" className="rounded-lg p-1.5 text-gray-400 transition hover:bg-amber-50 hover:text-amber-600"><Archive className="h-4 w-4" /></button>
+                  )}
+                  <button onClick={() => { if (confirm('Delete this campaign? Leads will be unlinked.')) withErrorHandling(async () => { await deleteCampaign(m.campaign.id); await load(); onLeadsChanged(); }, 'Could not delete this campaign. Please try again.'); }} className="rounded-lg p-1.5 text-gray-400 transition hover:bg-red-50 hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
+                </div>
+              )}
             </div>
 
             {/* Quality badge */}
