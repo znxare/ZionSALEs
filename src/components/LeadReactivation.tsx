@@ -30,6 +30,7 @@ export default function LeadReactivation({ leads, campaigns, onOpenLead, onChang
   const [campaignFilter, setCampaignFilter] = useState<string>('all');
   const [period, setPeriod] = useState<PeriodFilter>('month');
   const [showCampaignInsights, setShowCampaignInsights] = useState(false);
+  const [reasonPeriod, setReasonPeriod] = useState<'month' | 'all'>('month');
 
   useEffect(() => {
     Promise.all([fetchAllSiteVisits(), fetchAllReactivationAttempts()])
@@ -82,15 +83,18 @@ export default function LeadReactivation({ leads, campaigns, onOpenLead, onChang
   }, [coldLeads, visits, attempts, reasonFilter, campaignFilter]);
 
   // Analytics: cold reasons distribution
+  const reasonScopedLeads = useMemo(() => {
+    return reasonPeriod === 'month' ? coldLeads.filter((l) => isThisMonth(l.cold_since)) : coldLeads;
+  }, [coldLeads, reasonPeriod]);
   const reasonDistribution = useMemo(() => {
     const palette = ['#0ea5e9', '#10b981', '#f97316', '#8b5cf6', '#ef4444', '#eab308', '#06b6d4', '#ec4899', '#14b8a6', '#f43f5e', '#84cc16', '#a855f7', '#64748b'];
     const counts = new Map<string, number>();
-    coldLeads.forEach((l) => {
+    reasonScopedLeads.forEach((l) => {
       const r = l.cold_reason ?? 'Other';
       counts.set(r, (counts.get(r) ?? 0) + 1);
     });
     return COLD_REASONS.filter((r) => counts.has(r)).map((r, i) => ({ label: r, value: counts.get(r)!, color: palette[i % palette.length] }));
-  }, [coldLeads]);
+  }, [reasonScopedLeads]);
 
   // Analytics: reactivation success funnel
   const reactivationFunnel = useMemo(() => {
@@ -290,9 +294,22 @@ export default function LeadReactivation({ leads, campaigns, onOpenLead, onChang
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Cold Reasons Distribution */}
         <div className="rounded-2xl border border-black/5 bg-white p-5 card-shadow">
-          <h3 className="mb-4 font-display text-base font-bold tracking-tight text-gray-900">Cold Reasons Distribution</h3>
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="font-display text-base font-bold tracking-tight text-gray-900">Cold Reasons Distribution</h3>
+            <div className="flex gap-1 rounded-lg bg-gray-100 p-0.5">
+              {(['month', 'all'] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setReasonPeriod(p)}
+                  className={`rounded-md px-3 py-1 text-[11px] font-semibold transition ${reasonPeriod === p ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+                >
+                  {p === 'month' ? 'This Month' : 'All Time'}
+                </button>
+              ))}
+            </div>
+          </div>
           {reasonDistribution.length === 0 ? (
-            <p className="py-8 text-center text-sm text-gray-400">No cold leads yet.</p>
+            <p className="py-8 text-center text-sm text-gray-400">{reasonPeriod === 'month' ? 'No leads went cold this month.' : 'No cold leads yet.'}</p>
           ) : (
             <>
               <DonutChart data={reasonDistribution} size={180} />
