@@ -16,6 +16,10 @@ export const STATUSES: LeadStatus[] = [
 
 export const CAMPAIGN_TYPES: CampaignType[] = ['Google Search', 'Meta Lead Ads', 'Instagram Reels', 'Referral Drive', 'Golf Championship Event', 'Email Campaign', 'WhatsApp Campaign', 'Property Expo', 'Corporate Tie-up', 'Walk-in', 'Organic', 'Other'];
 
+// Shared display name for leads with no campaign_id — every screen that groups leads
+// by campaign should use this one label instead of hardcoding its own variant.
+export const UNASSIGNED_CAMPAIGN_LABEL = 'Organic / Unassigned';
+
 export const CAMPAIGN_PLATFORMS: CampaignPlatform[] = ['Google', 'Meta', 'Instagram', 'WhatsApp', 'Email', 'Referral', 'Event', 'Other'];
 
 export const TOUR_STATUSES: TourStatus[] = ['Scheduled', 'Confirmed', 'Completed', 'Cancelled', 'No Show', 'Rescheduled'];

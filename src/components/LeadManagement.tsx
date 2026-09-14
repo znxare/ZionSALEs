@@ -10,6 +10,7 @@ import {
   SOURCES, STATUSES, isToday, isOverdue, isFollowUpRequired,
   formatDate, formatTime, relativeDay, updateLead, deleteLead, scheduleFollowUp,
   toLocalInputValue, startOfDay, endOfDay, markLeadCold, fetchActivities,
+  UNASSIGNED_CAMPAIGN_LABEL,
 } from '@/lib/crm';
 import { statusStyles } from '@/lib/styles';
 import { phoneCountryFlag } from '@/lib/normalize';
@@ -195,7 +196,7 @@ export default function LeadManagement({ leads, campaigns, profiles, onOpenLead,
     const statusCounts = new Map<string, number>();
     filtered.forEach((l) => {
       const camp = l.campaign_id ? campaignMap.get(l.campaign_id) : null;
-      const ck = camp?.name ?? 'Organic/Walk-in';
+      const ck = camp?.name ?? UNASSIGNED_CAMPAIGN_LABEL;
       campaignCounts.set(ck, (campaignCounts.get(ck) ?? 0) + 1);
       statusCounts.set(l.status, (statusCounts.get(l.status) ?? 0) + 1);
     });
@@ -356,11 +357,11 @@ export default function LeadManagement({ leads, campaigns, profiles, onOpenLead,
     }
   }
 
-  async function confirmCold(reason: ColdReason, nextReactivationAt: string) {
+  async function confirmCold(reason: ColdReason, nextReactivationAt: string, note?: string) {
     if (!coldFor) return;
     setActionError(null);
     try {
-      await markLeadCold(coldFor, reason, nextReactivationAt);
+      await markLeadCold(coldFor, reason, nextReactivationAt, note);
       setColdFor(null);
       onChanged();
     } catch (e) {
