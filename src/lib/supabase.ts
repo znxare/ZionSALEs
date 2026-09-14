@@ -24,6 +24,7 @@ export type LeadSource =
   | 'Call'
   | 'Social Media'
   | 'Other'
+  | 'Other Organic Sources'
   | 'Google Ads'
   | 'Meta Ads'
   | 'Instagram'
@@ -73,6 +74,7 @@ export interface Lead {
   notes: string | null;
   created_at: string;
   cold_reason: string | null;
+  cold_reason_note: string | null;
   cold_since: string | null;
   next_reactivation_at: string | null;
   inquiry_date: string | null;
@@ -96,7 +98,7 @@ export interface Profile {
   created_at: string;
 }
 
-export type LeadInsert = Omit<Lead, 'id' | 'created_at' | 'cold_reason' | 'cold_since' | 'next_reactivation_at' | 'inquiry_date'> & Partial<Pick<Lead, 'cold_reason' | 'cold_since' | 'next_reactivation_at' | 'inquiry_date'>>;
+export type LeadInsert = Omit<Lead, 'id' | 'created_at' | 'cold_reason' | 'cold_reason_note' | 'cold_since' | 'next_reactivation_at' | 'inquiry_date'> & Partial<Pick<Lead, 'cold_reason' | 'cold_reason_note' | 'cold_since' | 'next_reactivation_at' | 'inquiry_date'>>;
 export type ActivityInsert = Omit<Activity, 'id' | 'created_at' | 'actor_id' | 'actor_name'>;
 
 export type TourStatus =
