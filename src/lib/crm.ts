@@ -5,7 +5,7 @@ import { getCurrentUser } from './auth';
 export type { Lead, LeadInsert, Activity, ActivityInsert, LeadSource, LeadStatus, Tour, TourInsert, TourStatus, TourOutcome, InterestLevel, Campaign, CampaignInsert, CampaignType, CampaignPlatform, SiteVisit, SiteVisitInsert, SiteVisitStatus, LeadBankEntry, LeadBankInsert, LeadBankStatus, Todo, TodoInsert, ColdReason, ReactivationOutcome, ReactivationAttempt, ReactivationAttemptInsert, LeadImport, LeadImportInsert, Profile };
 
 export const SOURCES: LeadSource[] = [
-  'Walk-in', 'Website', 'Referral', 'Call', 'Social Media', 'Other',
+  'Walk-in', 'Website', 'Referral', 'Call', 'Social Media', 'Other', 'Other Organic Sources',
   'Google Ads', 'Meta Ads', 'Instagram', 'Facebook', 'Email Campaign',
   'WhatsApp Campaign', 'Property Expo', 'Corporate Event', 'Golf Championship Event',
 ];
