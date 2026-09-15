@@ -598,6 +598,17 @@ export async function fetchAllSiteVisits(): Promise<SiteVisit[]> {
   return (data ?? []) as SiteVisit[];
 }
 
+// Lightweight cross-lead activity feed for funnel-timing metrics (e.g. speed to first call).
+// Ascending order so the first matching row per lead_id is the earliest occurrence.
+export async function fetchAllActivities(): Promise<Pick<Activity, 'id' | 'lead_id' | 'type' | 'created_at'>[]> {
+  const { data, error } = await supabase
+    .from('activities')
+    .select('id, lead_id, type, created_at')
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as Pick<Activity, 'id' | 'lead_id' | 'type' | 'created_at'>[];
+}
+
 export async function createSiteVisit(input: SiteVisitInsert): Promise<SiteVisit> {
   const { data, error } = await supabase
     .from('site_visits')
