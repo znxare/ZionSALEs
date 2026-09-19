@@ -1,8 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { fetchLeads, fetchCampaigns, fetchProfiles, type Lead, type Campaign, type Profile } from '@/lib/crm';
+import { fetchHospitalityLeads, type HospitalityLead } from '@/lib/hospitality';
 import Dashboard from '@/components/Dashboard';
 import LeadDetail from '@/components/LeadDetail';
 import LeadManagement from '@/components/LeadManagement';
+import HospitalityLeadManagement from '@/components/HospitalityLeadManagement';
+import HospitalityLeadDetail from '@/components/HospitalityLeadDetail';
 import CampaignAnalytics from '@/components/CampaignAnalytics';
 import AddLeadModal from '@/components/AddLeadModal';
 import SearchView from '@/components/SearchView';
@@ -19,7 +22,7 @@ import LeadImport from '@/components/LeadImport';
 import ActivityLog from '@/components/ActivityLog';
 import Login from '@/components/Login';
 import HospitalityComingSoon from '@/components/HospitalityComingSoon';
-import { Users, Landmark, CalendarRange } from 'lucide-react';
+import { Landmark, CalendarRange } from 'lucide-react';
 import { getSession, onAuthChange, type CurrentUser } from '@/lib/auth';
 
 type Route =
@@ -38,6 +41,7 @@ type Route =
   | { name: 'hospitality-leadbank' }
   | { name: 'hospitality-booking' }
   | { name: 'lead'; id: string }
+  | { name: 'hospitality-lead'; id: string }
   | { name: 'search' }
   | { name: 'notfound' };
 
@@ -45,6 +49,7 @@ function parseHash(): Route {
   const h = window.location.hash.replace(/^#\/?/, '');
   if (h === '' || h === '/') return { name: 'dashboard' };
   if (h.startsWith('lead/')) return { name: 'lead', id: h.slice(5) };
+  if (h.startsWith('hospitality-lead/')) return { name: 'hospitality-lead', id: h.slice(17) };
   if (h === 'search') return { name: 'search' };
   if (h === 'leads') return { name: 'leads' };
   if (h === 'leadbank') return { name: 'leadbank' };
@@ -65,6 +70,7 @@ function parseHash(): Route {
 function navigate(route: Route) {
   if (route.name === 'dashboard') window.location.hash = '/';
   else if (route.name === 'lead') window.location.hash = `/lead/${route.id}`;
+  else if (route.name === 'hospitality-lead') window.location.hash = `/hospitality-lead/${route.id}`;
   else if (route.name === 'search') window.location.hash = '/search';
   else if (route.name === 'leads') window.location.hash = '/leads';
   else if (route.name === 'leadbank') window.location.hash = '/leadbank';
@@ -88,6 +94,7 @@ export default function App() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [hospitalityLeads, setHospitalityLeads] = useState<HospitalityLead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -105,6 +112,15 @@ export default function App() {
       setError(e instanceof Error ? e.message : 'Failed to load data');
     } finally {
       setLoading(false);
+    }
+
+    // Fetched separately so a missing/unmigrated hospitality_leads table
+    // (or any other hospitality-side failure) can never block Real Estate
+    // data from loading — the two divisions stay fully independent.
+    try {
+      setHospitalityLeads(await fetchHospitalityLeads());
+    } catch {
+      setHospitalityLeads([]);
     }
   }, []);
 
@@ -158,7 +174,8 @@ export default function App() {
     route.name === 'hospitality-leads' ? 'hospitality-leads' :
     route.name === 'hospitality-leadbank' ? 'hospitality-leadbank' :
     route.name === 'hospitality-booking' ? 'hospitality-booking' :
-    route.name === 'lead' ? 'leads' : 'dashboard';
+    route.name === 'lead' ? 'leads' :
+    route.name === 'hospitality-lead' ? 'hospitality-leads' : 'dashboard';
 
   if (!authChecked) {
     return (
@@ -264,10 +281,21 @@ export default function App() {
           {route.name === 'inventory' && <LiveInventoryBoard />}
 
           {route.name === 'hospitality-leads' && (
-            <HospitalityComingSoon
-              icon={Users}
-              title="Hospitality All Leads"
-              description="Getaway and corporate booking leads will show up here once the Hospitality lead pipeline is built."
+            <HospitalityLeadManagement
+              leads={hospitalityLeads}
+              profiles={profiles}
+              onOpenLead={(id) => go({ name: 'hospitality-lead', id })}
+              onChanged={load}
+            />
+          )}
+
+          {route.name === 'hospitality-lead' && (
+            <HospitalityLeadDetail
+              id={route.id}
+              leads={hospitalityLeads}
+              profiles={profiles}
+              onBack={() => go({ name: 'hospitality-leads' })}
+              onChanged={load}
             />
           )}
 
