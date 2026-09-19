@@ -114,6 +114,7 @@ export default function Dashboard({ leads, campaigns, loading, onOpenLead, onAdd
   const [reactAttempts, setReactAttempts] = useState<ReactivationAttempt[]>([]);
   const [activities, setActivities] = useState<Pick<Activity, 'id' | 'lead_id' | 'type' | 'created_at'>[]>([]);
   const [popupType, setPopupType] = useState<'today' | 'overdue' | null>(null);
+  const [division, setDivision] = useState<'all' | 'realestate' | 'hospitality'>('all');
   const quote = useMemo(() => quoteOfTheDay(), []);
 
   useEffect(() => {
@@ -244,36 +245,68 @@ export default function Dashboard({ leads, campaigns, loading, onOpenLead, onAdd
       >
         <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium text-orange-100/80">{greeting}, sales team.</p>
+            <p className="text-sm font-medium text-orange-100/80">
+              {division === 'hospitality' ? 'Hospitality Division' : greeting + ', sales team.'}
+            </p>
             <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-              {totalAttention > 0
-                ? totalAttention + ' follow-up' + (totalAttention === 1 ? '' : 's') + ' need your attention'
-                : 'You are all caught up'}
+              {division === 'hospitality'
+                ? 'Hospitality module coming soon'
+                : totalAttention > 0
+                  ? totalAttention + ' follow-up' + (totalAttention === 1 ? '' : 's') + ' need your attention'
+                  : 'You are all caught up'}
             </h1>
             <p className="mt-1 text-sm text-orange-100/70">
-              {totalAttention > 0 ? 'Here is your priority work for today.' : 'No pending follow-ups. Add a new lead to get started.'}
+              {division === 'hospitality'
+                ? 'Guest stays, service apartments & experience sales — tracking is being built.'
+                : totalAttention > 0 ? 'Here is your priority work for today.' : 'No pending follow-ups. Add a new lead to get started.'}
             </p>
-            {/* Priority breakdown chips on the ribbon */}
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm">
-                <span className="h-1.5 w-1.5 rounded-full bg-red-300" />
-                {stats.overdue.length} Overdue
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm">
-                <Flame className="h-3 w-3" />
-                {stats.hot.length} Hot
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-300" />
-                {stats.warm.length} Warm
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm">
-                <Snowflake className="h-3 w-3" />
-                {stats.cold.length} Cold
-              </span>
+
+            {/* Division switcher — UI-only for now, does not filter data */}
+            <div className="mt-3 flex items-center gap-1 self-start rounded-full bg-white/10 p-1 ring-1 ring-white/20 backdrop-blur-sm">
+              {([
+                { id: 'all' as const, label: 'All CRM' },
+                { id: 'realestate' as const, label: 'Real Estate' },
+                { id: 'hospitality' as const, label: 'Hospitality' },
+              ]).map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setDivision(tab.id)}
+                  className={'rounded-full px-3 py-1.5 text-[12px] font-semibold transition ' + (division === tab.id ? 'bg-white text-orange-700 shadow-sm' : 'text-orange-100/80 hover:text-white')}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
+
+            {/* Priority breakdown chips on the ribbon */}
+            {division === 'hospitality' ? (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm">
+                  Coming soon
+                </span>
+              </div>
+            ) : (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm">
+                  <span className="h-1.5 w-1.5 rounded-full bg-red-300" />
+                  {stats.overdue.length} Overdue
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm">
+                  <Flame className="h-3 w-3" />
+                  {stats.hot.length} Hot
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-300" />
+                  {stats.warm.length} Warm
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm">
+                  <Snowflake className="h-3 w-3" />
+                  {stats.cold.length} Cold
+                </span>
+              </div>
+            )}
           </div>
-          {totalAttention > 0 && (
+          {totalAttention > 0 && division !== 'hospitality' && (
             <button
               onClick={() => setPopupType(stats.overdue.length > 0 ? 'overdue' : 'today')}
               className="group inline-flex items-center gap-2 self-start rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-orange-700 shadow-md transition hover:bg-orange-50 sm:self-auto"

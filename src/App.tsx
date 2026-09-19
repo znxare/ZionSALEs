@@ -8,7 +8,7 @@ import AddLeadModal from '@/components/AddLeadModal';
 import SearchView from '@/components/SearchView';
 import Fab from '@/components/Fab';
 import TopBar from '@/components/TopBar';
-import Sidebar from '@/components/Sidebar';
+import Sidebar, { type NavId } from '@/components/Sidebar';
 import SiteVisits from '@/components/SiteVisits';
 import LeadBank from '@/components/LeadBank';
 import DayPlanner from '@/components/DayPlanner';
@@ -18,6 +18,8 @@ import LiveInventoryBoard from '@/components/LiveInventoryBoard';
 import LeadImport from '@/components/LeadImport';
 import ActivityLog from '@/components/ActivityLog';
 import Login from '@/components/Login';
+import HospitalityComingSoon from '@/components/HospitalityComingSoon';
+import { Users, Landmark, CalendarRange } from 'lucide-react';
 import { getSession, onAuthChange, type CurrentUser } from '@/lib/auth';
 
 type Route =
@@ -32,6 +34,9 @@ type Route =
   | { name: 'battlecard' }
   | { name: 'activitylog' }
   | { name: 'inventory' }
+  | { name: 'hospitality-leads' }
+  | { name: 'hospitality-leadbank' }
+  | { name: 'hospitality-booking' }
   | { name: 'lead'; id: string }
   | { name: 'search' }
   | { name: 'notfound' };
@@ -51,6 +56,9 @@ function parseHash(): Route {
   if (h === 'battlecard') return { name: 'battlecard' };
   if (h === 'activitylog') return { name: 'activitylog' };
   if (h === 'inventory') return { name: 'inventory' };
+  if (h === 'hospitality-leads') return { name: 'hospitality-leads' };
+  if (h === 'hospitality-leadbank') return { name: 'hospitality-leadbank' };
+  if (h === 'hospitality-booking') return { name: 'hospitality-booking' };
   return { name: 'notfound' };
 }
 
@@ -68,6 +76,9 @@ function navigate(route: Route) {
   else if (route.name === 'battlecard') window.location.hash = '/battlecard';
   else if (route.name === 'activitylog') window.location.hash = '/activitylog';
   else if (route.name === 'inventory') window.location.hash = '/inventory';
+  else if (route.name === 'hospitality-leads') window.location.hash = '/hospitality-leads';
+  else if (route.name === 'hospitality-leadbank') window.location.hash = '/hospitality-leadbank';
+  else if (route.name === 'hospitality-booking') window.location.hash = '/hospitality-booking';
 }
 
 export default function App() {
@@ -133,7 +144,7 @@ export default function App() {
 
   const go = useCallback((r: Route) => navigate(r), []);
 
-  const sidebarCurrent: 'dashboard' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner' | 'reactivation' | 'battlecard' | 'activitylog' | 'inventory' =
+  const sidebarCurrent: NavId =
     route.name === 'leads' ? 'leads' :
     route.name === 'leadbank' ? 'leadbank' :
     route.name === 'import' ? 'import' :
@@ -144,6 +155,9 @@ export default function App() {
     route.name === 'battlecard' ? 'battlecard' :
     route.name === 'activitylog' ? 'activitylog' :
     route.name === 'inventory' ? 'inventory' :
+    route.name === 'hospitality-leads' ? 'hospitality-leads' :
+    route.name === 'hospitality-leadbank' ? 'hospitality-leadbank' :
+    route.name === 'hospitality-booking' ? 'hospitality-booking' :
     route.name === 'lead' ? 'leads' : 'dashboard';
 
   if (!authChecked) {
@@ -248,6 +262,30 @@ export default function App() {
           {route.name === 'battlecard' && <SalesBattleCard />}
 
           {route.name === 'inventory' && <LiveInventoryBoard />}
+
+          {route.name === 'hospitality-leads' && (
+            <HospitalityComingSoon
+              icon={Users}
+              title="Hospitality All Leads"
+              description="Getaway and corporate booking leads will show up here once the Hospitality lead pipeline is built."
+            />
+          )}
+
+          {route.name === 'hospitality-leadbank' && (
+            <HospitalityComingSoon
+              icon={Landmark}
+              title="Hospitality Lead Bank"
+              description="Raw hospitality enquiries will sit here until someone qualifies them into a lead, mirroring the Real Estate Lead Bank."
+            />
+          )}
+
+          {route.name === 'hospitality-booking' && (
+            <HospitalityComingSoon
+              icon={CalendarRange}
+              title="Booking Timeline"
+              description="A calendar of confirmed getaway stays and corporate bookings — coming once the Hospitality module is built."
+            />
+          )}
 
           {route.name === 'activitylog' && (
             <ActivityLog onOpenLead={(id) => go({ name: 'lead', id })} />
