@@ -5,22 +5,28 @@ import {
   Phone, MessageCircle, X, ChevronRight, Zap, Quote as QuoteIcon,
 } from 'lucide-react';
 import type { Lead, Campaign, SiteVisit, ReactivationAttempt, Activity } from '@/lib/supabase';
+import type { HospitalityLead } from '@/lib/hospitality';
 import { isToday, isOverdue, isThisMonth, relativeDay, formatTime, fetchAllSiteVisits, fetchAllReactivationAttempts, fetchAllActivities } from '@/lib/crm';
 import { statusStyles } from '@/lib/styles';
 import { quoteOfTheDay } from '@/lib/quotes';
 
+/** The two lead shapes share every field the Dashboard reads except `site_visit_at` and `campaign_id`, which are Real Estate-only. */
+type AnyLead = Lead | HospitalityLead;
+
 interface Props {
   leads: Lead[];
+  hospitalityLeads: HospitalityLead[];
   campaigns: Campaign[];
   loading: boolean;
   onOpenLead: (id: string) => void;
+  onOpenHospitalityLead: (id: string) => void;
   onAdd: () => void;
   onRefresh?: () => Promise<void>;
 }
 
 function FollowUpPopup({ type, leads, onClose, onOpenLead }: {
   type: 'today' | 'overdue';
-  leads: Lead[];
+  leads: AnyLead[];
   onClose: () => void;
   onOpenLead: (id: string) => void;
 }) {
@@ -105,18 +111,22 @@ function formatCallDelay(hours: number): string {
   return Math.round(hours / 24) + 'd';
 }
 
-function isTodayActivity(l: Lead): boolean {
+function isTodayActivity(l: AnyLead): boolean {
   if (!l.last_activity_at) return false;
   return isToday(l.last_activity_at);
 }
 
-export default function Dashboard({ leads, campaigns, loading, onOpenLead, onAdd }: Props) {
+export default function Dashboard({ leads, hospitalityLeads, campaigns, loading, onOpenLead, onOpenHospitalityLead, onAdd }: Props) {
   const [visits, setVisits] = useState<SiteVisit[]>([]);
   const [reactAttempts, setReactAttempts] = useState<ReactivationAttempt[]>([]);
   const [activities, setActivities] = useState<Pick<Activity, 'id' | 'lead_id' | 'type' | 'created_at'>[]>([]);
   const [popupType, setPopupType] = useState<'today' | 'overdue' | null>(null);
   const [division, setDivision] = useState<'all' | 'realestate' | 'hospitality'>('all');
   const quote = useMemo(() => quoteOfTheDay(), []);
+
+  const isHospitality = division === 'hospitality';
+  const activeLeads: AnyLead[] = isHospitality ? hospitalityLeads : leads;
+  const openLead = isHospitality ? onOpenHospitalityLead : onOpenLead;
 
   useEffect(() => {
     fetchAllSiteVisits().then(setVisits).catch(() => {});
@@ -137,27 +147,28 @@ export default function Dashboard({ leads, campaigns, loading, onOpenLead, onAdd
   }, [leads, reactAttempts]);
 
   const stats = useMemo(() => {
-    const today = leads.filter((l) => isToday(l.next_followup_at) && l.status !== 'Dead' && l.status !== 'Junk' && !l.booked_at && !isTodayActivity(l));
-    const overdue = leads.filter((l) => isOverdue(l.next_followup_at) && !isToday(l.next_followup_at) && l.status !== 'Dead' && l.status !== 'Junk' && !l.booked_at && !isTodayActivity(l));
-    const hot = leads.filter((l) => l.status === 'Hot');
-    const warm = leads.filter((l) => l.status === 'Warm');
-    const cold = leads.filter((l) => l.status === 'Cold');
-    const siteVisitsToday = visits.filter((v) => isToday(v.scheduled_at));
-    const nextVisit = visits
+    const today = activeLeads.filter((l) => isToday(l.next_followup_at) && l.status !== 'Dead' && l.status !== 'Junk' && !l.booked_at && !isTodayActivity(l));
+    const overdue = activeLeads.filter((l) => isOverdue(l.next_followup_at) && !isToday(l.next_followup_at) && l.status !== 'Dead' && l.status !== 'Junk' && !l.booked_at && !isTodayActivity(l));
+    const hot = activeLeads.filter((l) => l.status === 'Hot');
+    const warm = activeLeads.filter((l) => l.status === 'Warm');
+    const cold = activeLeads.filter((l) => l.status === 'Cold');
+    // Site visits are a Real Estate-only concept — hospitality stays/bookings have no linked visits table.
+    const siteVisitsToday = isHospitality ? [] : visits.filter((v) => isToday(v.scheduled_at));
+    const nextVisit = isHospitality ? undefined : visits
       .filter((v) => new Date(v.scheduled_at) >= new Date())
       .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())[0];
-    const bookings = leads.filter((l) => l.booked_at && isThisMonth(l.booked_at));
-    const newToday = leads.filter((l) => isToday(l.created_at));
+    const bookings = activeLeads.filter((l) => l.booked_at && isThisMonth(l.booked_at));
+    const newToday = activeLeads.filter((l) => isToday(l.created_at));
     return { today, overdue, hot, warm, cold, siteVisitsToday, nextVisit, bookings, newToday };
-  }, [leads, visits]);
+  }, [activeLeads, visits, isHospitality]);
 
   const closeStats = useMemo(() => {
-    const sold = leads.filter((l) => !!l.booked_at);
+    const sold = activeLeads.filter((l) => !!l.booked_at);
     if (sold.length === 0) return { avg: 0, fastest: 0, longest: 0 };
     const daysArr = sold.map((l) => Math.max(0, Math.round((new Date(l.booked_at!).getTime() - new Date(l.created_at).getTime()) / 86400000)));
     const totalDays = daysArr.reduce((sum, d) => sum + d, 0);
     return { avg: Math.round(totalDays / sold.length), fastest: Math.min(...daysArr), longest: Math.max(...daysArr) };
-  }, [leads]);
+  }, [activeLeads]);
 
   const avgTimeToCall = useMemo(() => {
     const firstContactByLead = new Map<string, string>();
@@ -166,24 +177,31 @@ export default function Dashboard({ leads, campaigns, loading, onOpenLead, onAdd
         firstContactByLead.set(a.lead_id, a.created_at);
       }
     });
-    const hoursArr = leads
+    // `activities` is the Real Estate activity log, so this naturally yields count:0 for hospitality leads (no id overlap).
+    const hoursArr = activeLeads
       .filter((l) => firstContactByLead.has(l.id))
       .map((l) => Math.max(0, (new Date(firstContactByLead.get(l.id)!).getTime() - new Date(l.created_at).getTime()) / 3600000));
     if (hoursArr.length === 0) return { avgHours: 0, count: 0 };
     return { avgHours: hoursArr.reduce((sum, h) => sum + h, 0) / hoursArr.length, count: hoursArr.length };
-  }, [leads, activities]);
+  }, [activeLeads, activities]);
 
   const avgVisitsBeforeSale = useMemo(() => {
+    if (isHospitality) return { avg: '0', closedCount: 0, totalVisits: 0 };
     const soldLeadIds = new Set(leads.filter((l) => !!l.booked_at).map((l) => l.id));
     if (soldLeadIds.size === 0) return { avg: '0', closedCount: 0, totalVisits: 0 };
     const soldVisits = visits.filter((v) => soldLeadIds.has(v.lead_id));
     return { avg: (soldVisits.length / soldLeadIds.size).toFixed(1), closedCount: soldLeadIds.size, totalVisits: soldVisits.length };
-  }, [leads, visits]);
+  }, [leads, visits, isHospitality]);
 
   const execMetrics = useMemo(() => {
-    const totalLeads = leads.length;
-    const totalSales = leads.filter((l) => !!l.booked_at).length;
+    const totalLeads = activeLeads.length;
+    const totalSales = activeLeads.filter((l) => !!l.booked_at).length;
     const leadToSaleRate = totalLeads > 0 ? Math.round((totalSales / totalLeads) * 100) : 0;
+
+    // Campaigns only attach to Real Estate leads.
+    if (isHospitality) {
+      return { totalLeads, totalSales, leadToSaleRate, bestCampaign: '-', avgCampaignRate: 0, bestRate: 0 };
+    }
 
     const campaignsWithLeads = campaigns.filter((c) => leads.some((l) => l.campaign_id === c.id));
     let bestCampaign = '-';
@@ -203,10 +221,10 @@ export default function Dashboard({ leads, campaigns, loading, onOpenLead, onAdd
       : 0;
 
     return { totalLeads, totalSales, leadToSaleRate, bestCampaign, avgCampaignRate, bestRate };
-  }, [leads, campaigns]);
+  }, [activeLeads, leads, campaigns, isHospitality]);
 
   const priorityList = useMemo(() => {
-    const active = leads.filter((l) => l.status !== 'Dead' && l.status !== 'Junk' && !l.booked_at);
+    const active = activeLeads.filter((l) => l.status !== 'Dead' && l.status !== 'Junk' && !l.booked_at);
     return active.sort((a, b) => {
       const ao = isOverdue(a.next_followup_at) ? 0 : 1;
       const bo = isOverdue(b.next_followup_at) ? 0 : 1;
@@ -217,7 +235,7 @@ export default function Dashboard({ leads, campaigns, loading, onOpenLead, onAdd
       if (ap !== bp) return ap - bp;
       return new Date(a.next_followup_at ?? 0).getTime() - new Date(b.next_followup_at ?? 0).getTime();
     }).slice(0, 8);
-  }, [leads]);
+  }, [activeLeads]);
 
   if (loading) {
     return (
@@ -247,22 +265,18 @@ export default function Dashboard({ leads, campaigns, loading, onOpenLead, onAdd
         <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-1">
             <p className="text-sm font-medium text-orange-100/80">
-              {division === 'hospitality' ? 'Hospitality Division' : greeting + ', sales team.'}
+              {isHospitality ? 'Hospitality Division — guest stays, service apartments & experience sales' : greeting + ', sales team.'}
             </p>
             <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-              {division === 'hospitality'
-                ? 'Hospitality module coming soon'
-                : totalAttention > 0
-                  ? totalAttention + ' follow-up' + (totalAttention === 1 ? '' : 's') + ' need your attention'
-                  : 'You are all caught up'}
+              {totalAttention > 0
+                ? totalAttention + ' follow-up' + (totalAttention === 1 ? '' : 's') + ' need your attention'
+                : 'You are all caught up'}
             </h1>
             <p className="mt-1 text-sm text-orange-100/70">
-              {division === 'hospitality'
-                ? 'Guest stays, service apartments & experience sales — tracking is being built.'
-                : totalAttention > 0 ? 'Here is your priority work for today.' : 'No pending follow-ups. Add a new lead to get started.'}
+              {totalAttention > 0 ? 'Here is your priority work for today.' : 'No pending follow-ups. Add a new lead to get started.'}
             </p>
 
-            {/* Division switcher — UI-only for now, does not filter data */}
+            {/* Division switcher — filters every stat and list on this page */}
             <div className="mt-3 flex items-center gap-1 self-start rounded-full bg-white/10 p-1 ring-1 ring-white/20 backdrop-blur-sm">
               {([
                 { id: 'all' as const, label: 'All CRM' },
@@ -280,34 +294,26 @@ export default function Dashboard({ leads, campaigns, loading, onOpenLead, onAdd
             </div>
 
             {/* Priority breakdown chips on the ribbon */}
-            {division === 'hospitality' ? (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm">
-                  Coming soon
-                </span>
-              </div>
-            ) : (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm">
-                  <span className="h-1.5 w-1.5 rounded-full bg-red-300" />
-                  {stats.overdue.length} Overdue
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm">
-                  <Flame className="h-3 w-3" />
-                  {stats.hot.length} Hot
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm">
-                  <span className="h-1.5 w-1.5 rounded-full bg-amber-300" />
-                  {stats.warm.length} Warm
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm">
-                  <Snowflake className="h-3 w-3" />
-                  {stats.cold.length} Cold
-                </span>
-              </div>
-            )}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm">
+                <span className="h-1.5 w-1.5 rounded-full bg-red-300" />
+                {stats.overdue.length} Overdue
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm">
+                <Flame className="h-3 w-3" />
+                {stats.hot.length} Hot
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-300" />
+                {stats.warm.length} Warm
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm">
+                <Snowflake className="h-3 w-3" />
+                {stats.cold.length} Cold
+              </span>
+            </div>
           </div>
-          {totalAttention > 0 && division !== 'hospitality' && (
+          {totalAttention > 0 && (
             <button
               onClick={() => setPopupType(stats.overdue.length > 0 ? 'overdue' : 'today')}
               className="group inline-flex items-center gap-2 self-start rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-orange-700 shadow-md transition hover:bg-orange-50 sm:self-auto"
@@ -370,22 +376,34 @@ export default function Dashboard({ leads, campaigns, loading, onOpenLead, onAdd
           <div className="mt-3 text-[13px] font-medium text-gray-600">Hot Leads</div>
         </div>
 
-        {/* Site visits — blue/scheduled */}
-        <div className="rounded-2xl border border-blue-200/60 bg-gradient-to-br from-blue-50/60 to-white p-4 card-shadow transition hover:shadow-md hover:border-blue-300/60">
-          <div className="flex items-center justify-between">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-100 text-blue-600 shadow-sm">
-              <MapPin className="h-5 w-5" />
+        {/* 4th slot — Site visits for Real Estate, Cold leads for Hospitality (no site-visit concept there) */}
+        {isHospitality ? (
+          <div className="rounded-2xl border border-sky-200/60 bg-gradient-to-br from-sky-50/60 to-white p-4 card-shadow transition hover:shadow-md hover:border-sky-300/60">
+            <div className="flex items-center justify-between">
+              <div className="grid h-10 w-10 place-items-center rounded-xl bg-sky-100 text-sky-600 shadow-sm">
+                <Snowflake className="h-5 w-5" />
+              </div>
+              <span className="font-display text-2xl font-bold tracking-tight text-gray-900">{stats.cold.length}</span>
             </div>
-            <span className="font-display text-2xl font-bold tracking-tight text-gray-900">{stats.siteVisitsToday.length}</span>
+            <div className="mt-3 text-[13px] font-medium text-gray-600">Cold Leads</div>
           </div>
-          <div className="mt-3 text-[13px] font-medium text-gray-600">
-            {stats.siteVisitsToday.length > 0
-              ? 'Site Visits Today'
-              : stats.nextVisit
-                ? 'Next: ' + relativeDay(stats.nextVisit.scheduled_at)
-                : 'No Visits Scheduled'}
+        ) : (
+          <div className="rounded-2xl border border-blue-200/60 bg-gradient-to-br from-blue-50/60 to-white p-4 card-shadow transition hover:shadow-md hover:border-blue-300/60">
+            <div className="flex items-center justify-between">
+              <div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-100 text-blue-600 shadow-sm">
+                <MapPin className="h-5 w-5" />
+              </div>
+              <span className="font-display text-2xl font-bold tracking-tight text-gray-900">{stats.siteVisitsToday.length}</span>
+            </div>
+            <div className="mt-3 text-[13px] font-medium text-gray-600">
+              {stats.siteVisitsToday.length > 0
+                ? 'Site Visits Today'
+                : stats.nextVisit
+                  ? 'Next: ' + relativeDay(stats.nextVisit.scheduled_at)
+                  : 'No Visits Scheduled'}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Secondary KPI row — smaller, less prominent */}
@@ -412,17 +430,31 @@ export default function Dashboard({ leads, campaigns, loading, onOpenLead, onAdd
             </div>
           </div>
         </div>
-        <div className="rounded-xl border border-sky-200/50 bg-gradient-to-br from-sky-50/50 to-white p-3.5 card-shadow transition hover:shadow-md">
-          <div className="flex items-center gap-2">
-            <div className="grid h-8 w-8 place-items-center rounded-lg bg-sky-100 text-sky-600 shadow-sm">
-              <Snowflake className="h-4 w-4" />
-            </div>
-            <div>
-              <div className="font-display text-lg font-bold text-gray-900">{reactivationStats.dueToday + reactivationStats.overdue}</div>
-              <div className="text-[11px] font-medium text-gray-500">Reactivations Due</div>
+        {isHospitality ? (
+          <div className="rounded-xl border border-amber-200/50 bg-gradient-to-br from-amber-50/50 to-white p-3.5 card-shadow transition hover:shadow-md">
+            <div className="flex items-center gap-2">
+              <div className="grid h-8 w-8 place-items-center rounded-lg bg-amber-100 text-amber-600 shadow-sm">
+                <Flame className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="font-display text-lg font-bold text-gray-900">{stats.warm.length}</div>
+                <div className="text-[11px] font-medium text-gray-500">Warm Leads</div>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="rounded-xl border border-sky-200/50 bg-gradient-to-br from-sky-50/50 to-white p-3.5 card-shadow transition hover:shadow-md">
+            <div className="flex items-center gap-2">
+              <div className="grid h-8 w-8 place-items-center rounded-lg bg-sky-100 text-sky-600 shadow-sm">
+                <Snowflake className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="font-display text-lg font-bold text-gray-900">{reactivationStats.dueToday + reactivationStats.overdue}</div>
+                <div className="text-[11px] font-medium text-gray-500">Reactivations Due</div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Priority leads — action list with quick call/WhatsApp */}
@@ -442,12 +474,21 @@ export default function Dashboard({ leads, campaigns, loading, onOpenLead, onAdd
         {priorityList.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-10 text-center">
             <p className="text-sm font-medium text-gray-500">No active follow-ups right now.</p>
-            <button
-              onClick={onAdd}
-              className="mt-3 inline-flex items-center gap-1.5 rounded-full brand-gradient px-4 py-2 text-sm font-semibold text-white"
-            >
-              <UserPlus className="h-4 w-4" /> Add your first lead
-            </button>
+            {isHospitality ? (
+              <a
+                href="#/hospitality-leads"
+                className="mt-3 inline-flex items-center gap-1.5 rounded-full brand-gradient px-4 py-2 text-sm font-semibold text-white"
+              >
+                <UserPlus className="h-4 w-4" /> Go to Hospitality Leads
+              </a>
+            ) : (
+              <button
+                onClick={onAdd}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-full brand-gradient px-4 py-2 text-sm font-semibold text-white"
+              >
+                <UserPlus className="h-4 w-4" /> Add your first lead
+              </button>
+            )}
           </div>
         ) : (
           <div className="overflow-hidden rounded-2xl border border-gray-200/60 surface-warm card-shadow">
@@ -463,7 +504,7 @@ export default function Dashboard({ leads, campaigns, loading, onOpenLead, onAdd
                   className={'group flex w-full items-center gap-3 px-4 py-3.5 transition hover:bg-gray-50/60 ' + (i !== 0 ? 'border-t border-gray-100' : '')}
                 >
                   <span className={'h-8 w-1 shrink-0 rounded-full ' + accentBar} />
-                  <button onClick={() => onOpenLead(lead.id)} className="min-w-0 flex-1 text-left">
+                  <button onClick={() => openLead(lead.id)} className="min-w-0 flex-1 text-left">
                     <div className="flex items-center gap-2">
                       <span className="truncate font-semibold text-gray-900">{lead.name}</span>
                       <span className={'hidden shrink-0 rounded-full ' + ss.bg + ' ' + ss.text + ' px-2 py-0.5 text-[11px] font-medium ring-1 ' + ss.ring + ' sm:inline'}>
@@ -475,7 +516,7 @@ export default function Dashboard({ leads, campaigns, loading, onOpenLead, onAdd
                         <span className={'h-1.5 w-1.5 rounded-full ' + ss.dot} />
                         {overdue ? relativeDay(lead.next_followup_at) : today ? 'Today, ' + formatTime(lead.next_followup_at) : relativeDay(lead.next_followup_at)}
                       </span>
-                      {lead.site_visit_at && isToday(lead.site_visit_at) && (
+                      {'site_visit_at' in lead && lead.site_visit_at && isToday(lead.site_visit_at) && (
                         <span className="inline-flex items-center gap-1 text-blue-600">
                           <MapPin className="h-3 w-3" /> Site visit today
                         </span>
@@ -490,7 +531,7 @@ export default function Dashboard({ leads, campaigns, loading, onOpenLead, onAdd
                     <a href={'https://wa.me/' + lead.phone.replace(/\D/g, '')} target="_blank" rel="noreferrer" title="WhatsApp" className="grid h-8 w-8 place-items-center rounded-full bg-green-50 text-green-600 transition hover:bg-green-100">
                       <MessageCircle className="h-3.5 w-3.5" />
                     </a>
-                    <button onClick={() => onOpenLead(lead.id)} className="grid h-8 w-8 place-items-center rounded-full bg-gray-50 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600">
+                    <button onClick={() => openLead(lead.id)} className="grid h-8 w-8 place-items-center rounded-full bg-gray-50 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600">
                       <ArrowRight className="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -502,14 +543,14 @@ export default function Dashboard({ leads, campaigns, loading, onOpenLead, onAdd
       </div>
 
       {/* Performance + Reactivation — combined section */}
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className={'grid gap-4 ' + (isHospitality ? '' : 'lg:grid-cols-2')}>
         {/* Sales performance */}
         <div className="rounded-2xl border border-gray-200/60 surface-warm p-5 card-shadow">
           <div className="mb-4 flex items-center gap-2">
             <div className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-100 text-emerald-600 shadow-sm">
               <TrendingUp className="h-4 w-4" />
             </div>
-            <h3 className="font-display text-base font-bold tracking-tight text-gray-900">Sales Performance</h3>
+            <h3 className="font-display text-base font-bold tracking-tight text-gray-900">{isHospitality ? 'Hospitality Performance' : 'Sales Performance'}</h3>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <div>
@@ -518,28 +559,32 @@ export default function Dashboard({ leads, campaigns, loading, onOpenLead, onAdd
             </div>
             <div>
               <div className="font-display text-xl font-bold text-emerald-600">{execMetrics.totalSales}</div>
-              <div className="text-[11px] font-medium text-gray-400">Total Sales</div>
+              <div className="text-[11px] font-medium text-gray-400">{isHospitality ? 'Total Bookings' : 'Total Sales'}</div>
             </div>
             <div>
               <div className="font-display text-xl font-bold text-gray-900">{execMetrics.leadToSaleRate}%</div>
-              <div className="text-[11px] font-medium text-gray-400">Lead-to-Sale Rate</div>
+              <div className="text-[11px] font-medium text-gray-400">{isHospitality ? 'Lead-to-Booking Rate' : 'Lead-to-Sale Rate'}</div>
             </div>
             <div>
               <div className="font-display text-xl font-bold text-gray-900">{avgTimeToCall.count > 0 ? formatCallDelay(avgTimeToCall.avgHours) : '—'}</div>
               <div className="text-[11px] font-medium text-gray-400">Avg Time to Call</div>
             </div>
-            <div>
-              <div className="font-display text-xl font-bold text-gray-900">{avgVisitsBeforeSale.avg}</div>
-              <div className="text-[11px] font-medium text-gray-400">Avg Visits / Sale</div>
-            </div>
+            {!isHospitality && (
+              <div>
+                <div className="font-display text-xl font-bold text-gray-900">{avgVisitsBeforeSale.avg}</div>
+                <div className="text-[11px] font-medium text-gray-400">Avg Visits / Sale</div>
+              </div>
+            )}
             <div>
               <div className="font-display text-xl font-bold text-gray-900">{closeStats.avg > 0 ? closeStats.avg + 'd' : '—'}</div>
               <div className="text-[11px] font-medium text-gray-400">Avg Time to Close</div>
             </div>
-            <div>
-              <div className="font-display text-xl font-bold text-gray-900">{execMetrics.avgCampaignRate}%</div>
-              <div className="text-[11px] font-medium text-gray-400">Campaign Conv. Rate</div>
-            </div>
+            {!isHospitality && (
+              <div>
+                <div className="font-display text-xl font-bold text-gray-900">{execMetrics.avgCampaignRate}%</div>
+                <div className="text-[11px] font-medium text-gray-400">Campaign Conv. Rate</div>
+              </div>
+            )}
           </div>
           {execMetrics.bestCampaign !== '-' && (
             <div className="mt-4 flex items-center gap-2 rounded-xl bg-purple-50/60 px-3 py-2 ring-1 ring-purple-200/50">
@@ -549,38 +594,40 @@ export default function Dashboard({ leads, campaigns, loading, onOpenLead, onAdd
           )}
         </div>
 
-        {/* Lead Reactivation */}
-        <div className="rounded-2xl border border-sky-200/50 bg-gradient-to-br from-sky-50/40 to-white p-5 card-shadow">
-          <div className="mb-4 flex items-center gap-2">
-            <div className="grid h-8 w-8 place-items-center rounded-lg bg-sky-100 text-sky-600 shadow-sm">
-              <Snowflake className="h-4 w-4" />
+        {/* Lead Reactivation — Real Estate only (hospitality leads have no reactivation tracking yet) */}
+        {!isHospitality && (
+          <div className="rounded-2xl border border-sky-200/50 bg-gradient-to-br from-sky-50/40 to-white p-5 card-shadow">
+            <div className="mb-4 flex items-center gap-2">
+              <div className="grid h-8 w-8 place-items-center rounded-lg bg-sky-100 text-sky-600 shadow-sm">
+                <Snowflake className="h-4 w-4" />
+              </div>
+              <h3 className="font-display text-base font-bold tracking-tight text-gray-900">Lead Reactivation</h3>
+              <a href="#/reactivation" className="ml-auto text-[12px] font-semibold text-orange-600 hover:text-orange-700">View all →</a>
             </div>
-            <h3 className="font-display text-base font-bold tracking-tight text-gray-900">Lead Reactivation</h3>
-            <a href="#/reactivation" className="ml-auto text-[12px] font-semibold text-orange-600 hover:text-orange-700">View all →</a>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <div>
+                <div className="font-display text-xl font-bold text-sky-600">{reactivationStats.coldCount}</div>
+                <div className="text-[11px] font-medium text-gray-400">Cold Leads</div>
+              </div>
+              <div>
+                <div className="font-display text-xl font-bold text-orange-600">{reactivationStats.dueToday}</div>
+                <div className="text-[11px] font-medium text-gray-400">Due Today</div>
+              </div>
+              <div>
+                <div className="font-display text-xl font-bold text-red-600">{reactivationStats.overdue}</div>
+                <div className="text-[11px] font-medium text-gray-400">Overdue</div>
+              </div>
+              <div>
+                <div className="font-display text-xl font-bold text-emerald-600">{reactivationStats.reactivatedThisMonth}</div>
+                <div className="text-[11px] font-medium text-gray-400">Reactivated (Month)</div>
+              </div>
+              <div>
+                <div className="font-display text-xl font-bold text-amber-600">{reactivationStats.salesFromReactivation}</div>
+                <div className="text-[11px] font-medium text-gray-400">Sales from Reactivation</div>
+              </div>
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <div>
-              <div className="font-display text-xl font-bold text-sky-600">{reactivationStats.coldCount}</div>
-              <div className="text-[11px] font-medium text-gray-400">Cold Leads</div>
-            </div>
-            <div>
-              <div className="font-display text-xl font-bold text-orange-600">{reactivationStats.dueToday}</div>
-              <div className="text-[11px] font-medium text-gray-400">Due Today</div>
-            </div>
-            <div>
-              <div className="font-display text-xl font-bold text-red-600">{reactivationStats.overdue}</div>
-              <div className="text-[11px] font-medium text-gray-400">Overdue</div>
-            </div>
-            <div>
-              <div className="font-display text-xl font-bold text-emerald-600">{reactivationStats.reactivatedThisMonth}</div>
-              <div className="text-[11px] font-medium text-gray-400">Reactivated (Month)</div>
-            </div>
-            <div>
-              <div className="font-display text-xl font-bold text-amber-600">{reactivationStats.salesFromReactivation}</div>
-              <div className="text-[11px] font-medium text-gray-400">Sales from Reactivation</div>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Follow-up popup */}
@@ -589,7 +636,7 @@ export default function Dashboard({ leads, campaigns, loading, onOpenLead, onAdd
           type={popupType}
           leads={popupType === 'today' ? stats.today : stats.overdue}
           onClose={() => setPopupType(null)}
-          onOpenLead={onOpenLead}
+          onOpenLead={openLead}
         />
       )}
     </div>

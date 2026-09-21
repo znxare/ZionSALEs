@@ -213,9 +213,11 @@ export default function App() {
           {route.name === 'dashboard' && (
             <Dashboard
               leads={leads}
+              hospitalityLeads={hospitalityLeads}
               campaigns={campaigns}
               loading={loading}
               onOpenLead={(id) => go({ name: 'lead', id })}
+              onOpenHospitalityLead={(id) => go({ name: 'hospitality-lead', id })}
               onAdd={() => setAddOpen(true)}
               onRefresh={load}
             />
