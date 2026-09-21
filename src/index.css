@@ -120,17 +120,23 @@ body {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'%3E%3Ccircle cx='2' cy='2' r='1.4' fill='white' fill-opacity='0.3'/%3E%3C/svg%3E");
   }
 
+  /* fill-mode: backwards (not "both"/"forwards") on purpose — these animate `transform`,
+     and a `transform` value left in place after the animation ends turns the element into
+     a CSS containing block for any `position: fixed` descendant (e.g. a modal rendered
+     inside a page that uses this class), sizing it to this box instead of the viewport.
+     "backwards" still prevents a flash of the pre-animation state on mount, but lets the
+     element cleanly revert to "no transform" once the entrance animation completes. */
   .animate-fade-up {
-    animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) backwards;
   }
   .animate-fade-in {
     animation: fadeIn 0.25s ease-out both;
   }
   .animate-scale-in {
-    animation: scaleIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: scaleIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) backwards;
   }
   .animate-slide-up {
-    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) backwards;
   }
 }
 
