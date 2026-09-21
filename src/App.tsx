@@ -210,6 +210,10 @@ export default function App() {
             </div>
           )}
 
+          {/* Keyed on route section only (not id) so switching between two records of the
+              same type — e.g. one lead to another — updates in place exactly as before,
+              instead of remounting and re-fetching. */}
+          <div key={route.name} className="animate-fade-up">
           {route.name === 'dashboard' && (
             <Dashboard
               leads={leads}
@@ -348,6 +352,7 @@ export default function App() {
               </button>
             </div>
           )}
+          </div>
         </main>
       </div>
 

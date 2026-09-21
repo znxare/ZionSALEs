@@ -9,6 +9,7 @@ import type { HospitalityLead } from '@/lib/hospitality';
 import { isToday, isOverdue, isThisMonth, relativeDay, formatTime, fetchAllSiteVisits, fetchAllReactivationAttempts, fetchAllActivities } from '@/lib/crm';
 import { statusStyles } from '@/lib/styles';
 import { quoteOfTheDay } from '@/lib/quotes';
+import AnimatedNumber from '@/components/AnimatedNumber';
 
 /** The two lead shapes share every field the Dashboard reads except `site_visit_at` and `campaign_id`, which are Real Estate-only. */
 type AnyLead = Lead | HospitalityLead;
@@ -239,9 +240,19 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-24">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-orange-200 border-t-orange-600" />
-        <p className="mt-3 text-sm text-gray-400">Loading your day…</p>
+      <div className="animate-fade-in space-y-6">
+        <div className="skeleton h-40 rounded-3xl sm:h-36" />
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="skeleton h-24 rounded-2xl" />
+          ))}
+        </div>
+        <div className="grid grid-cols-3 gap-3 sm:gap-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="skeleton h-16 rounded-xl" />
+          ))}
+        </div>
+        <div className="skeleton h-64 rounded-2xl" />
       </div>
     );
   }
@@ -345,7 +356,7 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
               <div className="grid h-10 w-10 place-items-center rounded-xl bg-red-100 text-red-600 shadow-sm">
                 <AlertTriangle className="h-5 w-5" />
               </div>
-              <span className="font-display text-2xl font-bold tracking-tight text-gray-900">{stats.overdue.length}</span>
+              <span className="font-display text-2xl font-bold tracking-tight text-gray-900"><AnimatedNumber value={stats.overdue.length} /></span>
             </div>
             <div className="mt-3 text-[13px] font-medium text-gray-600">Overdue Follow-ups</div>
           </div>
@@ -358,7 +369,7 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
               <div className="grid h-10 w-10 place-items-center rounded-xl bg-orange-100 text-orange-600 shadow-sm">
                 <CalendarClock className="h-5 w-5" />
               </div>
-              <span className="font-display text-2xl font-bold tracking-tight text-gray-900">{stats.today.length}</span>
+              <span className="font-display text-2xl font-bold tracking-tight text-gray-900"><AnimatedNumber value={stats.today.length} /></span>
             </div>
             <div className="mt-3 text-[13px] font-medium text-gray-600">Today's Follow-ups</div>
           </div>
@@ -370,7 +381,7 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
             <div className="grid h-10 w-10 place-items-center rounded-xl bg-amber-100 text-amber-600 shadow-sm">
               <Flame className="h-5 w-5" />
             </div>
-            <span className="font-display text-2xl font-bold tracking-tight text-gray-900">{stats.hot.length}</span>
+            <span className="font-display text-2xl font-bold tracking-tight text-gray-900"><AnimatedNumber value={stats.hot.length} /></span>
           </div>
           <div className="mt-3 text-[13px] font-medium text-gray-600">Hot Leads</div>
         </div>
@@ -382,7 +393,7 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
               <div className="grid h-10 w-10 place-items-center rounded-xl bg-sky-100 text-sky-600 shadow-sm">
                 <Snowflake className="h-5 w-5" />
               </div>
-              <span className="font-display text-2xl font-bold tracking-tight text-gray-900">{stats.cold.length}</span>
+              <span className="font-display text-2xl font-bold tracking-tight text-gray-900"><AnimatedNumber value={stats.cold.length} /></span>
             </div>
             <div className="mt-3 text-[13px] font-medium text-gray-600">Cold Leads</div>
           </div>
@@ -392,7 +403,7 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
               <div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-100 text-blue-600 shadow-sm">
                 <MapPin className="h-5 w-5" />
               </div>
-              <span className="font-display text-2xl font-bold tracking-tight text-gray-900">{stats.siteVisitsToday.length}</span>
+              <span className="font-display text-2xl font-bold tracking-tight text-gray-900"><AnimatedNumber value={stats.siteVisitsToday.length} /></span>
             </div>
             <div className="mt-3 text-[13px] font-medium text-gray-600">
               {stats.siteVisitsToday.length > 0
@@ -413,7 +424,7 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
               <CheckCircle2 className="h-4 w-4" />
             </div>
             <div>
-              <div className="font-display text-lg font-bold text-gray-900">{stats.bookings.length}</div>
+              <div className="font-display text-lg font-bold text-gray-900"><AnimatedNumber value={stats.bookings.length} /></div>
               <div className="text-[11px] font-medium text-gray-500">Bookings This Month</div>
             </div>
           </div>
@@ -424,7 +435,7 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
               <UserPlus className="h-4 w-4" />
             </div>
             <div>
-              <div className="font-display text-lg font-bold text-gray-900">{stats.newToday.length}</div>
+              <div className="font-display text-lg font-bold text-gray-900"><AnimatedNumber value={stats.newToday.length} /></div>
               <div className="text-[11px] font-medium text-gray-500">New Leads Today</div>
             </div>
           </div>
@@ -436,7 +447,7 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
                 <Flame className="h-4 w-4" />
               </div>
               <div>
-                <div className="font-display text-lg font-bold text-gray-900">{stats.warm.length}</div>
+                <div className="font-display text-lg font-bold text-gray-900"><AnimatedNumber value={stats.warm.length} /></div>
                 <div className="text-[11px] font-medium text-gray-500">Warm Leads</div>
               </div>
             </div>
@@ -553,15 +564,15 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <div>
-              <div className="font-display text-xl font-bold text-gray-900">{execMetrics.totalLeads}</div>
+              <div className="font-display text-xl font-bold text-gray-900"><AnimatedNumber value={execMetrics.totalLeads} /></div>
               <div className="text-[11px] font-medium text-gray-400">Total Leads</div>
             </div>
             <div>
-              <div className="font-display text-xl font-bold text-emerald-600">{execMetrics.totalSales}</div>
+              <div className="font-display text-xl font-bold text-emerald-600"><AnimatedNumber value={execMetrics.totalSales} /></div>
               <div className="text-[11px] font-medium text-gray-400">{isHospitality ? 'Total Bookings' : 'Total Sales'}</div>
             </div>
             <div>
-              <div className="font-display text-xl font-bold text-gray-900">{execMetrics.leadToSaleRate}%</div>
+              <div className="font-display text-xl font-bold text-gray-900"><AnimatedNumber value={execMetrics.leadToSaleRate} />%</div>
               <div className="text-[11px] font-medium text-gray-400">{isHospitality ? 'Lead-to-Booking Rate' : 'Lead-to-Sale Rate'}</div>
             </div>
             <div>
@@ -580,7 +591,7 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
             </div>
             {!isHospitality && (
               <div>
-                <div className="font-display text-xl font-bold text-gray-900">{execMetrics.avgCampaignRate}%</div>
+                <div className="font-display text-xl font-bold text-gray-900"><AnimatedNumber value={execMetrics.avgCampaignRate} />%</div>
                 <div className="text-[11px] font-medium text-gray-400">Campaign Conv. Rate</div>
               </div>
             )}
@@ -605,23 +616,23 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <div>
-                <div className="font-display text-xl font-bold text-sky-600">{reactivationStats.coldCount}</div>
+                <div className="font-display text-xl font-bold text-sky-600"><AnimatedNumber value={reactivationStats.coldCount} /></div>
                 <div className="text-[11px] font-medium text-gray-400">Cold Leads</div>
               </div>
               <div>
-                <div className="font-display text-xl font-bold text-orange-600">{reactivationStats.dueToday}</div>
+                <div className="font-display text-xl font-bold text-orange-600"><AnimatedNumber value={reactivationStats.dueToday} /></div>
                 <div className="text-[11px] font-medium text-gray-400">Due Today</div>
               </div>
               <div>
-                <div className="font-display text-xl font-bold text-red-600">{reactivationStats.overdue}</div>
+                <div className="font-display text-xl font-bold text-red-600"><AnimatedNumber value={reactivationStats.overdue} /></div>
                 <div className="text-[11px] font-medium text-gray-400">Overdue</div>
               </div>
               <div>
-                <div className="font-display text-xl font-bold text-emerald-600">{reactivationStats.reactivatedThisMonth}</div>
+                <div className="font-display text-xl font-bold text-emerald-600"><AnimatedNumber value={reactivationStats.reactivatedThisMonth} /></div>
                 <div className="text-[11px] font-medium text-gray-400">Reactivated (Month)</div>
               </div>
               <div>
-                <div className="font-display text-xl font-bold text-amber-600">{reactivationStats.salesFromReactivation}</div>
+                <div className="font-display text-xl font-bold text-amber-600"><AnimatedNumber value={reactivationStats.salesFromReactivation} /></div>
                 <div className="text-[11px] font-medium text-gray-400">Sales from Reactivation</div>
               </div>
             </div>

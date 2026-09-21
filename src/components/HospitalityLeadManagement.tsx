@@ -14,6 +14,7 @@ import {
 import { isToday, isOverdue, formatDate, formatTime, relativeDay, toLocalInputValue, startOfDay, endOfDay } from '@/lib/crm';
 import { statusStyles } from '@/lib/styles';
 import { phoneCountryFlag } from '@/lib/normalize';
+import { useDebouncedValue } from '@/lib/hooks';
 import EditHospitalityLeadModal from './EditHospitalityLeadModal';
 import AddHospitalityLeadModal from './AddHospitalityLeadModal';
 import FollowUpSheet from './FollowUpSheet';
@@ -98,6 +99,7 @@ function getRange(preset: DateRangePreset, customStart: string, customEnd: strin
 
 export default function HospitalityLeadManagement({ leads, profiles, onOpenLead, onChanged }: Props) {
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 200);
   const [sort, setSort] = useState<SortKey>('newest');
   const [view, setView] = useState<ViewMode>('table');
   const [showFilters, setShowFilters] = useState(false);
@@ -129,7 +131,7 @@ export default function HospitalityLeadManagement({ leads, profiles, onOpenLead,
   }, [leads]);
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = debouncedSearch.trim().toLowerCase();
     let result = leads.filter((l) => {
       if (!matchesTab(l, tab)) return false;
       const created = new Date(l.created_at);
@@ -159,7 +161,7 @@ export default function HospitalityLeadManagement({ leads, profiles, onOpenLead,
       }
     });
     return result;
-  }, [leads, search, filters, sort, tab, range]);
+  }, [leads, debouncedSearch, filters, sort, tab, range]);
 
   const stats = useMemo(() => ({
     total: filtered.length,

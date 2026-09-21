@@ -3,6 +3,12 @@ export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
+      transitionDuration: {
+        DEFAULT: '220ms',
+      },
+      transitionTimingFunction: {
+        DEFAULT: 'cubic-bezier(0.16, 1, 0.3, 1)',
+      },
       colors: {
         brand: {
           DEFAULT: '#F05A22',

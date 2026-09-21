@@ -378,11 +378,7 @@ function MasterPlanBoard({ plots, onSelect, onExpand }: { plots: Plot[]; onSelec
   return (
     <div className="overflow-hidden rounded-2xl border border-black/5 bg-white card-shadow">
       <div className="relative w-full bg-gray-100" style={{ aspectRatio: '3369.9 / 2383.8' }}>
-        {!loaded && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-600" />
-          </div>
-        )}
+        {!loaded && <div className="skeleton absolute inset-0" />}
 
         <ZoomPanMap
           mapLayer={
