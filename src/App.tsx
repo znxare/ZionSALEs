@@ -21,6 +21,7 @@ import LiveInventoryBoard from '@/components/LiveInventoryBoard';
 import LeadImport from '@/components/LeadImport';
 import ActivityLog from '@/components/ActivityLog';
 import Login from '@/components/Login';
+import WelcomeScreen from '@/components/WelcomeScreen';
 import HospitalityComingSoon from '@/components/HospitalityComingSoon';
 import { Landmark, CalendarRange } from 'lucide-react';
 import { getSession, onAuthChange, type CurrentUser } from '@/lib/auth';
@@ -100,6 +101,9 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  // Only true right after an active sign-in this session — never on a page reload
+  // with an already-persisted session, so the welcome moment isn't shown every visit.
+  const [justSignedIn, setJustSignedIn] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -196,11 +200,15 @@ export default function App() {
   }
 
   if (!authed) {
-    return <Login onSuccess={() => {}} />;
+    return <Login onSuccess={() => setJustSignedIn(true)} />;
   }
 
   return (
     <div className="min-h-screen bg-warm-bg">
+      {justSignedIn && currentUser && (
+        <WelcomeScreen user={currentUser} onDone={() => setJustSignedIn(false)} />
+      )}
+
       <TopBar
         user={currentUser}
         onSearch={() => setSearchOpen(true)}
