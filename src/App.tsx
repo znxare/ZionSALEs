@@ -24,6 +24,7 @@ import Login from '@/components/Login';
 import HospitalityComingSoon from '@/components/HospitalityComingSoon';
 import { Landmark, CalendarRange } from 'lucide-react';
 import { getSession, onAuthChange, type CurrentUser } from '@/lib/auth';
+import { withTimeout } from '@/lib/timeout';
 
 type Route =
   | { name: 'dashboard' }
@@ -104,7 +105,13 @@ export default function App() {
     try {
       setLoading(true);
       setError(null);
-      const [leadData, campaignData, profileData] = await Promise.all([fetchLeads(), fetchCampaigns(), fetchProfiles()]);
+      // Timed out so a hung request on a flaky mobile connection can't leave the
+      // dashboard spinning forever — it surfaces as a normal, retryable error instead.
+      const [leadData, campaignData, profileData] = await withTimeout(
+        Promise.all([fetchLeads(), fetchCampaigns(), fetchProfiles()]),
+        20000,
+        () => { throw new Error('This is taking longer than expected — check your connection and try again.'); },
+      );
       setLeads(leadData);
       setCampaigns(campaignData);
       setProfiles(profileData);
@@ -118,14 +125,17 @@ export default function App() {
     // (or any other hospitality-side failure) can never block Real Estate
     // data from loading — the two divisions stay fully independent.
     try {
-      setHospitalityLeads(await fetchHospitalityLeads());
+      setHospitalityLeads(await withTimeout(fetchHospitalityLeads(), 20000, () => []));
     } catch {
       setHospitalityLeads([]);
     }
   }, []);
 
   useEffect(() => {
-    getSession()
+    // Supabase's session lock can occasionally hang indefinitely after a mobile
+    // browser suspends a backgrounded tab — timing out here guarantees the app
+    // always reaches the login/dashboard screen instead of spinning forever.
+    withTimeout(getSession(), 10000, () => null)
       .then(setCurrentUser)
       .finally(() => setAuthChecked(true));
     const { data: sub } = onAuthChange((user) => setCurrentUser(user));
