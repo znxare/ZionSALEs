@@ -77,6 +77,7 @@ function FollowUpPopup({ type, leads, onClose, onOpenLead }: {
                           <span className={'h-1.5 w-1.5 rounded-full ' + ss.dot} />
                           <span>{overdue ? relativeDay(lead.next_followup_at) : 'Today — ' + formatTime(lead.next_followup_at)}</span>
                         </span>
+                        <span className="truncate text-gray-300">· {lead.assigned_to || 'Unassigned'}</span>
                       </div>
                     </button>
                     <div className="flex shrink-0 items-center gap-1">
