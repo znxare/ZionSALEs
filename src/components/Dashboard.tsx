@@ -121,7 +121,7 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
   const [reactAttempts, setReactAttempts] = useState<ReactivationAttempt[]>([]);
   const [activities, setActivities] = useState<Pick<Activity, 'id' | 'lead_id' | 'type' | 'created_at'>[]>([]);
   const [popupType, setPopupType] = useState<'today' | 'overdue' | null>(null);
-  const [division, setDivision] = useState<'all' | 'realestate' | 'hospitality'>('all');
+  const [division, setDivision] = useState<'realestate' | 'hospitality'>('realestate');
   const quote = useMemo(() => quoteOfTheDay(), []);
 
   const isHospitality = division === 'hospitality';
@@ -279,7 +279,6 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
             {/* Division switcher — filters every stat and list on this page */}
             <div className="mt-3 flex items-center gap-1 self-start rounded-full bg-white/10 p-1 ring-1 ring-white/20 backdrop-blur-sm">
               {([
-                { id: 'all' as const, label: 'All CRM' },
                 { id: 'realestate' as const, label: 'Real Estate' },
                 { id: 'hospitality' as const, label: 'Hospitality' },
               ]).map((tab) => (
