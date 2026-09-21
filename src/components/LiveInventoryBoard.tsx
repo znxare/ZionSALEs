@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type WheelEvent as ReactWheelEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type WheelEvent as ReactWheelEvent } from 'react';
 import {
   LayoutGrid, Search, X, Maximize2, List as ListIcon, Map as MapIcon, ChevronDown,
   BedDouble, CheckCircle2, Trash2, Receipt, Tag, Clock3, Plus, Minus, RotateCcw,
@@ -203,18 +203,59 @@ export default function LiveInventoryBoard() {
 const ZOOM_MIN = 1;
 const ZOOM_MAX = 5;
 
-/** Pinch-to-zoom, drag-to-pan, scroll-to-zoom wrapper, plus +/- buttons for devices without gestures. */
-function ZoomPanMap({ children }: { children: (zoom: number) => ReactNode }) {
+type Size = { width: number; height: number };
+
+/**
+ * Pinch-to-zoom, drag-to-pan, scroll-to-zoom wrapper, plus +/- buttons for devices without gestures.
+ *
+ * The scaled `mapLayer` (the image) and the un-scaled `overlay` (pins) are rendered as siblings inside
+ * the same gesture-handling container: the map gets a CSS transform so panning/zooming is instant and
+ * GPU-smooth, while pins are placed with plain pixel math so they never grow or shrink with zoom and
+ * are never fuzzy or misaligned.
+ */
+function ZoomPanMap({
+  mapLayer,
+  overlay,
+}: {
+  mapLayer: ReactNode;
+  overlay: (state: { zoom: number; pan: { x: number; y: number }; size: Size }) => ReactNode;
+}) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [size, setSize] = useState<Size>({ width: 0, height: 0 });
+  const [interacting, setInteracting] = useState(false);
+  const viewportRef = useRef<HTMLDivElement>(null);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinch = useRef<{ startDist: number; startZoom: number } | null>(null);
   const dragStart = useRef<{ x: number; y: number } | null>(null);
   const dragged = useRef(false);
   const DRAG_THRESHOLD = 6;
 
-  function clamp(z: number) {
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const update = () => setSize({ width: el.clientWidth, height: el.clientHeight });
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  function clampZoom(z: number) {
     return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
+  }
+
+  /** Keeps the scaled image from being panned past its own edge, so it never leaves empty space in view. */
+  function clampPan(p: { x: number; y: number }, z: number) {
+    const maxX = Math.max(0, (size.width * (z - 1)) / 2);
+    const maxY = Math.max(0, (size.height * (z - 1)) / 2);
+    return { x: Math.min(maxX, Math.max(-maxX, p.x)), y: Math.min(maxY, Math.max(-maxY, p.y)) };
+  }
+
+  function setZoomClamped(next: number) {
+    const z = clampZoom(next);
+    setZoom(z);
+    setPan((p) => clampPan(p, z));
   }
 
   function onPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
@@ -223,6 +264,7 @@ function ZoomPanMap({ children }: { children: (zoom: number) => ReactNode }) {
     if (pointers.current.size === 1) {
       dragStart.current = { x: e.clientX, y: e.clientY };
     }
+    setInteracting(true);
   }
 
   function onPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
@@ -236,13 +278,13 @@ function ZoomPanMap({ children }: { children: (zoom: number) => ReactNode }) {
         pinch.current = { startDist: dist, startZoom: zoom };
       } else {
         dragged.current = true;
-        setZoom(clamp(pinch.current.startZoom * (dist / pinch.current.startDist)));
+        setZoomClamped(pinch.current.startZoom * (dist / pinch.current.startDist));
       }
     } else if (pts.length === 1 && zoom > 1) {
       const dx = e.movementX;
       const dy = e.movementY;
       if (dx || dy) {
-        setPan((p) => ({ x: p.x + dx, y: p.y + dy }));
+        setPan((p) => clampPan({ x: p.x + dx, y: p.y + dy }, zoom));
         if (dragStart.current) {
           const traveled = Math.hypot(e.clientX - dragStart.current.x, e.clientY - dragStart.current.y);
           if (traveled > DRAG_THRESHOLD) dragged.current = true;
@@ -254,12 +296,15 @@ function ZoomPanMap({ children }: { children: (zoom: number) => ReactNode }) {
   function endPointer(e: ReactPointerEvent<HTMLDivElement>) {
     pointers.current.delete(e.pointerId);
     if (pointers.current.size < 2) pinch.current = null;
-    if (pointers.current.size === 0) dragStart.current = null;
+    if (pointers.current.size === 0) {
+      dragStart.current = null;
+      setInteracting(false);
+    }
   }
 
   function onWheel(e: ReactWheelEvent<HTMLDivElement>) {
     e.preventDefault();
-    setZoom((z) => clamp(z - e.deltaY * 0.0015));
+    setZoomClamped(zoom - e.deltaY * 0.0015);
   }
 
   function onClickCapture(e: ReactMouseEvent<HTMLDivElement>) {
@@ -270,7 +315,7 @@ function ZoomPanMap({ children }: { children: (zoom: number) => ReactNode }) {
   }
 
   function zoomBy(delta: number) {
-    setZoom((z) => clamp(z + delta));
+    setZoomClamped(zoom + delta);
   }
 
   function reset() {
@@ -279,9 +324,11 @@ function ZoomPanMap({ children }: { children: (zoom: number) => ReactNode }) {
   }
 
   const isReset = zoom === 1 && pan.x === 0 && pan.y === 0;
+  const transition = interacting ? 'none' : 'transform 0.2s cubic-bezier(0.22, 1, 0.36, 1)';
 
   return (
     <div
+      ref={viewportRef}
       className="absolute inset-0 touch-none select-none overflow-hidden"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -292,11 +339,17 @@ function ZoomPanMap({ children }: { children: (zoom: number) => ReactNode }) {
       onClickCapture={onClickCapture}
     >
       <div
-        className="h-full w-full"
-        style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: 'center center' }}
+        className="h-full w-full will-change-transform"
+        style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: 'center center', transition }}
       >
-        {children(zoom)}
+        {mapLayer}
       </div>
+
+      {size.width > 0 && (
+        <div className="pointer-events-none absolute inset-0 z-10">
+          {overlay({ zoom, pan, size })}
+        </div>
+      )}
 
       {/* Zoom controls */}
       <div className="absolute bottom-3 left-3 z-30 flex flex-col overflow-hidden rounded-xl border border-black/5 bg-white/95 shadow backdrop-blur">
@@ -331,46 +384,47 @@ function MasterPlanBoard({ plots, onSelect, onExpand }: { plots: Plot[]; onSelec
           </div>
         )}
 
-        <ZoomPanMap>
-          {(zoom) => {
-            const pinScale = Math.max(0.35, 1 / zoom);
+        <ZoomPanMap
+          mapLayer={
+            <img
+              src="/zion-hills-master-plan.svg"
+              alt="Zion Hills master plan"
+              onLoad={() => setLoaded(true)}
+              className={`absolute inset-0 h-full w-full object-contain transition-opacity ${loaded ? 'opacity-100' : 'opacity-0'}`}
+              draggable={false}
+            />
+          }
+          overlay={({ zoom, pan, size }) => {
+            if (!loaded) return null;
             return (
-              <div className="relative h-full w-full">
-                <img
-                  src="/zion-hills-master-plan.svg"
-                  alt="Zion Hills master plan"
-                  onLoad={() => setLoaded(true)}
-                  className={`absolute inset-0 h-full w-full object-contain transition-opacity ${loaded ? 'opacity-100' : 'opacity-0'}`}
-                  draggable={false}
-                />
-                {loaded && plots.map((p) => {
+              <>
+                {plots.map((p) => {
                   const c = STATUS_COLORS[p.status];
+                  const baseX = (p.positionPct.x / 100) * size.width;
+                  const baseY = (p.positionPct.y / 100) * size.height;
+                  const screenX = size.width / 2 + pan.x + zoom * (baseX - size.width / 2);
+                  const screenY = size.height / 2 + pan.y + zoom * (baseY - size.height / 2);
                   return (
                     <button
                       key={p.id}
                       onClick={() => onSelect(p)}
-                      style={{ left: `${p.positionPct.x}%`, top: `${p.positionPct.y}%` }}
-                      className="group absolute z-10 -translate-x-1/2 -translate-y-1/2 p-2 focus:outline-none"
+                      style={{ left: screenX, top: screenY }}
+                      className="group pointer-events-auto absolute z-10 -translate-x-1/2 -translate-y-1/2 p-2 focus:outline-none"
                     >
-                      <span
-                        className="relative block"
-                        style={{ transform: `scale(${pinScale})`, transformOrigin: 'center' }}
-                      >
-                        <span className={`relative z-10 block h-2 w-2 rounded-full ring-1 ring-white shadow ${c.dot} transition group-hover:z-30 group-hover:h-3 group-hover:w-3`} />
+                      <span className={`relative z-10 block h-2 w-2 rounded-full ring-1 ring-white shadow ${c.dot} transition group-hover:z-30 group-hover:h-3 group-hover:w-3`} />
 
-                        {/* Hover tooltip (desktop) */}
-                        <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-max max-w-[220px] -translate-x-1/2 rounded-lg bg-gray-900/95 px-2.5 py-1.5 text-left text-white opacity-0 shadow-xl transition group-hover:opacity-100 sm:block">
-                          <div className="text-[11.5px] font-bold">Plot {p.plotNo} · {p.status}</div>
-                          <div className="text-[10.5px] text-white/70">{p.bedrooms}BHK · {p.phase} · {formatCr(p.cost.totalCostLacs)}</div>
-                        </div>
-                      </span>
+                      {/* Hover tooltip (desktop) */}
+                      <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-max max-w-[220px] -translate-x-1/2 rounded-lg bg-gray-900/95 px-2.5 py-1.5 text-left text-white opacity-0 shadow-xl transition group-hover:opacity-100 sm:block">
+                        <div className="text-[11.5px] font-bold">Plot {p.plotNo} · {p.status}</div>
+                        <div className="text-[10.5px] text-white/70">{p.bedrooms}BHK · {p.phase} · {formatCr(p.cost.totalCostLacs)}</div>
+                      </div>
                     </button>
                   );
                 })}
-              </div>
+              </>
             );
           }}
-        </ZoomPanMap>
+        />
 
         {onExpand && (
           <button
