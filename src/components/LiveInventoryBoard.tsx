@@ -204,12 +204,14 @@ const ZOOM_MIN = 1;
 const ZOOM_MAX = 5;
 
 /** Pinch-to-zoom, drag-to-pan, scroll-to-zoom wrapper, plus +/- buttons for devices without gestures. */
-function ZoomPanMap({ children }: { children: ReactNode }) {
+function ZoomPanMap({ children }: { children: (zoom: number) => ReactNode }) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinch = useRef<{ startDist: number; startZoom: number } | null>(null);
+  const dragStart = useRef<{ x: number; y: number } | null>(null);
   const dragged = useRef(false);
+  const DRAG_THRESHOLD = 6;
 
   function clamp(z: number) {
     return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
@@ -218,6 +220,9 @@ function ZoomPanMap({ children }: { children: ReactNode }) {
   function onPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
     e.currentTarget.setPointerCapture(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size === 1) {
+      dragStart.current = { x: e.clientX, y: e.clientY };
+    }
   }
 
   function onPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
@@ -237,8 +242,11 @@ function ZoomPanMap({ children }: { children: ReactNode }) {
       const dx = e.movementX;
       const dy = e.movementY;
       if (dx || dy) {
-        dragged.current = true;
         setPan((p) => ({ x: p.x + dx, y: p.y + dy }));
+        if (dragStart.current) {
+          const traveled = Math.hypot(e.clientX - dragStart.current.x, e.clientY - dragStart.current.y);
+          if (traveled > DRAG_THRESHOLD) dragged.current = true;
+        }
       }
     }
   }
@@ -246,6 +254,7 @@ function ZoomPanMap({ children }: { children: ReactNode }) {
   function endPointer(e: ReactPointerEvent<HTMLDivElement>) {
     pointers.current.delete(e.pointerId);
     if (pointers.current.size < 2) pinch.current = null;
+    if (pointers.current.size === 0) dragStart.current = null;
   }
 
   function onWheel(e: ReactWheelEvent<HTMLDivElement>) {
@@ -286,7 +295,7 @@ function ZoomPanMap({ children }: { children: ReactNode }) {
         className="h-full w-full"
         style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: 'center center' }}
       >
-        {children}
+        {children(zoom)}
       </div>
 
       {/* Zoom controls */}
@@ -323,34 +332,44 @@ function MasterPlanBoard({ plots, onSelect, onExpand }: { plots: Plot[]; onSelec
         )}
 
         <ZoomPanMap>
-          <div className="relative h-full w-full">
-            <img
-              src="/zion-hills-master-plan.svg"
-              alt="Zion Hills master plan"
-              onLoad={() => setLoaded(true)}
-              className={`absolute inset-0 h-full w-full object-contain transition-opacity ${loaded ? 'opacity-100' : 'opacity-0'}`}
-              draggable={false}
-            />
-            {loaded && plots.map((p) => {
-              const c = STATUS_COLORS[p.status];
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => onSelect(p)}
-                  style={{ left: `${p.positionPct.x}%`, top: `${p.positionPct.y}%` }}
-                  className="group absolute z-10 -translate-x-1/2 -translate-y-1/2 p-2 focus:outline-none"
-                >
-                  <span className={`relative z-10 block h-2 w-2 rounded-full ring-1 ring-white shadow ${c.dot} transition group-hover:z-30 group-hover:h-3 group-hover:w-3`} />
+          {(zoom) => {
+            const pinScale = Math.max(0.35, 1 / zoom);
+            return (
+              <div className="relative h-full w-full">
+                <img
+                  src="/zion-hills-master-plan.svg"
+                  alt="Zion Hills master plan"
+                  onLoad={() => setLoaded(true)}
+                  className={`absolute inset-0 h-full w-full object-contain transition-opacity ${loaded ? 'opacity-100' : 'opacity-0'}`}
+                  draggable={false}
+                />
+                {loaded && plots.map((p) => {
+                  const c = STATUS_COLORS[p.status];
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => onSelect(p)}
+                      style={{ left: `${p.positionPct.x}%`, top: `${p.positionPct.y}%` }}
+                      className="group absolute z-10 -translate-x-1/2 -translate-y-1/2 p-2 focus:outline-none"
+                    >
+                      <span
+                        className="relative block"
+                        style={{ transform: `scale(${pinScale})`, transformOrigin: 'center' }}
+                      >
+                        <span className={`relative z-10 block h-2 w-2 rounded-full ring-1 ring-white shadow ${c.dot} transition group-hover:z-30 group-hover:h-3 group-hover:w-3`} />
 
-                  {/* Hover tooltip (desktop) */}
-                  <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-max max-w-[220px] -translate-x-1/2 rounded-lg bg-gray-900/95 px-2.5 py-1.5 text-left text-white opacity-0 shadow-xl transition group-hover:opacity-100 sm:block">
-                    <div className="text-[11.5px] font-bold">Plot {p.plotNo} · {p.status}</div>
-                    <div className="text-[10.5px] text-white/70">{p.bedrooms}BHK · {p.phase} · {formatCr(p.cost.totalCostLacs)}</div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+                        {/* Hover tooltip (desktop) */}
+                        <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-max max-w-[220px] -translate-x-1/2 rounded-lg bg-gray-900/95 px-2.5 py-1.5 text-left text-white opacity-0 shadow-xl transition group-hover:opacity-100 sm:block">
+                          <div className="text-[11.5px] font-bold">Plot {p.plotNo} · {p.status}</div>
+                          <div className="text-[10.5px] text-white/70">{p.bedrooms}BHK · {p.phase} · {formatCr(p.cost.totalCostLacs)}</div>
+                        </div>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          }}
         </ZoomPanMap>
 
         {onExpand && (
