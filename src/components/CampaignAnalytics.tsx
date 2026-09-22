@@ -18,8 +18,6 @@ interface Props {
   onLeadsChanged: () => void;
 }
 
-type TimelinePeriod = 'daily' | 'weekly' | 'monthly';
-
 export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
@@ -174,39 +172,20 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
     }));
   }, [campaignMetrics]);
 
-  // Overall lead trend across ALL campaigns (for main view)
-  const [overallPeriod, setOverallPeriod] = useState<TimelinePeriod>('monthly');
+  // Overall lead trend across ALL campaigns (for main view) — fixed to the
+  // current calendar year, January through December.
   const overallTrendData = useMemo(() => {
-    const buckets = new Map<string, number>();
-    const now = new Date();
-
-    if (overallPeriod === 'daily') {
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date(now); d.setDate(d.getDate() - i);
-        const label = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-        const count = dateFilteredLeads.filter((l) => new Date(l.created_at).toDateString() === d.toDateString()).length;
-        buckets.set(label, count);
-      }
-    } else if (overallPeriod === 'weekly') {
-      for (let i = 7; i >= 0; i--) {
-        const ref = new Date(now); ref.setDate(ref.getDate() - i * 7);
-        const sow = new Date(ref); sow.setDate(sow.getDate() - ((sow.getDay() + 6) % 7));
-        const eow = new Date(sow); eow.setDate(eow.getDate() + 7);
-        const label = i === 0 ? 'This Wk' : `-${i}W`;
-        const count = dateFilteredLeads.filter((l) => { const td = new Date(l.created_at); return td >= sow && td < eow; }).length;
-        buckets.set(label, count);
-      }
-    } else {
-      for (let i = 5; i >= 0; i--) {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const e = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
-        const label = d.toLocaleDateString('en-IN', { month: 'short' });
-        const count = dateFilteredLeads.filter((l) => { const td = new Date(l.created_at); return td >= d && td < e; }).length;
-        buckets.set(label, count);
-      }
+    const year = new Date().getFullYear();
+    const months: { label: string; value: number }[] = [];
+    for (let m = 0; m < 12; m++) {
+      const d = new Date(year, m, 1);
+      const e = new Date(year, m + 1, 1);
+      const label = d.toLocaleDateString('en-IN', { month: 'short' });
+      const count = dateFilteredLeads.filter((l) => { const td = new Date(l.created_at); return td >= d && td < e; }).length;
+      months.push({ label, value: count });
     }
-    return [...buckets.entries()].map(([label, value]) => ({ label, value }));
-  }, [dateFilteredLeads, overallPeriod]);
+    return months;
+  }, [dateFilteredLeads]);
 
   // Funnel for selected campaign
   const funnel = useMemo(() => {
@@ -300,31 +279,27 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
         <span className="ml-auto text-[12px] text-gray-400">{dateFilteredLeads.length} leads in range</span>
       </div>
 
-      {/* Lead Trend - Monthly/Weekly */}
+      {/* Lead Trend - fixed to the current calendar year, Jan–Dec */}
       {dateFilteredLeads.length > 0 && (
         <div className="mb-6 rounded-2xl border border-black/5 bg-white p-5 card-shadow">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="font-display text-base font-bold tracking-tight text-gray-900">Lead Inflow Trend</h3>
-            <div className="flex overflow-hidden rounded-full border border-gray-200">
-              {(['daily', 'weekly', 'monthly'] as const).map((p) => (
-                <button key={p} onClick={() => setOverallPeriod(p)} className={`px-3 py-1 text-[12px] font-medium capitalize transition ${overallPeriod === p ? 'brand-gradient text-white' : 'text-gray-500 hover:text-gray-700'}`}>{p}</button>
-              ))}
-            </div>
+            <span className="text-[12px] font-semibold text-gray-400">{new Date().getFullYear()}</span>
           </div>
           <LineChart data={overallTrendData} height={200} />
-          <p className="mt-2 text-[11px] text-gray-400">Counts leads by their creation date within each period. Daily shows the last 7 days, weekly shows the last 8 weeks (Monday–Sunday), and monthly shows the last 6 calendar months. Only leads matching the date range filter above are included.</p>
+          <p className="mt-2 text-[11px] text-gray-400">Counts leads by their creation date, January through December of {new Date().getFullYear()}. Only leads matching the date range filter above are included.</p>
           <div className="mt-3 grid grid-cols-3 gap-3">
             <div className="rounded-xl bg-gray-50 p-3 text-center">
               <div className="font-display text-lg font-bold text-gray-900">{overallTrendData.reduce((s, d) => s + d.value, 0)}</div>
-              <div className="text-[10px] font-medium text-gray-400">Total in Range</div>
+              <div className="text-[10px] font-medium text-gray-400">Total This Year</div>
             </div>
             <div className="rounded-xl bg-gray-50 p-3 text-center">
               <div className="font-display text-lg font-bold text-gray-900">{overallTrendData.length > 0 ? Math.max(...overallTrendData.map((d) => d.value)) : 0}</div>
-              <div className="text-[10px] font-medium text-gray-400">Peak {overallPeriod === 'monthly' ? 'Month' : overallPeriod === 'weekly' ? 'Week' : 'Day'}</div>
+              <div className="text-[10px] font-medium text-gray-400">Peak Month</div>
             </div>
             <div className="rounded-xl bg-gray-50 p-3 text-center">
               <div className="font-display text-lg font-bold text-gray-900">{overallTrendData.length > 0 ? Math.round(overallTrendData.reduce((s, d) => s + d.value, 0) / overallTrendData.length) : 0}</div>
-              <div className="text-[10px] font-medium text-gray-400">Avg per {overallPeriod === 'monthly' ? 'Month' : overallPeriod === 'weekly' ? 'Week' : 'Day'}</div>
+              <div className="text-[10px] font-medium text-gray-400">Avg per Month</div>
             </div>
           </div>
         </div>
