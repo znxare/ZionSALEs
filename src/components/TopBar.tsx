@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { Search, Plus, Bell, MapPin, Clock, X, LogOut, ChevronDown } from 'lucide-react';
 import type { SiteVisit } from '@/lib/supabase';
 import { fetchAllSiteVisits, isToday, formatDate, formatTime, relativeDay } from '@/lib/crm';
-import { signOutUser, type CurrentUser } from '@/lib/auth';
+import type { CurrentUser } from '@/lib/auth';
 
 interface Props {
   user: CurrentUser | null;
   onSearch: () => void;
   onAdd: () => void;
+  onSignOut: () => void;
 }
 
 function initialsOf(name: string): string {
@@ -17,7 +18,7 @@ function initialsOf(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-export default function TopBar({ user, onSearch, onAdd }: Props) {
+export default function TopBar({ user, onSearch, onAdd, onSignOut }: Props) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [visits, setVisits] = useState<SiteVisit[]>([]);
@@ -169,7 +170,7 @@ export default function TopBar({ user, onSearch, onAdd }: Props) {
             {profileOpen && (
               <div className="absolute right-0 top-full mt-2 w-44 animate-scale-in overflow-hidden rounded-2xl border border-black/5 bg-white shadow-xl">
                 <button
-                  onClick={() => signOutUser()}
+                  onClick={() => { setProfileOpen(false); onSignOut(); }}
                   className="flex w-full items-center gap-2 px-4 py-3 text-sm font-medium text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
                 >
                   <LogOut className="h-4 w-4" /> Log out

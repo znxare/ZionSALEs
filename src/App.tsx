@@ -24,7 +24,7 @@ import Login from '@/components/Login';
 import WelcomeScreen from '@/components/WelcomeScreen';
 import HospitalityComingSoon from '@/components/HospitalityComingSoon';
 import { Landmark, CalendarRange } from 'lucide-react';
-import { getSession, onAuthChange, type CurrentUser } from '@/lib/auth';
+import { getSession, onAuthChange, signOutUser, type CurrentUser } from '@/lib/auth';
 import { withTimeout } from '@/lib/timeout';
 
 type Route =
@@ -174,6 +174,15 @@ export default function App() {
 
   const go = useCallback((r: Route) => navigate(r), []);
 
+  const handleSignOut = useCallback(() => {
+    // Update the visible state immediately rather than waiting on the async
+    // auth-change listener — if that listener (or the network sign-out call
+    // it's paired with) ever hangs, the user must not be stuck looking logged in.
+    setCurrentUser(null);
+    setJustSignedIn(false);
+    signOutUser().catch(() => {});
+  }, []);
+
   const sidebarCurrent: NavId =
     route.name === 'leads' ? 'leads' :
     route.name === 'leadbank' ? 'leadbank' :
@@ -213,6 +222,7 @@ export default function App() {
         user={currentUser}
         onSearch={() => setSearchOpen(true)}
         onAdd={() => setAddOpen(true)}
+        onSignOut={handleSignOut}
       />
 
       <div className="mx-auto flex w-full max-w-[1400px]">
