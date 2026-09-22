@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { LayoutDashboard, Users, MapPin, Megaphone, Landmark, CalendarCheck, Snowflake, Upload, Menu, X, History, Flag, LayoutGrid } from 'lucide-react';
+import { LayoutDashboard, Users, MapPin, Megaphone, Landmark, CalendarCheck, Snowflake, Upload, Menu, X, History, LayoutGrid } from 'lucide-react';
 import ConnectionStatus from '@/components/ConnectionStatus';
 import { isDemoMode } from '@/lib/demoMode';
 
 interface Props {
-  current: 'dashboard' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner' | 'reactivation' | 'battlecard' | 'activitylog' | 'inventory';
-  onNavigate: (route: 'dashboard' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner' | 'reactivation' | 'battlecard' | 'activitylog' | 'inventory') => void;
+  current: 'dashboard' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner' | 'reactivation' | 'activitylog' | 'inventory';
+  onNavigate: (route: 'dashboard' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner' | 'reactivation' | 'activitylog' | 'inventory') => void;
 }
 
 const items = [
@@ -18,7 +18,6 @@ const items = [
   { id: 'planner' as const, label: 'Day Planner', icon: CalendarCheck },
   { id: 'campaigns' as const, label: 'Campaigns', icon: Megaphone },
   { id: 'reactivation' as const, label: 'Reactivation', icon: Snowflake },
-  { id: 'battlecard' as const, label: 'Battle Card', icon: Flag, badge: 'DEV' },
   { id: 'activitylog' as const, label: 'Activity Log', icon: History },
 ];
 
@@ -33,7 +32,6 @@ const TAB_COLORS: Record<Props['current'], { bg: string; text: string; ring: str
   planner: { bg: 'bg-amber-50', text: 'text-amber-700', ring: 'ring-amber-200/60', icon: 'text-amber-600', border: 'border-amber-500' },
   campaigns: { bg: 'bg-pink-50', text: 'text-pink-700', ring: 'ring-pink-200/60', icon: 'text-pink-600', border: 'border-pink-500' },
   reactivation: { bg: 'bg-sky-50', text: 'text-sky-700', ring: 'ring-sky-200/60', icon: 'text-sky-600', border: 'border-sky-500' },
-  battlecard: { bg: 'bg-emerald-50', text: 'text-emerald-700', ring: 'ring-emerald-200/60', icon: 'text-emerald-600', border: 'border-emerald-500' },
   activitylog: { bg: 'bg-indigo-50', text: 'text-indigo-700', ring: 'ring-indigo-200/60', icon: 'text-indigo-600', border: 'border-indigo-500' },
 };
 

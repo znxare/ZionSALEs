@@ -13,7 +13,6 @@ import SiteVisits from '@/components/SiteVisits';
 import LeadBank from '@/components/LeadBank';
 import DayPlanner from '@/components/DayPlanner';
 import LeadReactivation from '@/components/LeadReactivation';
-import SalesBattleCard from '@/components/SalesBattleCard';
 import LiveInventoryBoard from '@/components/LiveInventoryBoard';
 import LeadImport from '@/components/LeadImport';
 import ActivityLog from '@/components/ActivityLog';
@@ -33,7 +32,6 @@ type Route =
   | { name: 'sitevisits' }
   | { name: 'campaigns' }
   | { name: 'reactivation' }
-  | { name: 'battlecard' }
   | { name: 'activitylog' }
   | { name: 'inventory' }
   | { name: 'lead'; id: string }
@@ -52,7 +50,6 @@ function parseHash(): Route {
   if (h === 'sitevisits') return { name: 'sitevisits' };
   if (h === 'campaigns') return { name: 'campaigns' };
   if (h === 'reactivation') return { name: 'reactivation' };
-  if (h === 'battlecard') return { name: 'battlecard' };
   if (h === 'activitylog') return { name: 'activitylog' };
   if (h === 'inventory') return { name: 'inventory' };
   return { name: 'notfound' };
@@ -69,7 +66,6 @@ function navigate(route: Route) {
   else if (route.name === 'sitevisits') window.location.hash = '/sitevisits';
   else if (route.name === 'campaigns') window.location.hash = '/campaigns';
   else if (route.name === 'reactivation') window.location.hash = '/reactivation';
-  else if (route.name === 'battlecard') window.location.hash = '/battlecard';
   else if (route.name === 'activitylog') window.location.hash = '/activitylog';
   else if (route.name === 'inventory') window.location.hash = '/inventory';
 }
@@ -143,7 +139,7 @@ export default function App() {
 
   const go = useCallback((r: Route) => navigate(r), []);
 
-  const sidebarCurrent: 'dashboard' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner' | 'reactivation' | 'battlecard' | 'activitylog' | 'inventory' =
+  const sidebarCurrent: 'dashboard' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner' | 'reactivation' | 'activitylog' | 'inventory' =
     route.name === 'leads' ? 'leads' :
     route.name === 'leadbank' ? 'leadbank' :
     route.name === 'import' ? 'import' :
@@ -151,7 +147,6 @@ export default function App() {
     route.name === 'sitevisits' ? 'sitevisits' :
     route.name === 'campaigns' ? 'campaigns' :
     route.name === 'reactivation' ? 'reactivation' :
-    route.name === 'battlecard' ? 'battlecard' :
     route.name === 'activitylog' ? 'activitylog' :
     route.name === 'inventory' ? 'inventory' :
     route.name === 'lead' ? 'leads' : 'dashboard';
@@ -260,8 +255,6 @@ export default function App() {
               onChanged={load}
             />
           )}
-
-          {route.name === 'battlecard' && <SalesBattleCard />}
 
           {route.name === 'inventory' && <LiveInventoryBoard />}
 
