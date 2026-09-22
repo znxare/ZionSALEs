@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, type ReactNode } from 'react';
 import {
   ArrowLeft, Phone, MessageCircle, MapPin, Home, XCircle,
   CalendarClock, Flame, Trash2, Check, ChevronRight, Clock, Plus, X, Pencil,
@@ -15,6 +15,7 @@ import {
 } from '@/lib/crm';
 import { statusStyles } from '@/lib/styles';
 import { STATUSES } from '@/lib/crm';
+import Private from './Private';
 import GuidedFlow from './GuidedFlow';
 import FollowUpSheet from './FollowUpSheet';
 import EditLeadModal from './EditLeadModal';
@@ -302,7 +303,7 @@ export default function LeadDetail({ id, leads, campaigns, profiles, onBack, onC
             <div>
               <h1 className="font-display text-2xl font-bold tracking-tight">{lead.name}</h1>
               <a href={`tel:${lead.phone}`} className="mt-1 inline-flex items-center gap-1.5 text-sm text-emerald-100/90 hover:text-white">
-                <Phone className="h-3.5 w-3.5" /> {lead.phone}
+                <Phone className="h-3.5 w-3.5" /> <Private>{lead.phone}</Private>
               </a>
             </div>
             <div className="flex flex-col items-end gap-1.5">
@@ -316,7 +317,7 @@ export default function LeadDetail({ id, leads, campaigns, profiles, onBack, onC
         <div className="grid grid-cols-2 gap-px bg-gray-100 sm:grid-cols-5">
           <Meta label="Source" value={lead.source} />
           <Meta label="City" value={lead.city || '—'} />
-          <Meta label="Email" value={lead.email || '—'} />
+          <Meta label="Email" value={<Private>{lead.email || '—'}</Private>} />
           <Meta label="Assigned to" value={lead.assigned_to || 'Unassigned'} />
           <Meta label="Created" value={formatDate(lead.created_at)} />
         </div>
@@ -623,7 +624,7 @@ function EmptyState({ label }: { label: string }) {
   return <p className="rounded-2xl border border-dashed border-gray-200 bg-white p-6 text-center text-sm text-gray-400">{label}</p>;
 }
 
-function Meta({ label, value }: { label: string; value: string }) {
+function Meta({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="bg-white px-4 py-3 sm:px-5">
       <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{label}</div>

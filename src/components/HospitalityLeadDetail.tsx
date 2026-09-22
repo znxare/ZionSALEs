@@ -11,6 +11,7 @@ import {
 } from '@/lib/hospitality';
 import { relativeDay, formatDate, formatTime, isToday, isOverdue } from '@/lib/crm';
 import { statusStyles } from '@/lib/styles';
+import Private from './Private';
 import FollowUpSheet from './FollowUpSheet';
 import EditHospitalityLeadModal from './EditHospitalityLeadModal';
 
@@ -145,8 +146,8 @@ export default function HospitalityLeadDetail({ id, leads, profiles, onBack, onC
             <div>
               <h1 className="font-display text-xl font-bold tracking-tight text-gray-900">{lead.name}</h1>
               <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-gray-500">
-                <span>{lead.phone}</span>
-                {lead.email && <span>{lead.email}</span>}
+                <Private><span>{lead.phone}</span></Private>
+                {lead.email && <Private><span>{lead.email}</span></Private>}
                 {lead.city && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {lead.city}</span>}
               </div>
             </div>

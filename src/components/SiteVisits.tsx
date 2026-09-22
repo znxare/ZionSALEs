@@ -10,6 +10,7 @@ import {
   UNASSIGNED_CAMPAIGN_LABEL,
 } from '@/lib/crm';
 import { BarChart, DonutChart } from './charts';
+import Private from './Private';
 
 type ViewMode = 'list' | 'analytics' | 'calendar';
 type DateRangePreset = 'today' | 'yesterday' | 'this_week' | 'last_week' | 'this_month' | 'last_month' | 'custom' | 'all';
@@ -316,7 +317,7 @@ export default function SiteVisits({ leads, campaigns, onOpenLead }: Props) {
                       <td className="px-4 py-3">
                         <button onClick={() => onOpenLead(r.leadId)} className="text-left font-semibold text-gray-900 hover:text-emerald-600">{r.name}</button>
                       </td>
-                      <td className="px-4 py-3 text-[13px] text-gray-600">{r.phone}</td>
+                      <td className="px-4 py-3 text-[13px] text-gray-600"><Private>{r.phone}</Private></td>
                       <td className="px-4 py-3">
                         <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[12px] font-bold text-violet-700">{r.visits}</span>
                       </td>

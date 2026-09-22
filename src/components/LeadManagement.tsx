@@ -15,6 +15,7 @@ import {
 import { statusStyles } from '@/lib/styles';
 import { phoneCountryFlag } from '@/lib/normalize';
 import { useDebouncedValue } from '@/lib/hooks';
+import Private from './Private';
 import EditLeadModal from './EditLeadModal';
 import FollowUpSheet from './FollowUpSheet';
 import ColdReasonModal from './ColdReasonModal';
@@ -607,7 +608,7 @@ export default function LeadManagement({ leads, campaigns, profiles, onOpenLead,
                       <td className="px-4 py-3 text-[13px] text-gray-600">
                         <span className="flex items-center gap-1.5">
                           {phoneCountryFlag(l.phone) && <span title={phoneCountryFlag(l.phone)?.name}>{phoneCountryFlag(l.phone)?.flag}</span>}
-                          {l.phone}
+                          <Private>{l.phone}</Private>
                         </span>
                       </td>
                       <td className="px-4 py-3 text-[13px] text-gray-500">{l.source}</td>
@@ -669,7 +670,7 @@ export default function LeadManagement({ leads, campaigns, profiles, onOpenLead,
                       <div className="font-semibold text-gray-900">{l.name}</div>
                       <div className="flex items-center gap-1.5 text-[12px] text-gray-400">
                         {phoneCountryFlag(l.phone) && <span title={phoneCountryFlag(l.phone)?.name}>{phoneCountryFlag(l.phone)?.flag}</span>}
-                        {l.phone}
+                        <Private>{l.phone}</Private>
                       </div>
                     </div>
                   </button>

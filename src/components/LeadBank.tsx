@@ -10,6 +10,7 @@ import {
   STATUSES, recordAction, fetchLead, UNASSIGNED_CAMPAIGN_LABEL,
 } from '@/lib/crm';
 import { normalizePhone, phoneCountryFlag } from '@/lib/normalize';
+import Private from './Private';
 
 interface Props {
   campaigns: Campaign[];
@@ -158,7 +159,7 @@ export default function LeadBank({ campaigns, onChanged }: Props) {
                     <td className="px-4 py-3">
                       <a href={`tel:${e.phone}`} className="flex items-center gap-1.5 text-[13px] font-medium text-emerald-600 hover:underline">
                         {phoneCountryFlag(e.phone) && <span title={phoneCountryFlag(e.phone)?.name}>{phoneCountryFlag(e.phone)?.flag}</span>}
-                        {e.phone}
+                        <Private>{e.phone}</Private>
                       </a>
                     </td>
                     <td className="px-4 py-3 text-[13px] text-gray-500">{e.source ?? '—'}</td>
@@ -379,7 +380,7 @@ function PasteFromExcelModal({ campaigns, onClose, onDone }: { campaigns: Campai
                   {previewWithFlags.slice(0, 8).map((r, i) => (
                     <div key={i} className="flex items-center gap-3 py-0.5 text-[12px] text-gray-600">
                       <span className={`font-medium ${r.isDupInFile || r.isDupExisting ? 'text-amber-600' : 'text-gray-700'}`}>{r.name}</span>
-                      <span className={r.isDupInFile || r.isDupExisting ? 'text-amber-500' : 'text-gray-500'}>{r.phone}</span>
+                      <span className={r.isDupInFile || r.isDupExisting ? 'text-amber-500' : 'text-gray-500'}><Private>{r.phone}</Private></span>
                       {r.city && <span className="text-gray-400">{r.city}</span>}
                       {r.isDupInFile && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Dup in file</span>}
                       {r.isDupExisting && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Already exists</span>}
@@ -442,7 +443,7 @@ function CallQualifyModal({
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h3 className="font-display text-lg font-bold text-gray-900">Log Call</h3>
-            <p className="text-[13px] text-gray-400">{entry.name} · {entry.phone}</p>
+            <p className="text-[13px] text-gray-400">{entry.name} · <Private>{entry.phone}</Private></p>
           </div>
           <button onClick={onClose} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
         </div>

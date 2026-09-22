@@ -11,6 +11,7 @@ import {
   COLD_REASONS, REACTIVATION_OUTCOMES, REASON_SUGGESTIONS,
 } from '@/lib/crm';
 import { BarChart, DonutChart } from './charts';
+import Private from './Private';
 
 interface Props {
   leads: Lead[];
@@ -256,7 +257,7 @@ export default function LeadReactivation({ leads, campaigns, onOpenLead, onChang
                       </button>
                       {overdueDays > 0 && <span className="ml-2 rounded-full bg-red-50 px-1.5 py-0.5 text-[9px] font-bold text-red-600">OVERDUE</span>}
                     </td>
-                    <td className="px-4 py-3 text-gray-600">{lead.phone}</td>
+                    <td className="px-4 py-3 text-gray-600"><Private>{lead.phone}</Private></td>
                     <td className="hidden px-4 py-3 text-gray-600 lg:table-cell">{lead.city ?? '—'}</td>
                     <td className="hidden px-4 py-3 text-gray-600 xl:table-cell">{lead.campaign_id ? (campaignMap.get(lead.campaign_id)?.name ?? '—') : '—'}</td>
                     <td className="hidden px-4 py-3 md:table-cell">

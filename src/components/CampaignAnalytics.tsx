@@ -12,6 +12,7 @@ import {
   leadQualityScore, UNASSIGNED_CAMPAIGN_LABEL,
 } from '@/lib/crm';
 import { BarChart, LineChart, DonutChart } from './charts';
+import Private from './Private';
 
 interface Props {
   leads: Lead[];
@@ -627,7 +628,7 @@ function CampaignDetailModal({ campaign, funnel, onClose, leadsByCampaign }: {
                     <div key={l.id} className="flex items-center justify-between rounded-xl border border-black/5 bg-white px-3.5 py-2.5">
                       <div className="min-w-0">
                         <p className="truncate text-[13px] font-semibold text-gray-900">{l.name}</p>
-                        <p className="text-[11px] text-gray-400">{l.phone}{l.city ? ` · ${l.city}` : ''}</p>
+                        <p className="text-[11px] text-gray-400"><Private>{l.phone}</Private>{l.city ? ` · ${l.city}` : ''}</p>
                       </div>
                       <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ color: segData.find((s) => s.label === activeSeg)?.color, backgroundColor: (segData.find((s) => s.label === activeSeg)?.color ?? '#999') + '15' }}>{l.status}</span>
                     </div>
@@ -697,7 +698,7 @@ function InteractiveStatusGrid({ leads }: { leads: Lead[] }) {
                 <div key={l.id} className="flex items-center justify-between rounded-xl border border-black/5 bg-white px-3.5 py-2.5">
                   <div className="min-w-0">
                     <p className="truncate text-[13px] font-semibold text-gray-900">{l.name}</p>
-                    <p className="text-[11px] text-gray-400">{l.phone}{l.city ? ` · ${l.city}` : ''}</p>
+                    <p className="text-[11px] text-gray-400"><Private>{l.phone}</Private>{l.city ? ` · ${l.city}` : ''}</p>
                   </div>
                   <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ color: segData.find((s) => s.label === active)?.color, backgroundColor: (segData.find((s) => s.label === active)?.color ?? '#999') + '15' }}>{l.status}</span>
                 </div>

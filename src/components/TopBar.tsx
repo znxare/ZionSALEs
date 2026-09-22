@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Search, Plus, Bell, MapPin, Clock, X, LogOut, ChevronDown } from 'lucide-react';
+import { Search, Plus, Bell, MapPin, Clock, X, LogOut, ChevronDown, EyeOff, Eye } from 'lucide-react';
 import type { SiteVisit } from '@/lib/supabase';
 import { fetchAllSiteVisits, isToday, formatDate, formatTime, relativeDay } from '@/lib/crm';
 import type { CurrentUser } from '@/lib/auth';
+import { usePresentationMode, setPresentationMode } from '@/lib/presentationMode';
 
 interface Props {
   user: CurrentUser | null;
@@ -22,6 +23,7 @@ export default function TopBar({ user, onSearch, onAdd, onSignOut }: Props) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [visits, setVisits] = useState<SiteVisit[]>([]);
+  const presentationMode = usePresentationMode();
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
@@ -85,6 +87,20 @@ export default function TopBar({ user, onSearch, onAdd, onSignOut }: Props) {
             <Search className="h-4 w-4" />
             <span className="hidden sm:inline">Search leads</span>
             <kbd className="hidden rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-400 sm:inline">⌘K</kbd>
+          </button>
+
+          {/* Presentation mode — blurs phone numbers & emails everywhere, for screenshots */}
+          <button
+            onClick={() => setPresentationMode(!presentationMode)}
+            aria-label={presentationMode ? 'Turn off presentation mode' : 'Turn on presentation mode'}
+            title={presentationMode ? 'Presentation mode on — click to reveal contact details' : 'Presentation mode — blur contact details for screenshots'}
+            className={`grid h-9 w-9 place-items-center rounded-full border transition card-shadow ${
+              presentationMode
+                ? 'border-orange-300 bg-orange-500 text-white'
+                : 'border-black/5 bg-white/70 text-gray-500 hover:bg-white hover:text-gray-700'
+            }`}
+          >
+            {presentationMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
 
           {/* Notification center */}

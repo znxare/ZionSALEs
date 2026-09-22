@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Search, X, ArrowRight, Phone } from 'lucide-react';
 import type { Lead } from '@/lib/supabase';
 import { statusStyles } from '@/lib/styles';
+import Private from './Private';
 
 interface Props {
   leads: Lead[];
@@ -87,7 +88,7 @@ export default function SearchView({ leads, onOpenLead, overlay, onClose }: Prop
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-semibold text-gray-900">{l.name}</div>
                       <div className="flex items-center gap-1.5 text-[12px] text-gray-400">
-                        <Phone className="h-3 w-3" /> {l.phone}
+                        <Phone className="h-3 w-3" /> <Private>{l.phone}</Private>
                         {l.city && <span>· {l.city}</span>}
                       </div>
                     </div>

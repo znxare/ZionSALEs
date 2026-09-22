@@ -12,6 +12,7 @@ import {
   fetchLeadImports, CAMPAIGN_TYPES, CAMPAIGN_PLATFORMS,
 } from '@/lib/crm';
 import { normalizePhone, normalizeEmail, normalizeCampaignName, similarity } from '@/lib/normalize';
+import Private from './Private';
 import { supabase } from '@/lib/supabase';
 
 interface Props {
@@ -755,7 +756,7 @@ export default function LeadImport({ campaigns, onImported }: Props) {
                     <tr key={r.rowIndex} className="border-t border-gray-100">
                       <td className="px-3 py-2 text-[11px] text-gray-400">{r.rowIndex + 2}</td>
                       <td className="px-3 py-2 text-[12px] font-medium text-gray-900">{r.name || <span className="text-red-400">—</span>}</td>
-                      <td className="px-3 py-2 text-[12px] text-gray-600">{r.phone}</td>
+                      <td className="px-3 py-2 text-[12px] text-gray-600"><Private>{r.phone}</Private></td>
                       <td className="px-3 py-2 text-[12px] text-gray-500">{r.source || '—'}</td>
                       <td className="px-3 py-2 text-[12px] text-gray-500">
                         {r.campaignId ? campaigns.find((c) => c.id === r.campaignId)?.name ?? 'Assigned' : <span className="text-gray-300">—</span>}
