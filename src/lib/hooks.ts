@@ -12,7 +12,7 @@ export function useDebouncedValue<T>(value: T, delayMs = 200): T {
   return debounced;
 }
 
-const usePrefersReducedMotion = () => {
+export const usePrefersReducedMotion = () => {
   const [reduced, setReduced] = useState(() =>
     typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
   );

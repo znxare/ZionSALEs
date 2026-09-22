@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import type { Lead, Campaign, SiteVisit, ReactivationAttempt, Activity } from '@/lib/supabase';
 import type { HospitalityLead } from '@/lib/hospitality';
-import { isToday, isOverdue, isThisMonth, relativeDay, formatTime, fetchAllSiteVisits, fetchAllReactivationAttempts, fetchAllActivities } from '@/lib/crm';
+import { isToday, isOverdue, isThisMonth, relativeDay, formatTime, fetchAllSiteVisits, fetchAllReactivationAttempts, fetchAllActivities, greetingForNow } from '@/lib/crm';
 import { statusStyles } from '@/lib/styles';
 import { quoteOfTheDay } from '@/lib/quotes';
 import AnimatedNumber from '@/components/AnimatedNumber';
@@ -257,12 +257,7 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
     );
   }
 
-  const greeting = (() => {
-    const h = new Date().getHours();
-    if (h < 12) return 'Good morning';
-    if (h < 17) return 'Good afternoon';
-    return 'Good evening';
-  })();
+  const greeting = greetingForNow();
 
   const totalAttention = stats.overdue.length + stats.today.length;
 

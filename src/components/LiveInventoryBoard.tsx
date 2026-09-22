@@ -252,10 +252,18 @@ function ZoomPanMap({
     return { x: Math.min(maxX, Math.max(-maxX, p.x)), y: Math.min(maxY, Math.max(-maxY, p.y)) };
   }
 
-  function setZoomClamped(next: number) {
-    const z = clampZoom(next);
-    setZoom(z);
-    setPan((p) => clampPan(p, z));
+  /**
+   * Accepts either an absolute zoom or an updater — always resolves against the
+   * latest React state (never a closure-captured `zoom`), so rapid events fired
+   * within the same batch (e.g. a fast wheel/trackpad gesture) each compose onto
+   * the previous one instead of collapsing down to just the last event's delta.
+   */
+  function setZoomClamped(next: number | ((z: number) => number)) {
+    setZoom((prevZoom) => {
+      const z = clampZoom(typeof next === 'function' ? next(prevZoom) : next);
+      setPan((p) => clampPan(p, z));
+      return z;
+    });
   }
 
   function onPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
@@ -304,7 +312,7 @@ function ZoomPanMap({
 
   function onWheel(e: ReactWheelEvent<HTMLDivElement>) {
     e.preventDefault();
-    setZoomClamped(zoom - e.deltaY * 0.0015);
+    setZoomClamped((z) => z - e.deltaY * 0.0015);
   }
 
   function onClickCapture(e: ReactMouseEvent<HTMLDivElement>) {
@@ -315,7 +323,7 @@ function ZoomPanMap({
   }
 
   function zoomBy(delta: number) {
-    setZoomClamped(zoom + delta);
+    setZoomClamped((z) => z + delta);
   }
 
   function reset() {

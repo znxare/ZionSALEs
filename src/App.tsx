@@ -139,9 +139,15 @@ export default function App() {
     // Supabase's session lock can occasionally hang indefinitely after a mobile
     // browser suspends a backgrounded tab — timing out here guarantees the app
     // always reaches the login/dashboard screen instead of spinning forever.
-    withTimeout(getSession(), 10000, () => null)
+    const sessionCheck = getSession();
+    withTimeout(sessionCheck, 10000, () => null)
       .then(setCurrentUser)
       .finally(() => setAuthChecked(true));
+    // If the real check was only slow (not actually hung) and resolves after the
+    // timeout already showed Login, adopt it instead of leaving the user stuck
+    // on a stale "logged out" view — but never clobber a fresher sign-in/out that
+    // happened in the meantime, so only fill in if nothing else has set a user yet.
+    sessionCheck.then((user) => setCurrentUser((current) => current ?? user)).catch(() => {});
     const { data: sub } = onAuthChange((user) => setCurrentUser(user));
     return () => sub.subscription.unsubscribe();
   }, []);

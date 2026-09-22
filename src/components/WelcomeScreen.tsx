@@ -1,24 +1,19 @@
 import { useEffect, useState } from 'react';
 import type { CurrentUser } from '@/lib/auth';
+import { greetingForNow } from '@/lib/crm';
+import { usePrefersReducedMotion } from '@/lib/hooks';
 
 const HOLD_MS = 1900;
 const FADE_MS = 450;
-
-function greeting(): string {
-  const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
-}
 
 /** Full-screen "Welcome, {name}" moment shown once, right after an active sign-in — never on a page reload with an existing session. */
 export default function WelcomeScreen({ user, onDone }: { user: CurrentUser; onDone: () => void }) {
   const [leaving, setLeaving] = useState(false);
   const firstName = user.full_name.trim().split(/\s+/)[0] || user.full_name;
+  const reducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduced) {
+    if (reducedMotion) {
       onDone();
       return;
     }
@@ -26,7 +21,7 @@ export default function WelcomeScreen({ user, onDone }: { user: CurrentUser; onD
     const doneTimer = setTimeout(onDone, HOLD_MS + FADE_MS);
     return () => { clearTimeout(leaveTimer); clearTimeout(doneTimer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [reducedMotion]);
 
   function skip() {
     setLeaving(true);
@@ -46,7 +41,7 @@ export default function WelcomeScreen({ user, onDone }: { user: CurrentUser; onD
           className="animate-fade-up text-sm font-medium tracking-wide text-orange-100/80"
           style={{ animationDelay: '80ms' }}
         >
-          {greeting()}
+          {greetingForNow()}
         </p>
         <h1
           className="animate-fade-up mt-2 font-display text-4xl font-bold tracking-tight text-white sm:text-5xl"

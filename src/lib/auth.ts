@@ -102,14 +102,17 @@ export async function signUp(email: string, password: string, fullName: string):
 }
 
 export async function signOutUser(): Promise<void> {
-  // Clear local state unconditionally — even if the network sign-out call hangs
-  // (e.g. a stuck Supabase auth lock) the user must never be stuck on-screen with
-  // a logout button that appears to do nothing.
-  cachedUser = null;
   try {
     await withTimeout(supabase.auth.signOut(), 8000, () => undefined);
   } catch {
     // A failed/timed-out network sign-out isn't something the user needs to
-    // act on — their local session is already cleared below.
+    // act on — their local session is cleared below regardless.
+  } finally {
+    // Cleared after the attempt (not before): while sign-out is still in flight,
+    // getCurrentUser() must keep returning the real user, or anything logged in
+    // that window (e.g. an in-flight activity write) would lose its authorship.
+    // The visible UI already flips to "logged out" instantly via App.tsx's
+    // handleSignOut, independently of this module-level cache.
+    cachedUser = null;
   }
 }
