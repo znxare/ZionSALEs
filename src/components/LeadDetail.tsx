@@ -1,22 +1,21 @@
 import { useEffect, useState, useCallback, useMemo, type ReactNode } from 'react';
 import {
   ArrowLeft, Phone, MessageCircle, MapPin, Home, XCircle,
-  CalendarClock, Flame, Trash2, Check, ChevronRight, Clock, Plus, X, Pencil,
+  CalendarClock, Trash2, Check, Clock, Plus, X, Pencil,
   User, Award, CheckCircle2,
 } from 'lucide-react';
 import type { Lead, Activity, ActivityType, Campaign, SiteVisit, InterestLevel, TourOutcome, ColdReason, LeadStatus, Profile } from '@/lib/supabase';
 import {
   fetchLead, fetchActivities, recordAction, scheduleFollowUp,
-  completeSiteVisit, completeSiteVisitById, updateLead, deleteLead, fetchSiteVisits, createSiteVisit,
+  completeSiteVisit, completeSiteVisitById, deleteLead, fetchSiteVisits, createSiteVisit,
   isFollowUpRequired,
   toLocalInputValue,
-  relativeDay, formatDate, formatTime, formatDateTime, daysFromNow, isToday, isOverdue,
+  relativeDay, formatDate, formatTime, formatDateTime, isToday, isOverdue,
   markLeadCold, fetchReactivationAttempts,
 } from '@/lib/crm';
 import { statusStyles } from '@/lib/styles';
 import { STATUSES } from '@/lib/crm';
 import Private from './Private';
-import GuidedFlow from './GuidedFlow';
 import FollowUpSheet from './FollowUpSheet';
 import EditLeadModal from './EditLeadModal';
 import ColdReasonModal from './ColdReasonModal';
@@ -31,7 +30,7 @@ interface Props {
   onChanged: () => void;
 }
 
-type Sheet = 'followup' | 'guided' | 'callResult' | null;
+type Sheet = 'followup' | 'callResult' | null;
 type Tab = 'timeline' | 'followups' | 'sitevisits' | 'notes' | 'reactivation';
 
 const tabConfig: { id: Tab; label: string }[] = [
@@ -96,42 +95,6 @@ export default function LeadDetail({ id, leads, campaigns, profiles, onBack, onC
       setSheet('followup');
     } catch (e) {
       setActionError(e instanceof Error ? e.message : 'Could not save this action. Please try again.');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleGuidedResult(result: { type: ActivityType; summary: string; patch: Partial<Lead>; followUpInDays?: number; siteVisitAt?: string; notes?: string }) {
-    if (!lead) return;
-    setBusy(true);
-    setActionError(null);
-    try {
-      let patch = { ...result.patch };
-      let when = result.followUpInDays ? daysFromNow(result.followUpInDays) : lead.next_followup_at;
-      if (result.siteVisitAt) {
-        await createSiteVisit({
-          lead_id: lead.id,
-          visit_number: 1,
-          scheduled_at: result.siteVisitAt,
-          property: null, family_members: null, customer_feedback: null,
-          interest_level: null, outcome: null, notes: null,
-          next_followup_at: result.siteVisitAt, status: 'Scheduled',
-        });
-        when = result.siteVisitAt;
-        patch = { ...patch, site_visit_at: result.siteVisitAt, status: 'Warm' as const };
-      }
-      const { lead: updated } = await recordAction(lead, result.type, result.summary, patch);
-      if (result.notes && result.notes.trim()) {
-        await recordAction(updated, 'Note Added', result.notes.trim());
-      }
-      const finalLead = await updateLead(updated.id, { next_followup_at: when });
-      setLead(finalLead);
-      const acts = await fetchActivities(id);
-      setActivities(acts);
-      onChanged();
-      setSheet(null);
-    } catch (e) {
-      setActionError(e instanceof Error ? e.message : 'Could not save this call. Please try again.');
     } finally {
       setBusy(false);
     }
@@ -374,17 +337,6 @@ export default function LeadDetail({ id, leads, campaigns, profiles, onBack, onC
         </div>
       </div>
 
-      {/* Guided flow hint */}
-      <button
-        onClick={() => setSheet('guided')}
-        className="mt-3 flex w-full items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50/60 px-4 py-3 text-left transition hover:bg-emerald-50"
-      >
-        <span className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
-          <Flame className="h-4 w-4" /> Start guided call flow
-        </span>
-        <ChevronRight className="h-4 w-4 text-emerald-500" />
-      </button>
-
       {/* Tabs */}
       <div className="mt-8">
         <div className="mb-4 flex items-center gap-1 overflow-x-auto border-b border-gray-100">
@@ -532,12 +484,6 @@ export default function LeadDetail({ id, leads, campaigns, profiles, onBack, onC
           phone={lead.phone}
           onClose={() => setSheet(null)}
           onResult={handleCallResult}
-        />
-      )}
-      {sheet === 'guided' && (
-        <GuidedFlow
-          onClose={() => setSheet(null)}
-          onComplete={handleGuidedResult}
         />
       )}
       {editing && (
