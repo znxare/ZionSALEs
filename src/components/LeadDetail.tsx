@@ -233,7 +233,7 @@ export default function LeadDetail({ id, leads, campaigns, profiles, onBack, onC
   const quickActions: { icon: typeof Phone; label: string; color: string; action: () => void }[] = [
     { icon: Phone, label: 'Called', color: 'bg-emerald-50 text-emerald-700 ring-emerald-200', action: () => setSheet('callResult') },
     { icon: MessageCircle, label: 'WhatsApp Sent', color: 'bg-green-50 text-green-700 ring-green-200', action: () => doAction('WhatsApp Sent', 'Sent WhatsApp message') },
-    { icon: MapPin, label: 'Site Visit Scheduled', color: 'bg-violet-50 text-violet-700 ring-violet-200', action: () => setSiteVisitOpen(true) },
+    { icon: MapPin, label: 'Schedule Site Visit', color: 'bg-violet-50 text-violet-700 ring-violet-200', action: () => setSiteVisitOpen(true) },
     { icon: Home, label: 'Site Visit Completed', color: 'bg-teal-50 text-teal-700 ring-teal-200', action: () => handleCompleteSiteVisit() },
     { icon: Award, label: 'Sale Completed', color: 'bg-emerald-50 text-emerald-700 ring-emerald-200', action: () => doAction('Sale Completed', 'Sale completed!', { booked_at: new Date().toISOString() }) },
     { icon: XCircle, label: 'Not Interested', color: 'bg-gray-100 text-gray-600 ring-gray-200', action: () => doAction('Not Interested', 'Marked not interested', { status: 'Dead' }) },
