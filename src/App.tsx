@@ -297,6 +297,7 @@ export default function App() {
               leads={leads}
               campaigns={campaigns}
               onOpenLead={(id) => go({ name: 'lead', id })}
+              onChanged={load}
             />
           )}
 

@@ -679,6 +679,24 @@ export async function deleteSiteVisit(id: string): Promise<void> {
   if (error) throw error;
 }
 
+// Manually remove a site visit: delete it, keep the lead's site_visit_at in step
+// with the visits that remain (it drives site-visit filters and campaign stats),
+// and leave an audit entry on the lead's timeline.
+export async function removeSiteVisit(visit: SiteVisit): Promise<void> {
+  await deleteSiteVisit(visit.id);
+  const remaining = await fetchSiteVisits(visit.lead_id);
+  const latest = remaining
+    .map((v) => v.scheduled_at)
+    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null;
+  await updateLead(visit.lead_id, { site_visit_at: latest });
+  await logActivity({
+    lead_id: visit.lead_id,
+    type: 'Note Added',
+    summary: `Site visit on ${formatDateTime(visit.scheduled_at)} deleted`,
+    meta: { site_visit_id: visit.id, deleted_site_visit: true },
+  });
+}
+
 // Mark a site visit completed (can be called multiple times for repeat visits).
 export async function completeSiteVisitById(visitId: string, leadId: string): Promise<void> {
   const { data: visit, error: fetchErr } = await supabase

@@ -2,11 +2,11 @@ import { useState, useMemo, useEffect } from 'react';
 import {
   CalendarClock, CheckCircle2, MapPin, TrendingUp, Users, Repeat,
   Search, Download, BarChart3, Table as TableIcon, Calendar,
-  ChevronLeft, ChevronRight, X,
+  ChevronLeft, ChevronRight, X, Trash2,
 } from 'lucide-react';
 import type { Lead, Campaign, SiteVisit } from '@/lib/supabase';
 import {
-  fetchAllSiteVisits, formatDate, formatTime, formatDateTime, isToday, isThisWeek, isThisMonth,
+  fetchAllSiteVisits, removeSiteVisit, formatDate, formatTime, formatDateTime, isToday, isThisWeek, isThisMonth,
   UNASSIGNED_CAMPAIGN_LABEL,
 } from '@/lib/crm';
 import { BarChart, DonutChart } from './charts';
@@ -19,6 +19,7 @@ interface Props {
   leads: Lead[];
   campaigns: Campaign[];
   onOpenLead: (id: string) => void;
+  onChanged?: () => void;
 }
 
 const CHART_COLORS = ['#1f6f43', '#c9a227', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899'];
@@ -48,7 +49,7 @@ function getRange(preset: DateRangePreset, customStart: string, customEnd: strin
   }
 }
 
-export default function SiteVisits({ leads, campaigns, onOpenLead }: Props) {
+export default function SiteVisits({ leads, campaigns, onOpenLead, onChanged }: Props) {
   const [visits, setVisits] = useState<SiteVisit[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<ViewMode>('list');
@@ -57,6 +58,9 @@ export default function SiteVisits({ leads, campaigns, onOpenLead }: Props) {
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   const [calMonth, setCalMonth] = useState(() => { const d = new Date(); d.setDate(1); return d; });
+  const [managingLeadId, setManagingLeadId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function load() {
     try {
@@ -65,6 +69,24 @@ export default function SiteVisits({ leads, campaigns, onOpenLead }: Props) {
       setVisits(data);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleDeleteVisit(visit: SiteVisit) {
+    const name = leadMap.get(visit.lead_id)?.name ?? 'this prospect';
+    if (!confirm(`Delete the site visit for ${name} on ${formatDateTime(visit.scheduled_at)}? This cannot be undone.`)) return;
+    setDeletingId(visit.id);
+    setDeleteError(null);
+    try {
+      await removeSiteVisit(visit);
+      const remaining = visits.filter((v) => v.id !== visit.id);
+      setVisits(remaining);
+      if (!remaining.some((v) => v.lead_id === visit.lead_id)) setManagingLeadId(null);
+      onChanged?.();
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : 'Could not delete this site visit. Please try again.');
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -307,11 +329,12 @@ export default function SiteVisits({ leads, campaigns, onOpenLead }: Props) {
                     <th className="px-4 py-3">Latest Visit</th>
                     <th className="px-4 py-3">Campaign</th>
                     <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {prospects.length === 0 ? (
-                    <tr><td colSpan={6} className="px-4 py-12 text-center text-sm text-gray-400">No site visits in this period.</td></tr>
+                    <tr><td colSpan={7} className="px-4 py-12 text-center text-sm text-gray-400">No site visits in this period.</td></tr>
                   ) : prospects.map((r) => (
                     <tr key={r.leadId} className="group border-t border-gray-100 transition hover:bg-gray-50/60">
                       <td className="px-4 py-3">
@@ -324,6 +347,15 @@ export default function SiteVisits({ leads, campaigns, onOpenLead }: Props) {
                       <td className="px-4 py-3 text-[13px] text-gray-500">{formatDate(r.latest)}</td>
                       <td className="px-4 py-3 text-[13px] text-gray-500">{r.campaign}</td>
                       <td className="px-4 py-3 text-[13px] text-gray-500">{r.status}</td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => { setDeleteError(null); setManagingLeadId(r.leadId); }}
+                          title="Delete a site visit"
+                          className="rounded-lg p-1.5 text-gray-400 transition hover:bg-red-50 hover:text-red-600"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -391,6 +423,43 @@ export default function SiteVisits({ leads, campaigns, onOpenLead }: Props) {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {managingLeadId && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 backdrop-blur-sm sm:items-center" onClick={() => setManagingLeadId(null)}>
+          <div className="w-full max-w-md animate-slide-up overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:animate-scale-in sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+              <div>
+                <h2 className="font-display text-lg font-bold tracking-tight text-gray-900">Site visits</h2>
+                <p className="text-[12px] text-gray-400">{leadMap.get(managingLeadId)?.name ?? 'Unknown'}</p>
+              </div>
+              <button onClick={() => setManagingLeadId(null)} className="rounded-full p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="max-h-[60vh] divide-y divide-gray-100 overflow-y-auto">
+              {visits
+                .filter((v) => v.lead_id === managingLeadId)
+                .sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime())
+                .map((v) => (
+                  <div key={v.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900">{formatDateTime(v.scheduled_at)}</div>
+                      <div className="text-[12px] text-gray-400">Visit {v.visit_number} · {v.status}</div>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteVisit(v)}
+                      disabled={deletingId !== null}
+                      className="flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1.5 text-[13px] font-semibold text-red-600 ring-1 ring-red-200 transition hover:bg-red-100 disabled:opacity-50"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> {deletingId === v.id ? 'Deleting…' : 'Delete'}
+                    </button>
+                  </div>
+                ))}
+            </div>
+            {deleteError && <p className="border-t border-gray-100 px-5 py-3 text-[13px] text-red-600">{deleteError}</p>}
           </div>
         </div>
       )}
