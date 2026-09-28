@@ -574,7 +574,7 @@ export default function LeadManagement({ leads, campaigns, profiles, onOpenLead,
       {view === 'table' && (
         <div className="overflow-hidden rounded-2xl border border-black/5 bg-white card-shadow">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[800px]">
+            <table className="w-full min-w-[920px]">
               <thead className="sticky top-0 z-10 bg-gray-50/90 backdrop-blur">
                 <tr className="text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400">
                   <th className="w-10 px-4 py-3">
@@ -587,6 +587,7 @@ export default function LeadManagement({ leads, campaigns, profiles, onOpenLead,
                   <th className="px-4 py-3">Next Follow-up</th>
                   <th className="px-4 py-3">Last Activity</th>
                   <th className="px-4 py-3">Created</th>
+                  <th className="px-4 py-3">Assigned To</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -636,6 +637,7 @@ export default function LeadManagement({ leads, campaigns, profiles, onOpenLead,
                         ) : <span className="text-[13px] text-gray-300">—</span>}
                       </td>
                       <td className="px-4 py-3 text-[13px] text-gray-400">{formatDate(l.created_at)}</td>
+                      <td className="px-4 py-3 text-[13px]">{l.assigned_to ? <span className="text-gray-600">{l.assigned_to}</span> : <span className="text-gray-300">Unassigned</span>}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-0.5">
                           <RowAction icon={Phone} color="text-emerald-600" onClick={() => window.open(`tel:${l.phone}`)} title="Call" />
