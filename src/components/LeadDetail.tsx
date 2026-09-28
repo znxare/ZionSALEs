@@ -340,10 +340,18 @@ export default function LeadDetail({ id, leads, campaigns, profiles, onBack, onC
               </button>
             </>
           ) : (
-            <div className="flex items-center gap-2 text-sm text-gray-400">
-              <CalendarClock className="h-4 w-4" />
-              <span>No follow-up required — lead is {lead.status}</span>
-            </div>
+            lead.booked_at ? (
+              <div className="flex items-center gap-2 text-sm">
+                <Award className="h-4 w-4 text-emerald-600" />
+                <span className="font-semibold text-emerald-700">Sold</span>
+                <span className="text-gray-400">· {formatDate(lead.booked_at)}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-sm text-gray-400">
+                <CalendarClock className="h-4 w-4" />
+                <span>No follow-up required — lead is {lead.status}</span>
+              </div>
+            )
           )}
         </div>
       </div>
