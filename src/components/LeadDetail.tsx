@@ -771,14 +771,22 @@ function CallResultSheet({ leadName, phone, onClose, onResult }: { leadName: str
           <h3 className="font-display text-lg font-bold text-gray-900">Log Call — {leadName}</h3>
           <button onClick={onClose} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
         </div>
-        <a
-          href={`https://wa.me/${phone.replace(/\D/g, '')}`}
-          target="_blank"
-          rel="noreferrer"
-          className="mb-4 flex items-center justify-center gap-2 rounded-xl bg-green-50 px-3 py-2.5 text-[13px] font-semibold text-green-700 ring-1 ring-green-200 transition hover:bg-green-100"
-        >
-          <MessageCircle className="h-4 w-4" /> Send WhatsApp
-        </a>
+        <div className="mb-4 grid grid-cols-2 gap-2">
+          <a
+            href={`tel:${phone}`}
+            className="flex items-center justify-center gap-2 rounded-xl bg-emerald-50 px-3 py-2.5 text-[13px] font-semibold text-emerald-700 ring-1 ring-emerald-200 transition hover:bg-emerald-100"
+          >
+            <Phone className="h-4 w-4" /> Call
+          </a>
+          <a
+            href={`https://wa.me/${phone.replace(/\D/g, '')}`}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center justify-center gap-2 rounded-xl bg-green-50 px-3 py-2.5 text-[13px] font-semibold text-green-700 ring-1 ring-green-200 transition hover:bg-green-100"
+          >
+            <MessageCircle className="h-4 w-4" /> Send WhatsApp
+          </a>
+        </div>
         <p className="mb-4 text-sm text-gray-500">Select the new status for this lead:</p>
         <div className="grid grid-cols-2 gap-2">
           {STATUSES.map((s) => (
