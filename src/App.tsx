@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { fetchLeads, fetchCampaigns, fetchProfiles, type Lead, type Campaign, type Profile } from '@/lib/crm';
 import { fetchHospitalityLeads, type HospitalityLead } from '@/lib/hospitality';
 import Dashboard from '@/components/Dashboard';
@@ -105,10 +105,26 @@ export default function App() {
   // with an already-persisted session, so the welcome moment isn't shown every visit.
   const [justSignedIn, setJustSignedIn] = useState(false);
 
+  // Keep the previous array (same reference) when a refresh returns identical
+  // rows, so background refreshes don't re-render screens or re-trigger the
+  // extra fetches that components run whenever `leads` changes.
+  const keepIfSame = <T,>(next: T) => (prev: T) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next);
+  const loadedOnce = useRef(false);
+  const inFlight = useRef(false);
+  const rerun = useRef(false);
+  const lastLoadAt = useRef(0);
+
+  // Only the very first load shows the full-screen spinner. Later refreshes
+  // (after an edit, on a timer, or when the tab regains focus) swap data in
+  // place, and a failed background refresh keeps the data already on screen.
   const load = useCallback(async () => {
+    // A refresh is already running (e.g. the 30s timer) — its data may predate
+    // the edit that asked for this one, so run once more when it finishes.
+    if (inFlight.current) { rerun.current = true; return; }
+    inFlight.current = true;
+    const firstLoad = !loadedOnce.current;
     try {
-      setLoading(true);
-      setError(null);
+      if (firstLoad) setLoading(true);
       // Timed out so a hung request on a flaky mobile connection can't leave the
       // dashboard spinning forever — it surfaces as a normal, retryable error instead.
       const [leadData, campaignData, profileData] = await withTimeout(
@@ -116,22 +132,31 @@ export default function App() {
         20000,
         () => { throw new Error('This is taking longer than expected — check your connection and try again.'); },
       );
-      setLeads(leadData);
-      setCampaigns(campaignData);
-      setProfiles(profileData);
+      setLeads(keepIfSame(leadData));
+      setCampaigns(keepIfSame(campaignData));
+      setProfiles(keepIfSame(profileData));
+      setError(null);
+      loadedOnce.current = true;
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load data');
+      if (firstLoad) setError(e instanceof Error ? e.message : 'Failed to load data');
     } finally {
-      setLoading(false);
+      if (firstLoad) setLoading(false);
+      lastLoadAt.current = Date.now();
     }
 
     // Fetched separately so a missing/unmigrated hospitality_leads table
     // (or any other hospitality-side failure) can never block Real Estate
     // data from loading — the two divisions stay fully independent.
     try {
-      setHospitalityLeads(await withTimeout(fetchHospitalityLeads(), 20000, () => []));
+      setHospitalityLeads(keepIfSame(await withTimeout(fetchHospitalityLeads(), 20000, () => [] as HospitalityLead[])));
     } catch {
-      setHospitalityLeads([]);
+      if (firstLoad) setHospitalityLeads([]);
+    }
+
+    inFlight.current = false;
+    if (rerun.current) {
+      rerun.current = false;
+      await load();
     }
   }, []);
 
@@ -156,6 +181,27 @@ export default function App() {
 
   useEffect(() => {
     if (authed) load();
+  }, [authed, load]);
+
+  // Nothing pushes other people's changes to this screen, so pick them up by
+  // refreshing every 30s while the app is visible, and straight away when the
+  // user comes back to the tab (e.g. after a phone call or WhatsApp).
+  useEffect(() => {
+    if (!authed) return;
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') load();
+    };
+    const onReturn = () => {
+      if (document.visibilityState === 'visible' && Date.now() - lastLoadAt.current > 5000) load();
+    };
+    const timer = window.setInterval(refreshIfVisible, 30000);
+    document.addEventListener('visibilitychange', onReturn);
+    window.addEventListener('focus', onReturn);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onReturn);
+      window.removeEventListener('focus', onReturn);
+    };
   }, [authed, load]);
 
   useEffect(() => {
