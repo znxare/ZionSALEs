@@ -266,7 +266,7 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
       {/* Orange ribbon hero — full-width brand banner */}
       <div
         className="relative overflow-hidden rounded-3xl bg-cover bg-center p-6 text-white card-shadow-lg sm:p-8"
-        style={{ backgroundImage: "url('/dashboard-ribbon-bg.png')" }}
+        style={{ backgroundColor: '#e44c04', backgroundImage: "url('/dashboard-ribbon-bg.webp')" }}
       >
         <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-1">
