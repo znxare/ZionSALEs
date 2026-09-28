@@ -56,13 +56,29 @@ export function smartDefaults(source: string): { status: LeadStatus } {
   }
 }
 
+// Supabase returns at most 1000 rows per request, silently dropping the rest,
+// so any "load everything" query has to page through. Each query needs a
+// unique tiebreaker in its ordering (id) so pages don't overlap or skip rows.
+const PAGE_SIZE = 1000;
+async function fetchAllPages<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: unknown }>,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await page(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    rows.push(...((data ?? []) as T[]));
+    if (!data || data.length < PAGE_SIZE) return rows;
+  }
+}
+
 export async function fetchLeads(): Promise<Lead[]> {
-  const { data, error } = await supabase
+  return fetchAllPages<Lead>((from, to) => supabase
     .from('leads')
     .select('*')
-    .order('next_followup_at', { ascending: true });
-  if (error) throw error;
-  return (data ?? []) as Lead[];
+    .order('next_followup_at', { ascending: true })
+    .order('id')
+    .range(from, to));
 }
 
 export async function fetchLead(id: string): Promise<Lead | null> {
@@ -619,23 +635,23 @@ export async function fetchSiteVisits(leadId: string): Promise<SiteVisit[]> {
 }
 
 export async function fetchAllSiteVisits(): Promise<SiteVisit[]> {
-  const { data, error } = await supabase
+  return fetchAllPages<SiteVisit>((from, to) => supabase
     .from('site_visits')
     .select('*')
-    .order('scheduled_at', { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as SiteVisit[];
+    .order('scheduled_at', { ascending: false })
+    .order('id')
+    .range(from, to));
 }
 
 // Lightweight cross-lead activity feed for funnel-timing metrics (e.g. speed to first call).
 // Ascending order so the first matching row per lead_id is the earliest occurrence.
 export async function fetchAllActivities(): Promise<Pick<Activity, 'id' | 'lead_id' | 'type' | 'created_at'>[]> {
-  const { data, error } = await supabase
+  return fetchAllPages<Pick<Activity, 'id' | 'lead_id' | 'type' | 'created_at'>>((from, to) => supabase
     .from('activities')
     .select('id, lead_id, type, created_at')
-    .order('created_at', { ascending: true });
-  if (error) throw error;
-  return (data ?? []) as Pick<Activity, 'id' | 'lead_id' | 'type' | 'created_at'>[];
+    .order('created_at', { ascending: true })
+    .order('id')
+    .range(from, to));
 }
 
 export async function createSiteVisit(input: SiteVisitInsert): Promise<SiteVisit> {
@@ -1008,12 +1024,12 @@ export async function fetchReactivationAttempts(leadId: string): Promise<Reactiv
 }
 
 export async function fetchAllReactivationAttempts(): Promise<ReactivationAttempt[]> {
-  const { data, error } = await supabase
+  return fetchAllPages<ReactivationAttempt>((from, to) => supabase
     .from('reactivation_attempts')
     .select('*')
-    .order('contacted_at', { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as ReactivationAttempt[];
+    .order('contacted_at', { ascending: false })
+    .order('id')
+    .range(from, to));
 }
 
 export async function createReactivationAttempt(input: ReactivationAttemptInsert): Promise<ReactivationAttempt> {
