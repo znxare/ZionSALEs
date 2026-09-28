@@ -3,6 +3,7 @@ import type { LeadStatus, LeadPriority, ActivityType } from './supabase';
 import { normalizePhone } from './normalize';
 import { getCurrentUser } from './auth';
 import { assertWritable } from './demoMode';
+import { rolledFollowUp } from './crm';
 
 // A parallel lead pipeline for the Hospitality division (getaway stays &
 // corporate bookings), backed by its own `hospitality_leads` /
@@ -175,6 +176,8 @@ export async function recordHospitalityAction(
   if (patch.status && TERMINAL_STATUSES.includes(patch.status)) {
     finalPatch.next_followup_at = null;
   }
+  const rolled = rolledFollowUp(lead.next_followup_at, type, patch);
+  if (rolled) finalPatch.next_followup_at = rolled;
   const updated = await updateHospitalityLead(lead.id, {
     ...finalPatch,
     last_contacted_at: new Date().toISOString(),

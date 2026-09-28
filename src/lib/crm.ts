@@ -1,4 +1,4 @@
-import { supabase, type Lead, type LeadInsert, type Activity, type ActivityInsert, type LeadSource, type LeadStatus, type Tour, type TourInsert, type TourStatus, type TourOutcome, type InterestLevel, type Campaign, type CampaignInsert, type CampaignType, type CampaignPlatform, type SiteVisit, type SiteVisitInsert, type SiteVisitStatus, type LeadBankEntry, type LeadBankInsert, type LeadBankStatus, type Todo, type TodoInsert, type ColdReason, type ReactivationOutcome, type ReactivationAttempt, type ReactivationAttemptInsert, type LeadImport, type LeadImportInsert, type Profile } from './supabase';
+import { supabase, type Lead, type LeadInsert, type Activity, type ActivityInsert, type ActivityType, type LeadSource, type LeadStatus, type Tour, type TourInsert, type TourStatus, type TourOutcome, type InterestLevel, type Campaign, type CampaignInsert, type CampaignType, type CampaignPlatform, type SiteVisit, type SiteVisitInsert, type SiteVisitStatus, type LeadBankEntry, type LeadBankInsert, type LeadBankStatus, type Todo, type TodoInsert, type ColdReason, type ReactivationOutcome, type ReactivationAttempt, type ReactivationAttemptInsert, type LeadImport, type LeadImportInsert, type Profile } from './supabase';
 import { normalizePhone } from './normalize';
 import { getCurrentUser } from './auth';
 
@@ -200,6 +200,26 @@ export function isFollowUpRequired(lead: Lead): boolean {
   return !TERMINAL_STATUSES.includes(lead.status) && !lead.booked_at;
 }
 
+// Contact actions that complete a due follow-up.
+const CONTACT_TYPES: ActivityType[] = ['Called', 'WhatsApp Sent', 'No Answer'];
+
+// Logging a call/WhatsApp on a lead whose follow-up is due today or overdue
+// completes that follow-up. Without this the old date stays, the dashboard
+// hides the lead for the rest of the day (activity today), and it shows up
+// as overdue tomorrow. Default to tomorrow; the follow-up sheet can override.
+export function rolledFollowUp(
+  current: string | null,
+  type: ActivityType,
+  patch: { next_followup_at?: string | null; status?: LeadStatus; booked_at?: string | null },
+): string | null | undefined {
+  if ('next_followup_at' in patch) return undefined;
+  if (!CONTACT_TYPES.includes(type)) return undefined;
+  if (patch.status && TERMINAL_STATUSES.includes(patch.status)) return undefined;
+  if (patch.booked_at) return undefined;
+  if (!current || new Date(current).getTime() > endOfDay(new Date()).getTime()) return undefined;
+  return daysFromNow(1);
+}
+
 export async function recordAction(
   lead: Lead,
   type: ActivityInsert['type'],
@@ -211,6 +231,8 @@ export async function recordAction(
   if (patch.status && TERMINAL_STATUSES.includes(patch.status)) {
     finalPatch.next_followup_at = null;
   }
+  const rolled = rolledFollowUp(lead.next_followup_at, type, patch);
+  if (rolled) finalPatch.next_followup_at = rolled;
   const updated = await updateLead(lead.id, {
     ...finalPatch,
     last_contacted_at: new Date().toISOString(),
