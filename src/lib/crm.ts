@@ -216,10 +216,13 @@ export function isFollowUpRequired(lead: Lead): boolean {
   return !TERMINAL_STATUSES.includes(lead.status) && !lead.booked_at;
 }
 
-// Contact actions that complete a due follow-up.
-const CONTACT_TYPES: ActivityType[] = ['Called', 'WhatsApp Sent', 'No Answer'];
+// Actions that complete a due follow-up. Notes count too: the team often logs
+// a call by writing a note ("called, no response") instead of tapping Called.
+// System-written notes (e.g. a deleted site visit) go through logActivity
+// directly, not recordAction, so they don't roll the date.
+const CONTACT_TYPES: ActivityType[] = ['Called', 'WhatsApp Sent', 'No Answer', 'Note Added'];
 
-// Logging a call/WhatsApp on a lead whose follow-up is due today or overdue
+// Logging a call/WhatsApp/note on a lead whose follow-up is due today or overdue
 // completes that follow-up. Without this the old date stays, the dashboard
 // hides the lead for the rest of the day (activity today), and it shows up
 // as overdue tomorrow. Default to tomorrow; the follow-up sheet can override.
@@ -645,15 +648,6 @@ export async function fetchAllSiteVisits(): Promise<SiteVisit[]> {
 
 // Lightweight cross-lead activity feed for funnel-timing metrics (e.g. speed to first call).
 // Ascending order so the first matching row per lead_id is the earliest occurrence.
-export async function fetchAllActivities(): Promise<Pick<Activity, 'id' | 'lead_id' | 'type' | 'created_at'>[]> {
-  return fetchAllPages<Pick<Activity, 'id' | 'lead_id' | 'type' | 'created_at'>>((from, to) => supabase
-    .from('activities')
-    .select('id, lead_id, type, created_at')
-    .order('created_at', { ascending: true })
-    .order('id')
-    .range(from, to));
-}
-
 export async function createSiteVisit(input: SiteVisitInsert): Promise<SiteVisit> {
   const { data, error } = await supabase
     .from('site_visits')

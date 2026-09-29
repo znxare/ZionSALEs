@@ -10,7 +10,7 @@ import {
   completeSiteVisit, completeSiteVisitById, deleteLead, fetchSiteVisits, createSiteVisit,
   isFollowUpRequired,
   toLocalInputValue,
-  relativeDay, formatDate, formatTime, formatDateTime, isToday, isOverdue,
+  rolledFollowUp, relativeDay, formatDate, formatTime, formatDateTime, isToday, isOverdue,
   markLeadCold, fetchReactivationAttempts,
 } from '@/lib/crm';
 import { statusStyles } from '@/lib/styles';
@@ -123,12 +123,17 @@ export default function LeadDetail({ id, leads, campaigns, profiles, onBack, onC
     setBusy(true);
     setNoteError(null);
     try {
-      await recordAction(lead, 'Note Added', note.trim());
+      // A note on a due/overdue lead counts as the follow-up (recordAction moves
+      // it to tomorrow); open the picker so the real next date can be chosen.
+      const wasDue = !!rolledFollowUp(lead.next_followup_at, 'Note Added', {});
+      const { lead: updated } = await recordAction(lead, 'Note Added', note.trim());
+      setLead(updated);
       setNote('');
       setShowNoteInput(false);
       const acts = await fetchActivities(id);
       setActivities(acts);
       onChanged();
+      if (wasDue) setSheet('followup');
     } catch (e) {
       setNoteError(e instanceof Error ? e.message : 'Could not save this note. Please try again.');
     } finally {

@@ -4,9 +4,9 @@ import {
   TrendingUp, Award, Snowflake,
   Phone, MessageCircle, X, ChevronRight, Zap, Quote as QuoteIcon,
 } from 'lucide-react';
-import type { Lead, Campaign, SiteVisit, ReactivationAttempt, Activity } from '@/lib/supabase';
+import type { Lead, Campaign, SiteVisit, ReactivationAttempt } from '@/lib/supabase';
 import type { HospitalityLead } from '@/lib/hospitality';
-import { isToday, isOverdue, isThisMonth, relativeDay, formatTime, fetchAllSiteVisits, fetchAllReactivationAttempts, fetchAllActivities, greetingForNow } from '@/lib/crm';
+import { isToday, isOverdue, isThisMonth, relativeDay, formatTime, fetchAllSiteVisits, fetchAllReactivationAttempts, greetingForNow } from '@/lib/crm';
 import { statusStyles } from '@/lib/styles';
 import { quoteOfTheDay } from '@/lib/quotes';
 import AnimatedNumber from '@/components/AnimatedNumber';
@@ -106,12 +106,6 @@ function FollowUpPopup({ type, leads, onClose, onOpenLead }: {
   );
 }
 
-function formatCallDelay(hours: number): string {
-  if (hours < 1) return Math.round(hours * 60) + 'm';
-  if (hours < 48) return Math.round(hours) + 'h';
-  return Math.round(hours / 24) + 'd';
-}
-
 function isTodayActivity(l: AnyLead): boolean {
   if (!l.last_activity_at) return false;
   return isToday(l.last_activity_at);
@@ -120,7 +114,6 @@ function isTodayActivity(l: AnyLead): boolean {
 export default function Dashboard({ leads, hospitalityLeads, campaigns, loading, onOpenLead, onOpenHospitalityLead, onAdd }: Props) {
   const [visits, setVisits] = useState<SiteVisit[]>([]);
   const [reactAttempts, setReactAttempts] = useState<ReactivationAttempt[]>([]);
-  const [activities, setActivities] = useState<Pick<Activity, 'id' | 'lead_id' | 'type' | 'created_at'>[]>([]);
   const [popupType, setPopupType] = useState<'today' | 'overdue' | null>(null);
   const [division, setDivision] = useState<'realestate' | 'hospitality'>('realestate');
   const quote = useMemo(() => quoteOfTheDay(), []);
@@ -132,7 +125,6 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
   useEffect(() => {
     fetchAllSiteVisits().then(setVisits).catch(() => {});
     fetchAllReactivationAttempts().then(setReactAttempts).catch(() => {});
-    fetchAllActivities().then(setActivities).catch(() => {});
   }, [leads]);
 
   const reactivationStats = useMemo(() => {
@@ -171,20 +163,6 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
     return { avg: Math.round(totalDays / sold.length), fastest: Math.min(...daysArr), longest: Math.max(...daysArr) };
   }, [activeLeads]);
 
-  const avgTimeToCall = useMemo(() => {
-    const firstContactByLead = new Map<string, string>();
-    activities.forEach((a) => {
-      if ((a.type === 'Called' || a.type === 'No Answer') && !firstContactByLead.has(a.lead_id)) {
-        firstContactByLead.set(a.lead_id, a.created_at);
-      }
-    });
-    // `activities` is the Real Estate activity log, so this naturally yields count:0 for hospitality leads (no id overlap).
-    const hoursArr = activeLeads
-      .filter((l) => firstContactByLead.has(l.id))
-      .map((l) => Math.max(0, (new Date(firstContactByLead.get(l.id)!).getTime() - new Date(l.created_at).getTime()) / 3600000));
-    if (hoursArr.length === 0) return { avgHours: 0, count: 0 };
-    return { avgHours: hoursArr.reduce((sum, h) => sum + h, 0) / hoursArr.length, count: hoursArr.length };
-  }, [activeLeads, activities]);
 
   const avgVisitsBeforeSale = useMemo(() => {
     if (isHospitality) return { avg: '0', closedCount: 0, totalVisits: 0 };
@@ -569,10 +547,6 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
             <div>
               <div className="font-display text-xl font-bold text-gray-900"><AnimatedNumber value={execMetrics.leadToSaleRate} />%</div>
               <div className="text-[11px] font-medium text-gray-400">{isHospitality ? 'Lead-to-Booking Rate' : 'Lead-to-Sale Rate'}</div>
-            </div>
-            <div>
-              <div className="font-display text-xl font-bold text-gray-900">{avgTimeToCall.count > 0 ? formatCallDelay(avgTimeToCall.avgHours) : '—'}</div>
-              <div className="text-[11px] font-medium text-gray-400">Avg Time to Call</div>
             </div>
             {!isHospitality && (
               <div>
