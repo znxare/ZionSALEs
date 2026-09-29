@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { fetchLeads, fetchCampaigns, fetchProfiles, type Lead, type Campaign, type Profile } from '@/lib/crm';
 import { fetchHospitalityLeads, type HospitalityLead } from '@/lib/hospitality';
+import { supabase } from '@/lib/supabase';
 import Dashboard from '@/components/Dashboard';
 import LeadDetail from '@/components/LeadDetail';
 import LeadManagement from '@/components/LeadManagement';
@@ -183,24 +184,48 @@ export default function App() {
     if (authed) load();
   }, [authed, load]);
 
-  // Nothing pushes other people's changes to this screen, so pick them up by
-  // refreshing every 30s while the app is visible, and straight away when the
-  // user comes back to the tab (e.g. after a phone call or WhatsApp).
+  // Live updates: Supabase Realtime tells this screen the moment anyone changes
+  // a lead, site visit or campaign, and only then do we refetch — nothing is
+  // downloaded while nothing changes. If the live connection drops (or Realtime
+  // isn't enabled for these tables), fall back to refreshing every 30s; while
+  // it's up, a 5-minute safety refresh covers any missed event. Coming back to
+  // the tab (e.g. after a phone call) always refreshes straight away.
   useEffect(() => {
     if (!authed) return;
-    const refreshIfVisible = () => {
-      if (document.visibilityState === 'visible') load();
+    let live = false;
+    let debounce: number | undefined;
+    const refreshSoon = () => {
+      window.clearTimeout(debounce);
+      debounce = window.setTimeout(() => load(), 800);
+    };
+    const channel = supabase.channel('crm-live');
+    for (const table of ['leads', 'hospitality_leads', 'site_visits', 'campaigns']) {
+      channel.on('postgres_changes', { event: '*', schema: 'public', table }, refreshSoon);
+    }
+    channel.subscribe((status) => {
+      const wasLive = live;
+      live = status === 'SUBSCRIBED';
+      // Reconnected after a drop — catch up on anything missed meanwhile.
+      if (live && !wasLive && loadedOnce.current) load();
+    });
+
+    const tick = () => {
+      if (document.visibilityState !== 'visible') return;
+      const stale = Date.now() - lastLoadAt.current > (live ? 5 * 60000 : 30000);
+      if (stale) load();
     };
     const onReturn = () => {
       if (document.visibilityState === 'visible' && Date.now() - lastLoadAt.current > 5000) load();
     };
-    const timer = window.setInterval(refreshIfVisible, 30000);
+    const timer = window.setInterval(tick, 30000);
     document.addEventListener('visibilitychange', onReturn);
     window.addEventListener('focus', onReturn);
     return () => {
+      window.clearTimeout(debounce);
       window.clearInterval(timer);
       document.removeEventListener('visibilitychange', onReturn);
       window.removeEventListener('focus', onReturn);
+      supabase.removeChannel(channel);
     };
   }, [authed, load]);
 
