@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Save, AlertTriangle } from 'lucide-react';
 import type { Lead, LeadSource, LeadStatus, Campaign, Profile } from '@/lib/supabase';
-import { updateLead, findLeadByPhone, SOURCES, STATUSES } from '@/lib/crm';
+import { updateLead, findLeadByPhone, SOURCES, STATUSES, UNASSIGNED_CAMPAIGN_LABEL } from '@/lib/crm';
 import { normalizePhone } from '@/lib/normalize';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -15,7 +15,10 @@ interface Props {
 }
 
 export default function EditLeadModal({ lead, campaigns, profiles, onClose, onSaved }: Props) {
-  const currentCampaignId = lead.campaign_id && campaigns.some((c) => c.id === lead.campaign_id) ? lead.campaign_id : '';
+  // Keep the lead's campaign even if it's archived (not in the active list),
+  // so saving the form never silently unlinks it.
+  const currentCampaignId = lead.campaign_id ?? '';
+  const archivedCampaign = !!lead.campaign_id && !campaigns.some((c) => c.id === lead.campaign_id);
   const [form, setForm] = useState({
     name: lead.name,
     phone: lead.phone,
@@ -115,11 +118,11 @@ export default function EditLeadModal({ lead, campaigns, profiles, onClose, onSa
               onChange={(e) => setForm({ ...form, campaign_id: e.target.value })}
               className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-emerald-300"
             >
-              {campaigns.length === 0 ? (
-                <option value="">No campaigns available</option>
-              ) : (
-                campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)
-              )}
+              {/* Without an explicit empty option the browser shows the first
+                  campaign for leads that have none, making them look linked. */}
+              <option value="">— {UNASSIGNED_CAMPAIGN_LABEL} —</option>
+              {archivedCampaign && <option value={lead.campaign_id!}>Archived campaign (unchanged)</option>}
+              {campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
 
