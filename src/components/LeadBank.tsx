@@ -1,15 +1,14 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  Phone, Trash2, Upload, X, Check, Flame, Snowflake, Sun, Search,
-  ClipboardPaste, Megaphone, User, Loader2, MessageCircle,
+  Phone, Trash2, X, Check, Flame, Snowflake, Sun, Search,
+  User, Loader2, MessageCircle,
 } from 'lucide-react';
 import type { Campaign, LeadBankEntry, LeadBankStatus, LeadStatus } from '@/lib/supabase';
 import {
-  fetchLeadBank, createLeadBankEntry, updateLeadBankEntry, deleteLeadBankEntry,
-  convertLeadBankToLeadSafe, fetchAllLeadBankPhones, fetchAllLeadsPhones,
-  STATUSES, recordAction, fetchLead, UNASSIGNED_CAMPAIGN_LABEL,
+  fetchLeadBank, updateLeadBankEntry, deleteLeadBankEntry,
+  convertLeadBankToLeadSafe, STATUSES, recordAction, fetchLead, UNASSIGNED_CAMPAIGN_LABEL,
 } from '@/lib/crm';
-import { normalizePhone, phoneCountryFlag } from '@/lib/normalize';
+import { phoneCountryFlag } from '@/lib/normalize';
 import Private from './Private';
 
 interface Props {
@@ -21,7 +20,6 @@ export default function LeadBank({ campaigns, onChanged }: Props) {
   const [entries, setEntries] = useState<LeadBankEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [pasteOpen, setPasteOpen] = useState(false);
   const [callEntry, setCallEntry] = useState<LeadBankEntry | null>(null);
   const [assignCampaign, setAssignCampaign] = useState<string | null>(null);
   const [convertError, setConvertError] = useState<string | null>(null);
@@ -38,11 +36,6 @@ export default function LeadBank({ campaigns, onChanged }: Props) {
 
   useEffect(() => { load(); }, [load]);
 
-  const campaignMap = useMemo(() => {
-    const m = new Map<string, Campaign>();
-    campaigns.forEach((c) => m.set(c.id, c));
-    return m;
-  }, [campaigns]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -105,12 +98,6 @@ export default function LeadBank({ campaigns, onChanged }: Props) {
           <h1 className="font-display text-2xl font-bold tracking-tight text-gray-900">Lead Bank</h1>
           <p className="text-[13px] text-gray-400">Raw leads from Google Sheets. Qualify them before they enter your pipeline.</p>
         </div>
-        <button
-          onClick={() => setPasteOpen(true)}
-          className="flex items-center gap-1.5 rounded-full brand-gradient px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
-        >
-          <ClipboardPaste className="h-4 w-4" /> Paste from Excel
-        </button>
       </div>
 
       {/* Stats */}
@@ -188,15 +175,6 @@ export default function LeadBank({ campaigns, onChanged }: Props) {
         </div>
       )}
 
-      {/* Paste from Excel modal */}
-      {pasteOpen && (
-        <PasteFromExcelModal
-          campaigns={campaigns}
-          onClose={() => setPasteOpen(false)}
-          onDone={async () => { await load(); setPasteOpen(false); }}
-        />
-      )}
-
       {/* Call result / qualify modal */}
       {callEntry && (
         <CallQualifyModal
@@ -233,191 +211,6 @@ function StatPill({ icon: Icon, label, value, tint }: { icon: typeof User; label
         <span className="font-display text-xl font-bold text-gray-900">{value}</span>
       </div>
       <div className="mt-1.5 text-[11px] font-medium text-gray-400">{label}</div>
-    </div>
-  );
-}
-
-function PasteFromExcelModal({ campaigns, onClose, onDone }: { campaigns: Campaign[]; onClose: () => void; onDone: () => void }) {
-  const [raw, setRaw] = useState('');
-  const [campaignId, setCampaignId] = useState<string>('');
-  const [source, setSource] = useState('');
-  const [importing, setImporting] = useState(false);
-  const [imported, setImported] = useState(0);
-  const [skippedDup, setSkippedDup] = useState(0);
-  const [dupChecked, setDupChecked] = useState(false);
-  const [existingPhones, setExistingPhones] = useState<Set<string>>(new Set());
-  const [inFileDupes, setInFileDupes] = useState<Set<string>>(new Set());
-
-  function parseLines(text: string): { name: string; phone: string; city?: string; email?: string }[] {
-    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    const rows: { name: string; phone: string; city?: string; email?: string }[] = [];
-    for (const line of lines) {
-      const parts = line.includes('\t') ? line.split('\t') : line.split(',').map((s) => s.trim());
-      if (parts.length < 2) continue;
-      const name = parts[0].trim();
-      const phone = parts[1].trim().replace(/[^\d+]/g, '');
-      if (!name || !phone) continue;
-      const email = parts.find((p) => p.includes('@'));
-      const city = parts[2]?.trim();
-      rows.push({ name, phone, city: city || undefined, email: email || undefined });
-    }
-    return rows;
-  }
-
-  const preview = useMemo(() => parseLines(raw), [raw]);
-
-  const previewWithFlags = useMemo(() => {
-    return preview.map((r) => {
-      const norm = normalizePhone(r.phone);
-      const isDupInFile = inFileDupes.has(norm);
-      const isDupExisting = existingPhones.has(norm);
-      return { ...r, normalized: norm, isDupInFile, isDupExisting };
-    });
-  }, [preview, inFileDupes, existingPhones]);
-
-  const newRows = previewWithFlags.filter((r) => !r.isDupInFile && !r.isDupExisting);
-  const dupCount = previewWithFlags.length - newRows.length;
-
-  async function checkDuplicates() {
-    setImporting(true);
-    try {
-      const [bankPhones, leadPhones] = await Promise.all([fetchAllLeadBankPhones(), fetchAllLeadsPhones()]);
-      const existing = new Set<string>([...bankPhones, ...leadPhones]);
-      setExistingPhones(existing);
-
-      const inFile = new Set<string>();
-      const seen = new Set<string>();
-      for (const r of preview) {
-        const norm = normalizePhone(r.phone);
-        if (seen.has(norm)) inFile.add(norm);
-        seen.add(norm);
-      }
-      setInFileDupes(inFile);
-      setDupChecked(true);
-    } finally {
-      setImporting(false);
-    }
-  }
-
-  async function doImport() {
-    setImporting(true);
-    try {
-      const rows = newRows;
-      let importedCount = 0;
-      for (const r of rows) {
-        await createLeadBankEntry({
-          name: r.name,
-          phone: r.phone,
-          email: r.email ?? null,
-          city: r.city ?? null,
-          source: source || null,
-          campaign_id: campaignId || null,
-        });
-        importedCount++;
-      }
-      setImported(importedCount);
-      setSkippedDup(preview.length - importedCount);
-      setTimeout(() => { onDone(); }, 1200);
-    } finally {
-      setImporting(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" onClick={onClose}>
-      <div className="max-h-[90vh] w-full max-w-2xl animate-fade-up overflow-y-auto rounded-t-3xl bg-white p-6 shadow-2xl sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-display text-lg font-bold text-gray-900">Paste from Excel</h3>
-          <button onClick={onClose} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
-        </div>
-
-        {imported > 0 ? (
-          <div className="py-8 text-center">
-            <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-emerald-100"><Check className="h-6 w-6 text-emerald-600" /></div>
-            <p className="font-display text-lg font-bold text-gray-900">{imported} leads added to the bank</p>
-            {skippedDup > 0 && <p className="mt-1 text-[13px] text-amber-600">{skippedDup} duplicate{skippedDup > 1 ? 's' : ''} skipped</p>}
-          </div>
-        ) : (
-          <>
-            <p className="mb-4 text-[13px] text-gray-500">
-              Paste rows from your Google Sheet. Each line should have: <span className="font-semibold">Name, Phone</span> (tab or comma separated). City and email are optional.
-            </p>
-
-            <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div>
-                <label className="mb-1 block text-[12px] font-semibold text-gray-500">Assign to Campaign (optional)</label>
-                <select value={campaignId} onChange={(e) => setCampaignId(e.target.value)} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-300">
-                  <option value="">— None —</option>
-                  {campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-[12px] font-semibold text-gray-500">Source Label (optional)</label>
-                <input value={source} onChange={(e) => setSource(e.target.value)} placeholder="e.g. Facebook, Google, Organic" className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-300" />
-              </div>
-            </div>
-
-            <textarea
-              value={raw}
-              onChange={(e) => setRaw(e.target.value)}
-              placeholder={'Name\tPhone\tCity\nJohn Doe\t9876543210\tMumbai\nJane Smith\t9123456780\tDelhi'}
-              rows={8}
-              className="mb-3 w-full rounded-xl border border-gray-200 bg-gray-50 p-3 font-mono text-[13px] outline-none focus:border-emerald-300"
-            />
-
-            {preview.length > 0 && (
-              <div className="mb-4 rounded-xl bg-gray-50 p-3">
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="text-[12px] font-semibold text-gray-500">{preview.length} rows detected</p>
-                  {dupChecked && dupCount > 0 && (
-                    <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700">{dupCount} duplicate{dupCount > 1 ? 's' : ''} will be skipped</span>
-                  )}
-                  {dupChecked && dupCount === 0 && (
-                    <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">No duplicates found</span>
-                  )}
-                </div>
-                <div className="max-h-32 overflow-y-auto">
-                  {previewWithFlags.slice(0, 8).map((r, i) => (
-                    <div key={i} className="flex items-center gap-3 py-0.5 text-[12px] text-gray-600">
-                      <span className={`font-medium ${r.isDupInFile || r.isDupExisting ? 'text-amber-600' : 'text-gray-700'}`}>{r.name}</span>
-                      <span className={r.isDupInFile || r.isDupExisting ? 'text-amber-500' : 'text-gray-500'}><Private>{r.phone}</Private></span>
-                      {r.city && <span className="text-gray-400">{r.city}</span>}
-                      {r.isDupInFile && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Dup in file</span>}
-                      {r.isDupExisting && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Already exists</span>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {!dupChecked ? (
-              <div className="flex gap-3">
-                <button onClick={onClose} className="flex-1 rounded-full bg-gray-100 py-3 text-sm font-semibold text-gray-600 transition hover:bg-gray-200">Cancel</button>
-                <button
-                  onClick={checkDuplicates}
-                  disabled={importing || preview.length === 0}
-                  className="flex flex-[1.5] items-center justify-center gap-1.5 rounded-full brand-gradient py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
-                >
-                  {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                  {importing ? 'Checking…' : 'Check for Duplicates'}
-                </button>
-              </div>
-            ) : (
-              <div className="flex gap-3">
-                <button onClick={() => setDupChecked(false)} className="flex-1 rounded-full bg-gray-100 py-3 text-sm font-semibold text-gray-600 transition hover:bg-gray-200">Back</button>
-                <button
-                  onClick={doImport}
-                  disabled={importing || newRows.length === 0}
-                  className="flex flex-[1.5] items-center justify-center gap-1.5 rounded-full brand-gradient py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
-                >
-                  {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                  {importing ? 'Importing…' : `Import ${newRows.length} Lead${newRows.length !== 1 ? 's' : ''}`}
-                </button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
     </div>
   );
 }

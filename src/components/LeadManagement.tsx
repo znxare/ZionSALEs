@@ -249,7 +249,14 @@ export default function LeadManagement({ leads, campaigns, profiles, onOpenLead,
     if (!bulkStatus || selected.size === 0) return;
     setActionError(null);
     try {
-      await Promise.all([...selected].map((id) => updateLead(id, { status: bulkStatus as LeadStatus })));
+      // Cold needs a reason and a reactivation date, or the lead never comes up
+      // in the Reactivation Center — bulk has no per-lead reason, so use Other.
+      await Promise.all([...selected].map((id) => {
+        const lead = leads.find((l) => l.id === id);
+        return bulkStatus === 'Cold' && lead && lead.status !== 'Cold'
+          ? markLeadCold(lead, 'Other')
+          : updateLead(id, { status: bulkStatus as LeadStatus });
+      }));
       setBulkStatus('');
       setSelected(new Set());
       onChanged();
@@ -360,11 +367,11 @@ export default function LeadManagement({ leads, campaigns, profiles, onOpenLead,
     }
   }
 
-  async function confirmCold(reason: ColdReason, nextReactivationAt: string, note?: string) {
+  async function confirmCold(reason: ColdReason, nextReactivationAt: string) {
     if (!coldFor) return;
     setActionError(null);
     try {
-      await markLeadCold(coldFor, reason, nextReactivationAt, note);
+      await markLeadCold(coldFor, reason, nextReactivationAt);
       setColdFor(null);
       onChanged();
     } catch (e) {

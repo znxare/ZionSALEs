@@ -251,7 +251,12 @@ export async function recordAction(
     finalPatch.next_followup_at = null;
   }
   const rolled = rolledFollowUp(lead.next_followup_at, type, patch);
-  if (rolled) finalPatch.next_followup_at = rolled;
+  if (rolled) {
+    finalPatch.next_followup_at = rolled;
+    // A Cold lead's follow-up date *is* its reactivation date — move both, or
+    // the Reactivation Center keeps showing it overdue after it was contacted.
+    if (lead.status === 'Cold' && !patch.status) finalPatch.next_reactivation_at = rolled;
+  }
   const updated = await updateLead(lead.id, {
     ...finalPatch,
     last_contacted_at: new Date().toISOString(),
@@ -508,7 +513,14 @@ export async function completeTour(tour: Tour, outcome: TourOutcome, details: {
   else if (outcome === 'Needs Another Visit') leadPatch.status = 'Warm';
   else leadPatch.status = 'Warm';
   if (details.interest === 'Hot') leadPatch.status = 'Hot';
-  else if (details.interest === 'Cold' && outcome !== 'Ready to Book') leadPatch.status = 'Cold';
+  else if (details.interest === 'Cold' && outcome !== 'Ready to Book') {
+    // Without these the lead is Cold but never comes up for reactivation.
+    const when = daysFromNow(60);
+    Object.assign(leadPatch, {
+      status: 'Cold', cold_reason: 'Other', cold_since: new Date().toISOString(),
+      next_reactivation_at: when, next_followup_at: when,
+    });
+  }
 
   await updateLead(tour.lead_id, leadPatch);
 

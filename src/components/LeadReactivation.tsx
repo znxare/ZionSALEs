@@ -20,7 +20,8 @@ interface Props {
   onChanged: () => void;
 }
 
-type PeriodFilter = 'month' | 'quarter' | 'year' | 'all';
+type PeriodFilter = '3m' | '6m' | '12m';
+const PERIOD_MONTHS: Record<PeriodFilter, number> = { '3m': 3, '6m': 6, '12m': 12 };
 
 export default function LeadReactivation({ leads, campaigns, onOpenLead, onChanged }: Props) {
   const [visits, setVisits] = useState<SiteVisit[]>([]);
@@ -29,7 +30,7 @@ export default function LeadReactivation({ leads, campaigns, onOpenLead, onChang
   const [reactivateError, setReactivateError] = useState<string | null>(null);
   const [reasonFilter, setReasonFilter] = useState<ColdReason | 'all'>('all');
   const [campaignFilter, setCampaignFilter] = useState<string>('all');
-  const [period, setPeriod] = useState<PeriodFilter>('month');
+  const [period, setPeriod] = useState<PeriodFilter>('6m');
   const [showCampaignInsights, setShowCampaignInsights] = useState(false);
   const [reasonPeriod, setReasonPeriod] = useState<'month' | 'all'>('month');
 
@@ -117,7 +118,7 @@ export default function LeadReactivation({ leads, campaigns, onOpenLead, onChang
   const trendData = useMemo(() => {
     const now = new Date();
     const months: { label: string; start: Date; end: Date }[] = [];
-    for (let i = 5; i >= 0; i--) {
+    for (let i = PERIOD_MONTHS[period] - 1; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       months.push({
         label: d.toLocaleDateString('en', { month: 'short' }),
@@ -348,13 +349,13 @@ export default function LeadReactivation({ leads, campaigns, onOpenLead, onChang
         <div className="mb-4 flex items-center justify-between">
           <h3 className="font-display text-base font-bold tracking-tight text-gray-900">Monthly Reactivation Trend</h3>
           <div className="flex gap-1 rounded-lg bg-gray-100 p-0.5">
-            {(['month', 'quarter', 'year', 'all'] as PeriodFilter[]).map((p) => (
+            {(['3m', '6m', '12m'] as PeriodFilter[]).map((p) => (
               <button
                 key={p}
                 onClick={() => setPeriod(p)}
-                className={`rounded-md px-3 py-1 text-[11px] font-semibold capitalize transition ${period === p ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+                className={`rounded-md px-3 py-1 text-[11px] font-semibold transition ${period === p ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
               >
-                {p}
+                {p.toUpperCase()}
               </button>
             ))}
           </div>
