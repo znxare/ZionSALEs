@@ -47,7 +47,6 @@ export const CONFIGURABLE_MODULES: { id: string; label: string; group: string }[
   { id: 'inventory', label: 'Live Inventory Board', group: 'Real Estate' },
   { id: 'hospitality-leads', label: 'All Leads', group: 'Hospitality' },
   { id: 'hospitality-leadbank', label: 'Lead Bank', group: 'Hospitality' },
-  { id: 'hospitality-booking', label: 'Booking Timeline', group: 'Hospitality' },
   { id: 'import', label: 'Lead Import', group: 'Tools' },
   { id: 'planner', label: 'Day Planner', group: 'Tools' },
   { id: 'campaigns', label: 'Campaigns', group: 'Tools' },

@@ -28,7 +28,7 @@ import { fetchModuleVisibility } from '@/lib/appSettings';
 import Login from '@/components/Login';
 import WelcomeScreen from '@/components/WelcomeScreen';
 import HospitalityComingSoon from '@/components/HospitalityComingSoon';
-import { Landmark, CalendarRange } from 'lucide-react';
+import { Landmark } from 'lucide-react';
 import { getSession, onAuthChange, signOutUser, type CurrentUser } from '@/lib/auth';
 import { withTimeout } from '@/lib/timeout';
 
@@ -48,7 +48,6 @@ type Route =
   | { name: 'inventory' }
   | { name: 'hospitality-leads' }
   | { name: 'hospitality-leadbank' }
-  | { name: 'hospitality-booking' }
   | { name: 'lead'; id: string }
   | { name: 'hospitality-lead'; id: string }
   | { name: 'search' }
@@ -74,7 +73,6 @@ function parseHash(): Route {
   if (h === 'inventory') return { name: 'inventory' };
   if (h === 'hospitality-leads') return { name: 'hospitality-leads' };
   if (h === 'hospitality-leadbank') return { name: 'hospitality-leadbank' };
-  if (h === 'hospitality-booking') return { name: 'hospitality-booking' };
   return { name: 'notfound' };
 }
 
@@ -97,7 +95,6 @@ function navigate(route: Route) {
   else if (route.name === 'inventory') window.location.hash = '/inventory';
   else if (route.name === 'hospitality-leads') window.location.hash = '/hospitality-leads';
   else if (route.name === 'hospitality-leadbank') window.location.hash = '/hospitality-leadbank';
-  else if (route.name === 'hospitality-booking') window.location.hash = '/hospitality-booking';
 }
 
 // The module a route belongs to, for Settings → Module access.
@@ -310,7 +307,6 @@ export default function App() {
     route.name === 'inventory' ? 'inventory' :
     route.name === 'hospitality-leads' ? 'hospitality-leads' :
     route.name === 'hospitality-leadbank' ? 'hospitality-leadbank' :
-    route.name === 'hospitality-booking' ? 'hospitality-booking' :
     route.name === 'lead' ? 'leads' :
     route.name === 'hospitality-lead' ? 'hospitality-leads' : 'dashboard';
 
@@ -465,14 +461,6 @@ export default function App() {
               icon={Landmark}
               title="Hospitality Lead Bank"
               description="Raw hospitality enquiries will sit here until someone qualifies them into a lead, mirroring the Real Estate Lead Bank."
-            />
-          )}
-
-          {route.name === 'hospitality-booking' && (
-            <HospitalityComingSoon
-              icon={CalendarRange}
-              title="Booking Timeline"
-              description="A calendar of confirmed getaway stays and corporate bookings — coming once the Hospitality module is built."
             />
           )}
 

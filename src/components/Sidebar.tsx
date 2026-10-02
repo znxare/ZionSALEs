@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   LayoutDashboard, Users, MapPin, Megaphone, Landmark, CalendarCheck, Snowflake, Upload,
-  Menu, X, History, Flag, LayoutGrid, CalendarRange, Settings, FileBarChart,
+  Menu, X, History, Flag, LayoutGrid, Settings, FileBarChart,
 } from 'lucide-react';
 import ConnectionStatus from '@/components/ConnectionStatus';
 import { useModuleAccess } from '@/lib/access';
@@ -9,7 +9,7 @@ import { useModuleAccess } from '@/lib/access';
 export type NavId =
   | 'dashboard' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner'
   | 'reactivation' | 'battlecard' | 'activitylog' | 'inventory' | 'settings' | 'reports'
-  | 'hospitality-leads' | 'hospitality-leadbank' | 'hospitality-booking';
+  | 'hospitality-leads' | 'hospitality-leadbank';
 
 interface Props {
   current: NavId;
@@ -37,7 +37,6 @@ const NAV: NavEntry[] = [
     children: [
       { id: 'hospitality-leads', label: 'All Leads', icon: Users },
       { id: 'hospitality-leadbank', label: 'Lead Bank', icon: Landmark },
-      { id: 'hospitality-booking', label: 'Booking Timeline', icon: CalendarRange },
     ],
   },
   { kind: 'divider' },
@@ -69,7 +68,6 @@ const TAB_COLORS: Record<NavId, { bg: string; text: string; ring: string; icon: 
   activitylog: { bg: 'bg-indigo-50', text: 'text-indigo-700', ring: 'ring-indigo-200/60', icon: 'text-indigo-600', border: 'border-indigo-500' },
   'hospitality-leads': { bg: 'bg-rose-50', text: 'text-rose-700', ring: 'ring-rose-200/60', icon: 'text-rose-600', border: 'border-rose-500' },
   'hospitality-leadbank': { bg: 'bg-fuchsia-50', text: 'text-fuchsia-700', ring: 'ring-fuchsia-200/60', icon: 'text-fuchsia-600', border: 'border-fuchsia-500' },
-  'hospitality-booking': { bg: 'bg-red-50', text: 'text-red-700', ring: 'ring-red-200/60', icon: 'text-red-600', border: 'border-red-500' },
 };
 
 function ZionOrmLink() {
