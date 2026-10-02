@@ -1,8 +1,12 @@
-import { useState } from 'react';
-import { Settings as SettingsIcon, User, KeyRound, Monitor, Users, LogOut, Check, UserPlus, Mail, Loader2 } from 'lucide-react';
+import { Fragment, useState } from 'react';
+import { Settings as SettingsIcon, User, KeyRound, Monitor, Users, LogOut, Check, UserPlus, Mail, Loader2, LayoutGrid } from 'lucide-react';
 import type { Profile } from '@/lib/supabase';
 import { changePassword, isRecoveringPassword, sendPasswordReset, type CurrentUser } from '@/lib/auth';
-import { ACCESS_LABELS, resolveAccess, usePermissions, type AccessLevel } from '@/lib/access';
+import {
+  ACCESS_LABELS, CONFIGURABLE_MODULES, getModuleVisibility, resolveAccess, setModuleVisibility, usePermissions,
+  type AccessLevel, type ModuleVisibility,
+} from '@/lib/access';
+import { saveModuleVisibility } from '@/lib/appSettings';
 import { addMember, setMemberAccess } from '@/lib/users';
 import { usePresentationMode, setPresentationMode } from '@/lib/presentationMode';
 
@@ -64,6 +68,8 @@ export default function Settings({ user, profiles, onSignOut, onTeamChanged }: P
         </label>
       </Section>
 
+      {can.canManageUsers && <ModuleAccess />}
+
       {can.canManageUsers ? (
         <TeamManager profiles={profiles} currentUserId={user.id} onChanged={onTeamChanged} />
       ) : (
@@ -79,6 +85,84 @@ export default function Settings({ user, profiles, onSignOut, onTeamChanged }: P
         <LogOut className="h-4 w-4" /> Sign out
       </button>
     </div>
+  );
+}
+
+// Admin: tick which pages Team and Viewer can see. Saved team-wide.
+function ModuleAccess() {
+  const [draft, setDraft] = useState<ModuleVisibility>(() => getModuleVisibility());
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  const roles = ['team', 'viewer'] as const;
+  const groups = [...new Set(CONFIGURABLE_MODULES.map((m) => m.group))];
+
+  function toggle(role: (typeof roles)[number], id: string) {
+    setMessage(null);
+    setDraft((d) => {
+      const hidden = d[role].includes(id) ? d[role].filter((x) => x !== id) : [...d[role], id];
+      return { ...d, [role]: hidden };
+    });
+  }
+
+  async function save() {
+    setSaving(true);
+    setMessage(null);
+    try {
+      await saveModuleVisibility(draft);
+      setModuleVisibility(draft);
+      setMessage({ kind: 'ok', text: 'Saved. Team members see the change the next time the app refreshes.' });
+    } catch (e) {
+      setMessage({ kind: 'error', text: e instanceof Error ? e.message : 'Could not save. Please try again.' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Section icon={LayoutGrid} title="Module access">
+      <p className="-mt-2 mb-4 text-[12px] text-gray-400">Choose which pages each role can open. Admin always sees everything; Dashboard and Settings are always visible.</p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-[11px] uppercase tracking-wide text-gray-400">
+              <th className="py-2 text-left font-semibold">Page</th>
+              {roles.map((r) => <th key={r} className="w-20 py-2 text-center font-semibold">{ACCESS_LABELS[r]}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {groups.map((g) => (
+              <Fragment key={g}>
+                <tr><td colSpan={3} className="pb-1 pt-3 text-[11px] font-bold uppercase tracking-wide text-gray-400">{g}</td></tr>
+                {CONFIGURABLE_MODULES.filter((m) => m.group === g).map((m) => (
+                  <tr key={m.id} className="border-t border-gray-100">
+                    <td className="py-2 text-gray-800">{m.label}</td>
+                    {roles.map((r) => (
+                      <td key={r} className="py-2 text-center">
+                        <input
+                          type="checkbox"
+                          aria-label={`${ACCESS_LABELS[r]} can see ${g} ${m.label}`}
+                          checked={!draft[r].includes(m.id)}
+                          onChange={() => toggle(r, m.id)}
+                          className="h-4 w-4 accent-orange-600"
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {message && <p className={`mt-3 text-sm font-medium ${message.kind === 'ok' ? 'text-emerald-600' : 'text-red-600'}`}>{message.text}</p>}
+      <button
+        onClick={save}
+        disabled={saving}
+        className="mt-4 rounded-full brand-gradient px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-50"
+      >
+        {saving ? 'Saving…' : 'Save module access'}
+      </button>
+    </Section>
   );
 }
 

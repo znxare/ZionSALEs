@@ -4,7 +4,7 @@ import {
   Menu, X, History, Flag, LayoutGrid, CalendarRange, Settings, FileBarChart,
 } from 'lucide-react';
 import ConnectionStatus from '@/components/ConnectionStatus';
-import { usePermissions, type Permissions } from '@/lib/access';
+import { useModuleAccess } from '@/lib/access';
 
 export type NavId =
   | 'dashboard' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner'
@@ -113,19 +113,15 @@ function NavButton({ item, current, indented, onClick }: { item: LeafItem; curre
   );
 }
 
-// Pages hidden by role: Campaigns and Reports are Admin-only; Viewers can't import leads.
-function allowed(id: NavId, can: Permissions): boolean {
-  if (id === 'campaigns') return can.canSeeCampaigns;
-  if (id === 'reports') return can.canSeeReports;
-  if (id === 'import') return can.canWrite;
-  return true;
-}
-
 function NavList({ current, onClick }: { current: NavId; onClick: (id: NavId) => void }) {
-  const can = usePermissions();
+  // Which pages each role sees is set by the admin in Settings → Module access.
+  const canSee = useModuleAccess();
   const nav = NAV.flatMap((entry): NavEntry[] => {
-    if (entry.kind === 'single') return allowed(entry.item.id, can) ? [entry] : [];
-    if (entry.kind === 'group') return [{ ...entry, children: entry.children.filter((c) => allowed(c.id, can)) }];
+    if (entry.kind === 'single') return canSee(entry.item.id) ? [entry] : [];
+    if (entry.kind === 'group') {
+      const children = entry.children.filter((c) => canSee(c.id));
+      return children.length > 0 ? [{ ...entry, children }] : [];
+    }
     return [entry];
   });
   return (

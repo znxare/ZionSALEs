@@ -23,7 +23,8 @@ import LeadImport from '@/components/LeadImport';
 import ActivityLog from '@/components/ActivityLog';
 import Settings from '@/components/Settings';
 import Reports from '@/components/Reports';
-import { usePermissions } from '@/lib/access';
+import { usePermissions, useModuleAccess, setModuleVisibility } from '@/lib/access';
+import { fetchModuleVisibility } from '@/lib/appSettings';
 import Login from '@/components/Login';
 import WelcomeScreen from '@/components/WelcomeScreen';
 import HospitalityComingSoon from '@/components/HospitalityComingSoon';
@@ -99,11 +100,18 @@ function navigate(route: Route) {
   else if (route.name === 'hospitality-booking') window.location.hash = '/hospitality-booking';
 }
 
-function AdminOnly({ onBack }: { onBack: () => void }) {
+// The module a route belongs to, for Settings → Module access.
+function moduleOf(route: Route): string {
+  if (route.name === 'lead') return 'leads';
+  if (route.name === 'hospitality-lead') return 'hospitality-leads';
+  return route.name;
+}
+
+function NotAvailable({ onBack }: { onBack: () => void }) {
   return (
     <div className="mx-auto max-w-md rounded-2xl border border-black/5 bg-white p-8 text-center card-shadow">
-      <h1 className="font-display text-lg font-bold text-gray-900">Admin only</h1>
-      <p className="mt-1 text-sm text-gray-500">This page is only available to the admin.</p>
+      <h1 className="font-display text-lg font-bold text-gray-900">Not available</h1>
+      <p className="mt-1 text-sm text-gray-500">The admin hasn't given your role access to this page.</p>
       <button onClick={onBack} className="mt-4 rounded-full brand-gradient px-5 py-2.5 text-sm font-semibold text-white">Back to dashboard</button>
     </div>
   );
@@ -113,6 +121,7 @@ export default function App() {
   const [authChecked, setAuthChecked] = useState(false);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const can = usePermissions();
+  const canSee = useModuleAccess();
   const [route, setRoute] = useState<Route>(parseHash);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -168,6 +177,9 @@ export default function App() {
     // Fetched separately so a missing/unmigrated hospitality_leads table
     // (or any other hospitality-side failure) can never block Real Estate
     // data from loading — the two divisions stay fully independent.
+    // Admin-set page visibility; falls back to the defaults if unavailable.
+    fetchModuleVisibility().then(setModuleVisibility).catch(() => {});
+
     try {
       setHospitalityLeads(keepIfSame(await withTimeout(fetchHospitalityLeads(), 20000, () => [] as HospitalityLead[])));
     } catch {
@@ -344,6 +356,9 @@ export default function App() {
               same type — e.g. one lead to another — updates in place exactly as before,
               instead of remounting and re-fetching. */}
           <div key={route.name} className="animate-fade-up">
+          {!canSee(moduleOf(route)) ? (
+            <NotAvailable onBack={() => go({ name: 'dashboard' })} />
+          ) : (<>
           {route.name === 'dashboard' && (
             <Dashboard
               leads={leads}
@@ -397,11 +412,7 @@ export default function App() {
             />
           )}
 
-          {((route.name === 'campaigns' && !can.canSeeCampaigns) || (route.name === 'reports' && !can.canSeeReports)) && (
-            <AdminOnly onBack={() => go({ name: 'dashboard' })} />
-          )}
-
-          {route.name === 'reports' && can.canSeeReports && (
+          {route.name === 'reports' && (
             <Reports
               leads={leads}
               hospitalityLeads={hospitalityLeads}
@@ -410,7 +421,7 @@ export default function App() {
             />
           )}
 
-          {route.name === 'campaigns' && can.canSeeCampaigns && (
+          {route.name === 'campaigns' && (
             <CampaignAnalytics
               leads={leads}
               onLeadsChanged={load}
@@ -500,6 +511,7 @@ export default function App() {
               </button>
             </div>
           )}
+          </>)}
           </div>
         </main>
       </div>
