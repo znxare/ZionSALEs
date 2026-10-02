@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  FileBarChart, Download, Users, TrendingUp, Megaphone, Loader2, AlarmClock, PhoneOff, Snowflake, LayoutList,
+  FileBarChart, Download, Users, TrendingUp, Megaphone, Loader2, AlarmClock, PhoneOff, Snowflake, LayoutList, UserRound,
 } from 'lucide-react';
 import type { Lead, Campaign, SiteVisit, ActivityType, LeadStatus, Profile } from '@/lib/supabase';
 import {
@@ -10,7 +10,7 @@ import { fetchHospitalityActivitiesBetween, type HospitalityLead } from '@/lib/h
 
 type Vertical = 'all' | 'realestate' | 'hospitality';
 type RangePreset = 'this_month' | 'last_month' | 'last_30' | 'last_90' | 'this_year' | 'custom';
-type Tab = 'overview' | 'followups' | 'uncontacted' | 'cold';
+type Tab = 'overview' | 'activity' | 'followups' | 'uncontacted' | 'cold';
 
 interface Props {
   leads: Lead[];
@@ -163,6 +163,7 @@ export default function Reports({ leads, hospitalityLeads, campaigns, profiles, 
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   const [neglectDays, setNeglectDays] = useState(14);
+  const [person, setPerson] = useState<string | null>(null);
   const [rawActivities, setRawActivities] = useState<(Omit<ReportActivity, 'actor'> & { actorId: string | null; actorName: string | null })[]>([]);
   const [allVisits, setAllVisits] = useState<SiteVisit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -389,6 +390,27 @@ export default function Reports({ leads, hospitalityLeads, campaigns, profiles, 
     };
   }, [verticalActivities, allLeads, newLeads, start, end]);
 
+  // ---------- Team activity (one person at a time) ----------
+
+  const people = useMemo(
+    () => tallyBy(rangeActivities.filter((a) => a.type !== 'Created').map((a) => a.actor)),
+    [rangeActivities],
+  );
+  const selectedPerson = person && people.some(([p]) => p === person) ? person : people[0]?.[0] ?? null;
+  const leadNames = useMemo(() => new Map(allLeads.map((l) => [leadKey(l.vertical, l.id), l.name])), [allLeads]);
+  const personFeed = useMemo(() => {
+    const items = rangeActivities
+      .filter((a) => a.actor === selectedPerson && a.type !== 'Created')
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+    const days = new Map<string, ReportActivity[]>();
+    for (const a of items) {
+      const day = startOfDay(new Date(a.created_at)).toISOString();
+      const list = days.get(day);
+      if (list) list.push(a); else days.set(day, [a]);
+    }
+    return { items, days: [...days.entries()], byType: tallyBy(items.map((a) => a.type)) };
+  }, [rangeActivities, selectedPerson]);
+
   // ---------- CSV exports ----------
 
   const rangeLabel = `${formatDate(start.toISOString())} – ${formatDate(end.toISOString())}`;
@@ -441,6 +463,12 @@ export default function Reports({ leads, hospitalityLeads, campaigns, profiles, 
     downloadCsv(`never-contacted_${fileTag}.csv`, ['Vertical', 'Lead', 'Phone', 'Source', 'Campaign', 'Status', 'Owner', 'Created', 'Days old'],
       uncontacted.map(({ lead: l, owner, age }) => [l.vertical, l.name, l.phone, l.source, l.campaign, l.status, owner, formatDateTime(l.created_at), age]));
   }
+  function exportPersonActivity() {
+    if (!selectedPerson) return;
+    const slug = selectedPerson.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    downloadCsv(`activity-${slug}_${fileTag}.csv`, ['When', 'Vertical', 'Lead', 'Type', 'Details'],
+      personFeed.items.map((a) => [formatDateTime(a.created_at), a.vertical, leadNames.get(leadKey(a.vertical, a.leadId)) ?? '', a.type, a.summary]));
+  }
   function exportCold() {
     downloadCsv(`cold-and-lost_${fileTag}.csv`, ['Lead', 'Source', 'Campaign', 'Cold reason', 'Marked cold by', 'Cold since'],
       cold.coldLeads.map((l) => [l.name, l.source, l.campaign, l.cold_reason ?? 'No reason given', cold.markedBy.get(leadKey(l.vertical, l.id)) ?? 'Unknown', formatDate(l.cold_since)]));
@@ -451,6 +479,7 @@ export default function Reports({ leads, hospitalityLeads, campaigns, profiles, 
 
   const TABS: { id: Tab; label: string; icon: typeof Users }[] = [
     { id: 'overview', label: 'Overview', icon: LayoutList },
+    { id: 'activity', label: 'Team activity', icon: UserRound },
     { id: 'followups', label: 'Follow-ups', icon: AlarmClock },
     { id: 'uncontacted', label: 'Never contacted', icon: PhoneOff },
     { id: 'cold', label: 'Cold & lost', icon: Snowflake },
@@ -672,6 +701,58 @@ export default function Reports({ leads, hospitalityLeads, campaigns, profiles, 
             </>
           )}
           <p className="mt-3 text-[12px] text-gray-400">Leads created in the range with no call, no-answer or WhatsApp logged yet (Junk and sold leads excluded).</p>
+        </Card>
+      )}
+
+      {tab === 'activity' && (
+        <Card icon={UserRound} title={selectedPerson ? `Activity — ${selectedPerson}` : 'Team activity'} onDownload={selectedPerson ? exportPersonActivity : undefined}>
+          {loading ? spinner : people.length === 0 ? (
+            <p className="py-6 text-center text-sm text-gray-400">No team activity in this period.</p>
+          ) : (
+            <>
+              <div className="flex flex-wrap gap-2">
+                {people.map(([p, n]) => (
+                  <button key={p} onClick={() => setPerson(p)} className={pill(p === selectedPerson)}>
+                    {p} <span className="opacity-70">· {n}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {personFeed.byType.map(([type, n]) => (
+                  <span key={type} className="rounded-full bg-gray-100 px-3 py-1 text-[12px] text-gray-600">
+                    {type} <span className="font-bold text-gray-900">{n}</span>
+                  </span>
+                ))}
+              </div>
+              <div className="mt-5 space-y-5">
+                {personFeed.days.map(([day, items]) => (
+                  <div key={day}>
+                    <h3 className="mb-1 flex items-center justify-between border-b border-gray-100 pb-1 text-[12px] font-semibold uppercase tracking-wide text-gray-400">
+                      <span>{new Date(day).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                      <span>{items.length} action{items.length === 1 ? '' : 's'}</span>
+                    </h3>
+                    <ul className="divide-y divide-gray-50">
+                      {items.map((a, i) => (
+                        <li key={i} className="flex gap-3 py-2 text-sm">
+                          <span className="w-16 shrink-0 text-[12px] text-gray-400">
+                            {new Date(a.created_at).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}
+                          </span>
+                          <span className="w-32 shrink-0 text-[12px] font-semibold text-gray-600">{a.type}</span>
+                          <span className="min-w-0 flex-1">
+                            <button onClick={() => onOpenLead(a.vertical, a.leadId)} className="font-semibold text-gray-900 hover:text-cyan-700">
+                              {leadNames.get(leadKey(a.vertical, a.leadId)) ?? 'Deleted lead'}
+                            </button>
+                            {a.vertical === 'Hospitality' && <span className="ml-1.5 text-[11px] text-rose-500">Hospitality</span>}
+                            <span className="block text-[12px] text-gray-500">{a.summary}</span>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </Card>
       )}
 
