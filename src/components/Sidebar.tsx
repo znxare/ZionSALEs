@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import {
   LayoutDashboard, Users, MapPin, Megaphone, Landmark, CalendarCheck, Snowflake, Upload,
-  Menu, X, History, Flag, LayoutGrid, CalendarRange, Settings,
+  Menu, X, History, Flag, LayoutGrid, CalendarRange, Settings, FileBarChart,
 } from 'lucide-react';
 import ConnectionStatus from '@/components/ConnectionStatus';
+import { usePermissions, type Permissions } from '@/lib/access';
 
 export type NavId =
   | 'dashboard' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner'
-  | 'reactivation' | 'battlecard' | 'activitylog' | 'inventory' | 'settings'
+  | 'reactivation' | 'battlecard' | 'activitylog' | 'inventory' | 'settings' | 'reports'
   | 'hospitality-leads' | 'hospitality-leadbank' | 'hospitality-booking';
 
 interface Props {
@@ -46,6 +47,7 @@ const NAV: NavEntry[] = [
   { kind: 'single', item: { id: 'reactivation', label: 'Reactivation', icon: Snowflake } },
   { kind: 'single', item: { id: 'battlecard', label: 'Battle Card', icon: Flag, badge: 'DEV' } },
   { kind: 'single', item: { id: 'activitylog', label: 'Activity Log', icon: History } },
+  { kind: 'single', item: { id: 'reports', label: 'Reports', icon: FileBarChart } },
   { kind: 'single', item: { id: 'settings', label: 'Settings', icon: Settings } },
 ];
 
@@ -62,6 +64,7 @@ const TAB_COLORS: Record<NavId, { bg: string; text: string; ring: string; icon: 
   campaigns: { bg: 'bg-pink-50', text: 'text-pink-700', ring: 'ring-pink-200/60', icon: 'text-pink-600', border: 'border-pink-500' },
   reactivation: { bg: 'bg-sky-50', text: 'text-sky-700', ring: 'ring-sky-200/60', icon: 'text-sky-600', border: 'border-sky-500' },
   battlecard: { bg: 'bg-emerald-50', text: 'text-emerald-700', ring: 'ring-emerald-200/60', icon: 'text-emerald-600', border: 'border-emerald-500' },
+  reports: { bg: 'bg-cyan-50', text: 'text-cyan-700', ring: 'ring-cyan-200/60', icon: 'text-cyan-600', border: 'border-cyan-500' },
   settings: { bg: 'bg-gray-100', text: 'text-gray-800', ring: 'ring-gray-200/60', icon: 'text-gray-700', border: 'border-gray-500' },
   activitylog: { bg: 'bg-indigo-50', text: 'text-indigo-700', ring: 'ring-indigo-200/60', icon: 'text-indigo-600', border: 'border-indigo-500' },
   'hospitality-leads': { bg: 'bg-rose-50', text: 'text-rose-700', ring: 'ring-rose-200/60', icon: 'text-rose-600', border: 'border-rose-500' },
@@ -110,10 +113,24 @@ function NavButton({ item, current, indented, onClick }: { item: LeafItem; curre
   );
 }
 
+// Pages hidden by role: Campaigns and Reports are Admin-only; Viewers can't import leads.
+function allowed(id: NavId, can: Permissions): boolean {
+  if (id === 'campaigns') return can.canSeeCampaigns;
+  if (id === 'reports') return can.canSeeReports;
+  if (id === 'import') return can.canWrite;
+  return true;
+}
+
 function NavList({ current, onClick }: { current: NavId; onClick: (id: NavId) => void }) {
+  const can = usePermissions();
+  const nav = NAV.flatMap((entry): NavEntry[] => {
+    if (entry.kind === 'single') return allowed(entry.item.id, can) ? [entry] : [];
+    if (entry.kind === 'group') return [{ ...entry, children: entry.children.filter((c) => allowed(c.id, can)) }];
+    return [entry];
+  });
   return (
     <nav className="space-y-1">
-      {NAV.map((entry, i) => {
+      {nav.map((entry, i) => {
         if (entry.kind === 'divider') {
           return (
             <div key={'divider-' + i} className="my-5 flex items-center gap-2.5 px-1" aria-hidden="true">

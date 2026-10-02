@@ -3,7 +3,7 @@ import type { LeadStatus, LeadPriority, ActivityType } from './supabase';
 import { normalizePhone } from './normalize';
 import { getCurrentUser } from './auth';
 import { assertWritable } from './demoMode';
-import { rolledFollowUp } from './crm';
+import { rolledFollowUp, fetchAllPages } from './crm';
 
 // A parallel lead pipeline for the Hospitality division (getaway stays &
 // corporate bookings), backed by its own `hospitality_leads` /
@@ -136,6 +136,18 @@ export async function deleteHospitalityLead(id: string): Promise<void> {
   assertWritable();
   const { error } = await supabase.from('hospitality_leads').delete().eq('id', id);
   if (error) throw error;
+}
+
+// Reports: every Hospitality activity in a date range, by everyone.
+export async function fetchHospitalityActivitiesBetween(start: Date, end: Date): Promise<HospitalityActivity[]> {
+  return fetchAllPages<HospitalityActivity>((from, to) => supabase
+    .from('hospitality_activities')
+    .select('*')
+    .gte('created_at', start.toISOString())
+    .lte('created_at', end.toISOString())
+    .order('created_at', { ascending: true })
+    .order('id')
+    .range(from, to));
 }
 
 export async function fetchHospitalityActivities(leadId: string): Promise<HospitalityActivity[]> {

@@ -22,6 +22,8 @@ import LiveInventoryBoard from '@/components/LiveInventoryBoard';
 import LeadImport from '@/components/LeadImport';
 import ActivityLog from '@/components/ActivityLog';
 import Settings from '@/components/Settings';
+import Reports from '@/components/Reports';
+import { usePermissions } from '@/lib/access';
 import Login from '@/components/Login';
 import WelcomeScreen from '@/components/WelcomeScreen';
 import HospitalityComingSoon from '@/components/HospitalityComingSoon';
@@ -41,6 +43,7 @@ type Route =
   | { name: 'battlecard' }
   | { name: 'activitylog' }
   | { name: 'settings' }
+  | { name: 'reports' }
   | { name: 'inventory' }
   | { name: 'hospitality-leads' }
   | { name: 'hospitality-leadbank' }
@@ -66,6 +69,7 @@ function parseHash(): Route {
   if (h === 'battlecard') return { name: 'battlecard' };
   if (h === 'activitylog') return { name: 'activitylog' };
   if (h === 'settings') return { name: 'settings' };
+  if (h === 'reports') return { name: 'reports' };
   if (h === 'inventory') return { name: 'inventory' };
   if (h === 'hospitality-leads') return { name: 'hospitality-leads' };
   if (h === 'hospitality-leadbank') return { name: 'hospitality-leadbank' };
@@ -88,15 +92,27 @@ function navigate(route: Route) {
   else if (route.name === 'battlecard') window.location.hash = '/battlecard';
   else if (route.name === 'activitylog') window.location.hash = '/activitylog';
   else if (route.name === 'settings') window.location.hash = '/settings';
+  else if (route.name === 'reports') window.location.hash = '/reports';
   else if (route.name === 'inventory') window.location.hash = '/inventory';
   else if (route.name === 'hospitality-leads') window.location.hash = '/hospitality-leads';
   else if (route.name === 'hospitality-leadbank') window.location.hash = '/hospitality-leadbank';
   else if (route.name === 'hospitality-booking') window.location.hash = '/hospitality-booking';
 }
 
+function AdminOnly({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="mx-auto max-w-md rounded-2xl border border-black/5 bg-white p-8 text-center card-shadow">
+      <h1 className="font-display text-lg font-bold text-gray-900">Admin only</h1>
+      <p className="mt-1 text-sm text-gray-500">This page is only available to the admin.</p>
+      <button onClick={onBack} className="mt-4 rounded-full brand-gradient px-5 py-2.5 text-sm font-semibold text-white">Back to dashboard</button>
+    </div>
+  );
+}
+
 export default function App() {
   const [authChecked, setAuthChecked] = useState(false);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const can = usePermissions();
   const [route, setRoute] = useState<Route>(parseHash);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -178,7 +194,10 @@ export default function App() {
     // on a stale "logged out" view — but never clobber a fresher sign-in/out that
     // happened in the meantime, so only fill in if nothing else has set a user yet.
     sessionCheck.then((user) => setCurrentUser((current) => current ?? user)).catch(() => {});
-    const { data: sub } = onAuthChange((user) => setCurrentUser(user));
+    const { data: sub } = onAuthChange((user, event) => {
+      setCurrentUser(user);
+      if (event === 'PASSWORD_RECOVERY') window.location.hash = '/settings';
+    });
     return () => sub.subscription.unsubscribe();
   }, []);
 
@@ -275,6 +294,7 @@ export default function App() {
     route.name === 'battlecard' ? 'battlecard' :
     route.name === 'activitylog' ? 'activitylog' :
     route.name === 'settings' ? 'settings' :
+    route.name === 'reports' ? 'reports' :
     route.name === 'inventory' ? 'inventory' :
     route.name === 'hospitality-leads' ? 'hospitality-leads' :
     route.name === 'hospitality-leadbank' ? 'hospitality-leadbank' :
@@ -303,7 +323,7 @@ export default function App() {
       <TopBar
         user={currentUser}
         onSearch={() => setSearchOpen(true)}
-        onAdd={() => setAddOpen(true)}
+        onAdd={can.canWrite ? () => setAddOpen(true) : undefined}
         onSignOut={handleSignOut}
       />
 
@@ -377,7 +397,20 @@ export default function App() {
             />
           )}
 
-          {route.name === 'campaigns' && (
+          {((route.name === 'campaigns' && !can.canSeeCampaigns) || (route.name === 'reports' && !can.canSeeReports)) && (
+            <AdminOnly onBack={() => go({ name: 'dashboard' })} />
+          )}
+
+          {route.name === 'reports' && can.canSeeReports && (
+            <Reports
+              leads={leads}
+              hospitalityLeads={hospitalityLeads}
+              campaigns={campaigns}
+              onOpenCampaigns={() => go({ name: 'campaigns' })}
+            />
+          )}
+
+          {route.name === 'campaigns' && can.canSeeCampaigns && (
             <CampaignAnalytics
               leads={leads}
               onLeadsChanged={load}
@@ -437,7 +470,7 @@ export default function App() {
           )}
 
           {route.name === 'settings' && currentUser && (
-            <Settings user={currentUser} profiles={profiles} onSignOut={handleSignOut} />
+            <Settings user={currentUser} profiles={profiles} onSignOut={handleSignOut} onTeamChanged={load} />
           )}
 
           {route.name === 'lead' && (
@@ -471,7 +504,7 @@ export default function App() {
         </main>
       </div>
 
-      <Fab onAdd={() => setAddOpen(true)} />
+      {can.canWrite && <Fab onAdd={() => setAddOpen(true)} />}
 
       {addOpen && (
         <AddLeadModal

@@ -19,6 +19,7 @@ import Private from './Private';
 import EditLeadModal from './EditLeadModal';
 import FollowUpSheet from './FollowUpSheet';
 import ColdReasonModal from './ColdReasonModal';
+import { usePermissions } from '@/lib/access';
 
 type SortKey = 'newest' | 'oldest' | 'followup' | 'lastcontacted' | 'name' | 'hot';
 type ViewMode = 'table' | 'card';
@@ -107,6 +108,7 @@ function getRange(preset: DateRangePreset, customStart: string, customEnd: strin
 }
 
 export default function LeadManagement({ leads, campaigns, profiles, onOpenLead, onChanged }: Props) {
+  const can = usePermissions();
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search, 200);
   const [sort, setSort] = useState<SortKey>('newest');
@@ -572,7 +574,7 @@ export default function LeadManagement({ leads, campaigns, profiles, onOpenLead,
           <button onClick={() => setFollowUpFor({ id: [...selected][0], next_followup_at: new Date().toISOString() } as Lead)} className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-[13px] font-semibold text-emerald-700">Schedule Follow-up</button>
           <button onClick={exportCsv} className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-[13px] font-semibold text-gray-700">Quick Export</button>
           <button onClick={exportFullCsv} disabled={exporting} className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-[13px] font-semibold text-emerald-700 disabled:opacity-50">{exporting ? 'Exporting…' : 'Export with Notes'}</button>
-          <button onClick={bulkDelete} className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-[13px] font-semibold text-red-600">Delete</button>
+          {can.canDeleteLeads && <button onClick={bulkDelete} className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-[13px] font-semibold text-red-600">Delete</button>}
           <button onClick={() => setSelected(new Set())} className="ml-auto rounded-lg p-1.5 text-gray-400 hover:text-gray-600"><X className="h-4 w-4" /></button>
         </div>
       )}

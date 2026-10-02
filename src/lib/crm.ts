@@ -60,7 +60,7 @@ export function smartDefaults(source: string): { status: LeadStatus } {
 // so any "load everything" query has to page through. Each query needs a
 // unique tiebreaker in its ordering (id) so pages don't overlap or skip rows.
 const PAGE_SIZE = 1000;
-async function fetchAllPages<T>(
+export async function fetchAllPages<T>(
   page: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: unknown }>,
 ): Promise<T[]> {
   const rows: T[] = [];
@@ -99,6 +99,18 @@ export async function fetchProfiles(): Promise<Profile[]> {
     .order('full_name', { ascending: true });
   if (error) throw error;
   return (data ?? []) as Profile[];
+}
+
+// Reports: every Real Estate activity in a date range, by everyone.
+export async function fetchActivitiesBetween(start: Date, end: Date): Promise<Activity[]> {
+  return fetchAllPages<Activity>((from, to) => supabase
+    .from('activities')
+    .select('*')
+    .gte('created_at', start.toISOString())
+    .lte('created_at', end.toISOString())
+    .order('created_at', { ascending: true })
+    .order('id')
+    .range(from, to));
 }
 
 export async function fetchActivities(leadId: string): Promise<Activity[]> {

@@ -20,6 +20,7 @@ import FollowUpSheet from './FollowUpSheet';
 import EditLeadModal from './EditLeadModal';
 import ColdReasonModal from './ColdReasonModal';
 import type { ReactivationAttempt } from '@/lib/supabase';
+import { usePermissions } from '@/lib/access';
 
 interface Props {
   id: string;
@@ -42,6 +43,7 @@ const tabConfig: { id: Tab; label: string }[] = [
 ];
 
 export default function LeadDetail({ id, leads, campaigns, profiles, onBack, onChanged }: Props) {
+  const can = usePermissions();
   const [lead, setLead] = useState<Lead | null>(leads.find((l) => l.id === id) ?? null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [siteVisits, setSiteVisits] = useState<SiteVisit[]>([]);
@@ -468,12 +470,14 @@ export default function LeadDetail({ id, leads, campaigns, profiles, onBack, onC
         )}
       </div>
 
-      {/* Danger zone */}
-      <div className="mt-8 border-t border-gray-100 pt-4">
-        <button onClick={handleDelete} className="inline-flex items-center gap-1.5 text-[13px] font-medium text-gray-400 transition hover:text-red-600">
-          <Trash2 className="h-4 w-4" /> Delete lead
-        </button>
-      </div>
+      {/* Danger zone — admin only */}
+      {can.canDeleteLeads && (
+        <div className="mt-8 border-t border-gray-100 pt-4">
+          <button onClick={handleDelete} className="inline-flex items-center gap-1.5 text-[13px] font-medium text-gray-400 transition hover:text-red-600">
+            <Trash2 className="h-4 w-4" /> Delete lead
+          </button>
+        </div>
+      )}
 
       {/* Sheets */}
       {sheet === 'followup' && (

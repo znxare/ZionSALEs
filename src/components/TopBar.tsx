@@ -8,7 +8,8 @@ import { usePresentationMode, setPresentationMode } from '@/lib/presentationMode
 interface Props {
   user: CurrentUser | null;
   onSearch: () => void;
-  onAdd: () => void;
+  /** Omitted for view-only users — hides the New Lead button. */
+  onAdd?: () => void;
   onSignOut: () => void;
 }
 
@@ -195,13 +196,17 @@ export default function TopBar({ user, onSearch, onAdd, onSignOut }: Props) {
             )}
           </div>
 
-          <button
-            onClick={onAdd}
-            className="flex items-center gap-1.5 rounded-full brand-gradient px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 sm:px-4"
-          >
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">New Lead</span>
-          </button>
+          {onAdd ? (
+            <button
+              onClick={onAdd}
+              className="flex items-center gap-1.5 rounded-full brand-gradient px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 sm:px-4"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">New Lead</span>
+            </button>
+          ) : (
+            <span className="rounded-full bg-gray-100 px-3 py-1.5 text-[12px] font-semibold text-gray-500" title="You can view everything but not make changes">View only</span>
+          )}
         </div>
       </div>
     </header>

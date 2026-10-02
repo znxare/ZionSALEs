@@ -1,10 +1,38 @@
 import { createClient } from '@supabase/supabase-js';
+import { getAccess } from './access';
 
-const url = import.meta.env.VITE_SUPABASE_URL as string;
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+export const url = import.meta.env.VITE_SUPABASE_URL as string;
+export const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+
+// Role guard for every database write made through this client, wherever it
+// comes from in the app: Viewers can't change anything, and only Admin can
+// delete leads. Auth calls (sign-in, password change) aren't affected.
+const LEAD_TABLES = ['/rest/v1/leads', '/rest/v1/hospitality_leads'];
+function blocked(message: string): Response {
+  return new Response(JSON.stringify({ message, code: 'access_denied' }), {
+    status: 403,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+const guardedFetch: typeof fetch = (input, init) => {
+  const method = (init?.method ?? 'GET').toUpperCase();
+  const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  if (method !== 'GET' && method !== 'HEAD' && href.includes('/rest/v1/')) {
+    const level = getAccess();
+    if (level === 'viewer' || level === 'removed') {
+      return Promise.resolve(blocked('You have view-only access — ask an admin if you need to make changes.'));
+    }
+    const path = new URL(href).pathname;
+    if (method === 'DELETE' && level !== 'admin' && LEAD_TABLES.includes(path)) {
+      return Promise.resolve(blocked('Only an admin can delete leads.'));
+    }
+  }
+  return fetch(input, init);
+};
 
 export const supabase = createClient(url, anonKey, {
   auth: { persistSession: true, autoRefreshToken: true },
+  global: { fetch: guardedFetch },
 });
 
 export type LeadStatus =
@@ -96,6 +124,9 @@ export interface Profile {
   full_name: string;
   role: string;
   created_at: string;
+  // Added by the roles migration — absent until it has been run.
+  email?: string | null;
+  access_level?: string | null;
 }
 
 export type LeadInsert = Omit<Lead, 'id' | 'created_at' | 'cold_reason' | 'cold_reason_note' | 'cold_since' | 'next_reactivation_at' | 'inquiry_date'> & Partial<Pick<Lead, 'cold_reason' | 'cold_reason_note' | 'cold_since' | 'next_reactivation_at' | 'inquiry_date'>>;

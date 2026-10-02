@@ -14,6 +14,7 @@ import { statusStyles } from '@/lib/styles';
 import Private from './Private';
 import FollowUpSheet from './FollowUpSheet';
 import EditHospitalityLeadModal from './EditHospitalityLeadModal';
+import { usePermissions } from '@/lib/access';
 
 interface Props {
   id: string;
@@ -26,6 +27,7 @@ interface Props {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default function HospitalityLeadDetail({ id, leads, profiles, onBack, onChanged }: Props) {
+  const can = usePermissions();
   const [lead, setLead] = useState<HospitalityLead | null>(leads.find((l) => l.id === id) ?? null);
   const [activities, setActivities] = useState<HospitalityActivity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -164,7 +166,7 @@ export default function HospitalityLeadDetail({ id, leads, profiles, onBack, onC
               </select>
             </div>
             <button onClick={() => setEditing(true)} className="grid h-9 w-9 place-items-center rounded-full border border-gray-200 text-gray-500 transition hover:bg-gray-50"><Pencil className="h-4 w-4" /></button>
-            <button onClick={deleteThisLead} className="grid h-9 w-9 place-items-center rounded-full border border-red-200 text-red-500 transition hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
+            {can.canDeleteLeads && <button onClick={deleteThisLead} className="grid h-9 w-9 place-items-center rounded-full border border-red-200 text-red-500 transition hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>}
           </div>
         </div>
 
