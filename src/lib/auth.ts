@@ -101,6 +101,11 @@ export async function signUp(email: string, password: string, fullName: string):
   if (profileError) throw profileError;
 }
 
+export async function changePassword(password: string): Promise<void> {
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) throw error;
+}
+
 export async function signOutUser(): Promise<void> {
   try {
     await withTimeout(supabase.auth.signOut(), 8000, () => undefined);

@@ -21,6 +21,7 @@ import SalesBattleCard from '@/components/SalesBattleCard';
 import LiveInventoryBoard from '@/components/LiveInventoryBoard';
 import LeadImport from '@/components/LeadImport';
 import ActivityLog from '@/components/ActivityLog';
+import Settings from '@/components/Settings';
 import Login from '@/components/Login';
 import WelcomeScreen from '@/components/WelcomeScreen';
 import HospitalityComingSoon from '@/components/HospitalityComingSoon';
@@ -39,6 +40,7 @@ type Route =
   | { name: 'reactivation' }
   | { name: 'battlecard' }
   | { name: 'activitylog' }
+  | { name: 'settings' }
   | { name: 'inventory' }
   | { name: 'hospitality-leads' }
   | { name: 'hospitality-leadbank' }
@@ -63,6 +65,7 @@ function parseHash(): Route {
   if (h === 'reactivation') return { name: 'reactivation' };
   if (h === 'battlecard') return { name: 'battlecard' };
   if (h === 'activitylog') return { name: 'activitylog' };
+  if (h === 'settings') return { name: 'settings' };
   if (h === 'inventory') return { name: 'inventory' };
   if (h === 'hospitality-leads') return { name: 'hospitality-leads' };
   if (h === 'hospitality-leadbank') return { name: 'hospitality-leadbank' };
@@ -84,6 +87,7 @@ function navigate(route: Route) {
   else if (route.name === 'reactivation') window.location.hash = '/reactivation';
   else if (route.name === 'battlecard') window.location.hash = '/battlecard';
   else if (route.name === 'activitylog') window.location.hash = '/activitylog';
+  else if (route.name === 'settings') window.location.hash = '/settings';
   else if (route.name === 'inventory') window.location.hash = '/inventory';
   else if (route.name === 'hospitality-leads') window.location.hash = '/hospitality-leads';
   else if (route.name === 'hospitality-leadbank') window.location.hash = '/hospitality-leadbank';
@@ -270,6 +274,7 @@ export default function App() {
     route.name === 'reactivation' ? 'reactivation' :
     route.name === 'battlecard' ? 'battlecard' :
     route.name === 'activitylog' ? 'activitylog' :
+    route.name === 'settings' ? 'settings' :
     route.name === 'inventory' ? 'inventory' :
     route.name === 'hospitality-leads' ? 'hospitality-leads' :
     route.name === 'hospitality-leadbank' ? 'hospitality-leadbank' :
@@ -429,6 +434,10 @@ export default function App() {
 
           {route.name === 'activitylog' && (
             <ActivityLog onOpenLead={(id) => go({ name: 'lead', id })} />
+          )}
+
+          {route.name === 'settings' && currentUser && (
+            <Settings user={currentUser} profiles={profiles} onSignOut={handleSignOut} />
           )}
 
           {route.name === 'lead' && (

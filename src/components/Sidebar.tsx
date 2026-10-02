@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import {
   LayoutDashboard, Users, MapPin, Megaphone, Landmark, CalendarCheck, Snowflake, Upload,
-  Menu, X, History, Flag, LayoutGrid, CalendarRange,
+  Menu, X, History, Flag, LayoutGrid, CalendarRange, Settings,
 } from 'lucide-react';
 import ConnectionStatus from '@/components/ConnectionStatus';
 
 export type NavId =
   | 'dashboard' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner'
-  | 'reactivation' | 'battlecard' | 'activitylog' | 'inventory'
+  | 'reactivation' | 'battlecard' | 'activitylog' | 'inventory' | 'settings'
   | 'hospitality-leads' | 'hospitality-leadbank' | 'hospitality-booking';
 
 interface Props {
@@ -46,6 +46,7 @@ const NAV: NavEntry[] = [
   { kind: 'single', item: { id: 'reactivation', label: 'Reactivation', icon: Snowflake } },
   { kind: 'single', item: { id: 'battlecard', label: 'Battle Card', icon: Flag, badge: 'DEV' } },
   { kind: 'single', item: { id: 'activitylog', label: 'Activity Log', icon: History } },
+  { kind: 'single', item: { id: 'settings', label: 'Settings', icon: Settings } },
 ];
 
 // Each item gets its own accent, echoing the semantic colors used on the Dashboard's KPI cards.
@@ -61,6 +62,7 @@ const TAB_COLORS: Record<NavId, { bg: string; text: string; ring: string; icon: 
   campaigns: { bg: 'bg-pink-50', text: 'text-pink-700', ring: 'ring-pink-200/60', icon: 'text-pink-600', border: 'border-pink-500' },
   reactivation: { bg: 'bg-sky-50', text: 'text-sky-700', ring: 'ring-sky-200/60', icon: 'text-sky-600', border: 'border-sky-500' },
   battlecard: { bg: 'bg-emerald-50', text: 'text-emerald-700', ring: 'ring-emerald-200/60', icon: 'text-emerald-600', border: 'border-emerald-500' },
+  settings: { bg: 'bg-gray-100', text: 'text-gray-800', ring: 'ring-gray-200/60', icon: 'text-gray-700', border: 'border-gray-500' },
   activitylog: { bg: 'bg-indigo-50', text: 'text-indigo-700', ring: 'ring-indigo-200/60', icon: 'text-indigo-600', border: 'border-indigo-500' },
   'hospitality-leads': { bg: 'bg-rose-50', text: 'text-rose-700', ring: 'ring-rose-200/60', icon: 'text-rose-600', border: 'border-rose-500' },
   'hospitality-leadbank': { bg: 'bg-fuchsia-50', text: 'text-fuchsia-700', ring: 'ring-fuchsia-200/60', icon: 'text-fuchsia-600', border: 'border-fuchsia-500' },
