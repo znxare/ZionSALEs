@@ -105,6 +105,21 @@ const PRODUCTIVITY_COLUMNS: { key: string; label: string; types: ActivityType[] 
   { key: 'sales', label: 'Sales / bookings', types: ['Sale Completed', 'Booking'] },
 ];
 
+// The team often logs calls as notes ("Called no response", "spoke to him,
+// he said…") instead of tapping Called / No Answer, so Answer rate also reads
+// note wording. A best guess: notes matching neither pattern are ignored.
+const NO_ANSWER_NOTE = /\b(no (response|answer|reply|respond)|not (picking|picked|pick|answering|answered|reachable|responding|respond|lifting|received|receiving)|didn'?t (pick|answer|respond)|did not (pick|answer|respond)|switch(ed)? ?off|unreachable|rnr|ringing|voice ?mail|out of (network|coverage)|call not (connected|connecting)|not connected)\b/i;
+const ANSWERED_NOTE = /\b(called|call|spoke|spoken|talked|discussed|said|says|told|informed|asked|interested|confirmed|will visit|visit)\b/i;
+
+function callOutcome(a: { type: ActivityType; summary: string }): 'answered' | 'no_answer' | null {
+  if (a.type === 'Called') return 'answered';
+  if (a.type === 'No Answer') return 'no_answer';
+  if (a.type !== 'Note Added' || a.summary.startsWith('Site visit on')) return null;
+  if (NO_ANSWER_NOTE.test(a.summary)) return 'no_answer';
+  if (ANSWERED_NOTE.test(a.summary)) return 'answered';
+  return null;
+}
+
 const OVERDUE_BUCKETS: { label: string; min: number; max: number }[] = [
   { label: '1–3 days', min: 1, max: 3 },
   { label: '4–7 days', min: 4, max: 7 },
@@ -304,6 +319,8 @@ export default function Reports({ leads, hospitalityLeads, campaigns, profiles, 
       const r = row(a.actor);
       r.total += 1;
       for (const col of PRODUCTIVITY_COLUMNS) if (col.types.includes(a.type)) r[col.key] = (r[col.key] ?? 0) + 1;
+      const outcome = callOutcome(a);
+      if (outcome) r[outcome] = (r[outcome] ?? 0) + 1;
     }
     for (const c of followUpChecks) {
       const r = row(c.actor);
@@ -392,7 +409,7 @@ export default function Reports({ leads, hospitalityLeads, campaigns, profiles, 
       ['Team member', ...PRODUCTIVITY_COLUMNS.map((c) => c.label), 'Answer rate', 'Total actions',
         'Follow-ups due', 'On time', 'Late', 'Missed', 'On-time %', 'Overdue now'],
       productivity.map(({ actor, counts: c }) => [
-        actor, ...PRODUCTIVITY_COLUMNS.map((col) => c[col.key] ?? 0), pct(c.calls ?? 0, (c.calls ?? 0) + (c.noAnswer ?? 0)), c.total,
+        actor, ...PRODUCTIVITY_COLUMNS.map((col) => c[col.key] ?? 0), pct(c.answered ?? 0, (c.answered ?? 0) + (c.no_answer ?? 0)), c.total,
         c.fuDue ?? 0, c.on_time ?? 0, c.late ?? 0, c.missed ?? 0, pct(c.on_time ?? 0, c.fuDue ?? 0), c.overdueNow ?? 0,
       ]));
   }
@@ -530,7 +547,7 @@ export default function Reports({ leads, hospitalityLeads, campaigns, profiles, 
                     </tr>
                     <tr>
                       {PRODUCTIVITY_COLUMNS.map((c) => <th key={c.key} className="px-2 py-2 text-right font-semibold">{c.label}</th>)}
-                      <th className="px-2 py-2 text-right font-semibold" title="Calls answered ÷ (answered + no answer)">Answer rate</th>
+                      <th className="px-2 py-2 text-right font-semibold" title="Answered ÷ (answered + not answered), including calls logged as notes">Answer rate</th>
                       <th className="px-2 py-2 text-right font-semibold">Total</th>
                       <th className="border-l border-gray-100 px-2 py-2 text-right font-semibold" title="Follow-ups they scheduled that fell due in this period">Due</th>
                       <th className="px-2 py-2 text-right font-semibold">On time</th>
@@ -545,7 +562,7 @@ export default function Reports({ leads, hospitalityLeads, campaigns, profiles, 
                       <tr key={actor}>
                         <td className="py-2.5 pr-3 font-semibold text-gray-900">{actor}</td>
                         {PRODUCTIVITY_COLUMNS.map((col) => <td key={col.key} className="px-2 py-2.5 text-right text-gray-600">{c[col.key] ?? 0}</td>)}
-                        <td className="px-2 py-2.5 text-right font-semibold text-gray-800">{pct(c.calls ?? 0, (c.calls ?? 0) + (c.noAnswer ?? 0))}</td>
+                        <td className="px-2 py-2.5 text-right font-semibold text-gray-800" title={`${c.answered ?? 0} answered, ${c.no_answer ?? 0} not answered`}>{pct(c.answered ?? 0, (c.answered ?? 0) + (c.no_answer ?? 0))}</td>
                         <td className="px-2 py-2.5 text-right font-bold text-gray-900">{c.total}</td>
                         <td className="border-l border-gray-100 px-2 py-2.5 text-right text-gray-600">{c.fuDue ?? 0}</td>
                         <td className="px-2 py-2.5 text-right text-emerald-600">{c.on_time ?? 0}</td>
@@ -560,7 +577,7 @@ export default function Reports({ leads, hospitalityLeads, campaigns, profiles, 
               </div>
             )}
             <ul className="mt-3 space-y-1 text-[12px] text-gray-400">
-              <li><b className="font-semibold text-gray-500">Answer rate</b> — “Called” ÷ (“Called” + “No answer”). Calls logged only as a note aren’t counted.</li>
+              <li><b className="font-semibold text-gray-500">Answer rate</b> — answered ÷ (answered + not answered). Uses Called / No Answer, plus notes read for wording like “no response”, “not picking” or “switched off” (not answered) and “spoke to him”, “he said” (answered) — a best guess, so tapping No Answer keeps it accurate. Hover a figure for the counts.</li>
               <li><b className="font-semibold text-gray-500">Follow-up discipline</b> — follow-ups each person scheduled that fell due in this period. On time = a call, WhatsApp or note on that lead by the end of the due day; late = after; missed = nothing yet. Follow-ups rescheduled before they fell due are skipped.</li>
               <li><b className="font-semibold text-gray-500">Overdue now</b> — their leads overdue today (assigned to them, or last handled by them if unassigned).</li>
             </ul>
