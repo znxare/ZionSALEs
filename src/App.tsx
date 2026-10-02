@@ -413,7 +413,9 @@ export default function App() {
               leads={leads}
               hospitalityLeads={hospitalityLeads}
               campaigns={campaigns}
+              profiles={profiles}
               onOpenCampaigns={() => go({ name: 'campaigns' })}
+              onOpenLead={(v, id) => go(v === 'Hospitality' ? { name: 'hospitality-lead', id } : { name: 'lead', id })}
             />
           )}
 
