@@ -256,8 +256,8 @@ export default function LeadManagement({ leads, campaigns, profiles, onOpenLead,
       await Promise.all([...selected].map((id) => {
         const lead = leads.find((l) => l.id === id);
         return bulkStatus === 'Cold' && lead && lead.status !== 'Cold'
-          ? markLeadCold(lead, 'Other')
-          : updateLead(id, { status: bulkStatus as LeadStatus });
+          ? markLeadCold(lead, 'Other', undefined, { claim: false })
+          : updateLead(id, { status: bulkStatus as LeadStatus }, { claim: false });
       }));
       setBulkStatus('');
       setSelected(new Set());

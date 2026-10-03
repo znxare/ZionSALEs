@@ -15,7 +15,8 @@ export default function AddLeadModal({ campaigns, profiles, onClose, onCreated }
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
-  const [campaignId, setCampaignId] = useState('');
+  // Start on the newest running campaign (the list excludes archived ones).
+  const [campaignId, setCampaignId] = useState(() => campaigns[0]?.id ?? '');
   const [source, setSource] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
   const [saving, setSaving] = useState(false);

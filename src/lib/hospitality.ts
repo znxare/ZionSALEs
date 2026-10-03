@@ -3,7 +3,7 @@ import type { LeadStatus, LeadPriority, ActivityType } from './supabase';
 import { normalizePhone } from './normalize';
 import { getCurrentUser } from './auth';
 import { assertWritable } from './demoMode';
-import { rolledFollowUp, fetchAllPages } from './crm';
+import { rolledFollowUp, fetchAllPages, qualifierName, claimIfUnassigned } from './crm';
 
 // A parallel lead pipeline for the Hospitality division (getaway stays &
 // corporate bookings), backed by its own `hospitality_leads` /
@@ -129,7 +129,12 @@ export async function updateHospitalityLead(id: string, patch: Partial<Hospitali
     .select()
     .single();
   if (error) throw error;
-  return data as HospitalityLead;
+  const lead = data as HospitalityLead;
+  // Same rule as Real Estate: whoever qualifies an unassigned lead owns it.
+  if (!patch.assigned_to && !lead.assigned_to && qualifierName(patch.status)) {
+    return (await claimIfUnassigned<HospitalityLead>('hospitality_leads', id)) ?? lead;
+  }
+  return lead;
 }
 
 export async function deleteHospitalityLead(id: string): Promise<void> {

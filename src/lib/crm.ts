@@ -189,7 +189,34 @@ export async function createLead(input: LeadInsert): Promise<Lead> {
   return lead;
 }
 
-export async function updateLead(id: string, patch: Partial<Lead>): Promise<Lead> {
+// Qualifying a lead = setting it Hot, Warm or Cold. Whoever qualifies a lead
+// that nobody is assigned to becomes its owner (never overrides an existing
+// assignment — the conditional update only touches rows still unassigned).
+export const QUALIFIED_STATUSES: LeadStatus[] = ['Hot', 'Warm', 'Cold'];
+
+export function qualifierName(status: LeadStatus | undefined): string | null {
+  return status && QUALIFIED_STATUSES.includes(status) ? getCurrentUser()?.full_name ?? null : null;
+}
+
+export async function claimIfUnassigned<T>(table: 'leads' | 'hospitality_leads', id: string): Promise<T | null> {
+  const me = getCurrentUser();
+  if (!me) return null;
+  const { data } = await supabase
+    .from(table)
+    .update({ assigned_to: me.full_name })
+    .eq('id', id)
+    .is('assigned_to', null)
+    .select()
+    .maybeSingle();
+  return (data as T | null) ?? null;
+}
+
+export interface UpdateLeadOptions {
+  /** false for bulk edits — mass-updating isn't qualifying a lead. */
+  claim?: boolean;
+}
+
+export async function updateLead(id: string, patch: Partial<Lead>, opts: UpdateLeadOptions = {}): Promise<Lead> {
   const { data, error } = await supabase
     .from('leads')
     .update(patch)
@@ -197,7 +224,11 @@ export async function updateLead(id: string, patch: Partial<Lead>): Promise<Lead
     .select()
     .single();
   if (error) throw error;
-  return data as Lead;
+  const lead = data as Lead;
+  if (opts.claim !== false && !patch.assigned_to && !lead.assigned_to && qualifierName(patch.status)) {
+    return (await claimIfUnassigned<Lead>('leads', id)) ?? lead;
+  }
+  return lead;
 }
 
 export async function deleteLead(id: string): Promise<void> {
@@ -808,7 +839,7 @@ export async function convertLeadBankToLead(entry: LeadBankEntry, campaignId: st
     last_contacted_at: new Date().toISOString(),
     last_activity_type: 'Called',
     last_activity_at: new Date().toISOString(),
-    assigned_to: null,
+    assigned_to: qualifierName(status),
     site_visit_at: null,
     booked_at: null,
     notes: entry.notes ?? null,
@@ -929,7 +960,7 @@ export async function convertLeadBankToLeadSafe(entry: LeadBankEntry, campaignId
     last_contacted_at: new Date().toISOString(),
     last_activity_type: 'Called',
     last_activity_at: new Date().toISOString(),
-    assigned_to: null,
+    assigned_to: qualifierName(status),
     site_visit_at: null,
     booked_at: null,
     notes: entry.notes ?? null,
@@ -1065,6 +1096,7 @@ export async function markLeadCold(
   lead: Lead,
   reason: ColdReason,
   nextReactivationAt?: string,
+  opts: UpdateLeadOptions = {},
 ): Promise<Lead> {
   const days = coldReasonDays(reason);
   const when = nextReactivationAt ?? (days ? daysFromNow(days) : daysFromNow(60));
@@ -1074,7 +1106,7 @@ export async function markLeadCold(
     cold_since: new Date().toISOString(),
     next_reactivation_at: when,
     next_followup_at: when,
-  });
+  }, opts);
   await logActivity({
     lead_id: lead.id,
     type: 'Status Changed',
