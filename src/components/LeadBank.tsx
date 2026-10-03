@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  Phone, Trash2, X, Check, Flame, Snowflake, Sun, Search,
-  User, Loader2, MessageCircle,
+  Phone, Trash2, X, Check, Search,
+  Loader2, MessageCircle,
 } from 'lucide-react';
 import type { Campaign, LeadBankEntry, LeadBankStatus, LeadStatus } from '@/lib/supabase';
 import {
@@ -42,14 +42,6 @@ export default function LeadBank({ campaigns, onChanged }: Props) {
     if (!q) return entries;
     return entries.filter((e) => `${e.name} ${e.phone}`.toLowerCase().includes(q));
   }, [entries, search]);
-
-  const stats = useMemo(() => ({
-    total: entries.length,
-    newCount: entries.filter((e) => e.status === 'New').length,
-    hot: entries.filter((e) => e.status === 'Hot').length,
-    cold: entries.filter((e) => e.status === 'Cold').length,
-    converted: entries.filter((e) => e.status === 'Converted').length,
-  }), [entries]);
 
   async function handleConvert(entry: LeadBankEntry, status: LeadStatus, campaignId: string | null, note: string) {
     setBusy(true);
@@ -98,15 +90,6 @@ export default function LeadBank({ campaigns, onChanged }: Props) {
           <h1 className="font-display text-2xl font-bold tracking-tight text-gray-900">Lead Bank</h1>
           <p className="text-[13px] text-gray-400">Raw leads from Google Sheets. Qualify them before they enter your pipeline.</p>
         </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <StatPill icon={User} label="Total" value={stats.total} tint="text-gray-700 bg-gray-100" />
-        <StatPill icon={Sun} label="New" value={stats.newCount} tint="text-sky-700 bg-sky-50" />
-        <StatPill icon={Flame} label="Hot" value={stats.hot} tint="text-red-700 bg-red-50" />
-        <StatPill icon={Snowflake} label="Cold" value={stats.cold} tint="text-blue-700 bg-blue-50" />
-        <StatPill icon={Check} label="Converted" value={stats.converted} tint="text-emerald-700 bg-emerald-50" />
       </div>
 
       {/* Search */}
@@ -201,18 +184,6 @@ function bankStatusTint(s: LeadBankStatus): string {
     case 'Not Reachable': return 'bg-amber-50 text-amber-700';
     default: return 'bg-sky-50 text-sky-700';
   }
-}
-
-function StatPill({ icon: Icon, label, value, tint }: { icon: typeof User; label: string; value: number; tint: string }) {
-  return (
-    <div className="rounded-2xl border border-black/5 bg-white p-3 card-shadow">
-      <div className="flex items-center gap-2">
-        <div className={`grid h-8 w-8 place-items-center rounded-lg ${tint}`}><Icon className="h-4 w-4" /></div>
-        <span className="font-display text-xl font-bold text-gray-900">{value}</span>
-      </div>
-      <div className="mt-1.5 text-[11px] font-medium text-gray-400">{label}</div>
-    </div>
-  );
 }
 
 function CallQualifyModal({
