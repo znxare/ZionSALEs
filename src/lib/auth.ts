@@ -114,23 +114,6 @@ export async function signIn(email: string, password: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function signUp(email: string, password: string, fullName: string): Promise<void> {
-  const { data, error } = await withTimeout(
-    supabase.auth.signUp({ email, password }),
-    AUTH_TIMEOUT_MS,
-    () => { throw new Error(TIMEOUT_ERROR); },
-  );
-  if (error) throw error;
-  if (!data.user) throw new Error('Could not create account — check your email to confirm, then sign in.');
-
-  const { error: profileError } = await withTimeout(
-    supabase.from('profiles').insert({ id: data.user.id, full_name: fullName.trim() }),
-    AUTH_TIMEOUT_MS,
-    () => { throw new Error(TIMEOUT_ERROR); },
-  );
-  if (profileError) throw profileError;
-}
-
 export async function changePassword(password: string): Promise<void> {
   const { error } = await supabase.auth.updateUser({ password });
   if (error) throw error;
