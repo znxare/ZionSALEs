@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import {
   LayoutDashboard, Users, MapPin, Megaphone, Landmark, CalendarCheck, Snowflake, Upload,
-  Menu, X, History, Flag, LayoutGrid, Settings, FileBarChart,
+  Menu, X, History, LayoutGrid, Settings, FileBarChart,
 } from 'lucide-react';
 import ConnectionStatus from '@/components/ConnectionStatus';
 import { useModuleAccess } from '@/lib/access';
 
 export type NavId =
   | 'dashboard' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner'
-  | 'reactivation' | 'battlecard' | 'activitylog' | 'inventory' | 'settings' | 'reports'
+  | 'reactivation' | 'activitylog' | 'inventory' | 'settings' | 'reports'
   | 'hospitality-leads' | 'hospitality-leadbank';
 
 interface Props {
@@ -44,7 +44,6 @@ const NAV: NavEntry[] = [
   { kind: 'single', item: { id: 'planner', label: 'Day Planner', icon: CalendarCheck } },
   { kind: 'single', item: { id: 'campaigns', label: 'Campaigns', icon: Megaphone } },
   { kind: 'single', item: { id: 'reactivation', label: 'Reactivation', icon: Snowflake } },
-  { kind: 'single', item: { id: 'battlecard', label: 'Battle Card', icon: Flag, badge: 'DEV' } },
   { kind: 'single', item: { id: 'activitylog', label: 'Activity Log', icon: History } },
   { kind: 'single', item: { id: 'reports', label: 'Reports', icon: FileBarChart } },
   { kind: 'single', item: { id: 'settings', label: 'Settings', icon: Settings } },
@@ -62,7 +61,6 @@ const TAB_COLORS: Record<NavId, { bg: string; text: string; ring: string; icon: 
   planner: { bg: 'bg-amber-50', text: 'text-amber-700', ring: 'ring-amber-200/60', icon: 'text-amber-600', border: 'border-amber-500' },
   campaigns: { bg: 'bg-pink-50', text: 'text-pink-700', ring: 'ring-pink-200/60', icon: 'text-pink-600', border: 'border-pink-500' },
   reactivation: { bg: 'bg-sky-50', text: 'text-sky-700', ring: 'ring-sky-200/60', icon: 'text-sky-600', border: 'border-sky-500' },
-  battlecard: { bg: 'bg-emerald-50', text: 'text-emerald-700', ring: 'ring-emerald-200/60', icon: 'text-emerald-600', border: 'border-emerald-500' },
   reports: { bg: 'bg-cyan-50', text: 'text-cyan-700', ring: 'ring-cyan-200/60', icon: 'text-cyan-600', border: 'border-cyan-500' },
   settings: { bg: 'bg-gray-100', text: 'text-gray-800', ring: 'ring-gray-200/60', icon: 'text-gray-700', border: 'border-gray-500' },
   activitylog: { bg: 'bg-indigo-50', text: 'text-indigo-700', ring: 'ring-indigo-200/60', icon: 'text-indigo-600', border: 'border-indigo-500' },

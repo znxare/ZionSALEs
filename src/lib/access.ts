@@ -51,7 +51,6 @@ export const CONFIGURABLE_MODULES: { id: string; label: string; group: string }[
   { id: 'planner', label: 'Day Planner', group: 'Tools' },
   { id: 'campaigns', label: 'Campaigns', group: 'Tools' },
   { id: 'reactivation', label: 'Reactivation', group: 'Tools' },
-  { id: 'battlecard', label: 'Battle Card', group: 'Tools' },
   { id: 'activitylog', label: 'Activity Log', group: 'Tools' },
   { id: 'reports', label: 'Reports', group: 'Tools' },
 ];
