@@ -224,7 +224,21 @@ export async function updateLead(id: string, patch: Partial<Lead>, opts: UpdateL
     .select()
     .single();
   if (error) throw error;
-  const lead = data as Lead;
+  let lead = data as Lead;
+  // A Cold lead's follow-up date and its reactivation date mean the same
+  // thing. Rescheduling only set the follow-up, so the Reactivation Center
+  // kept showing the old date as overdue — keep them in step.
+  if (lead.status === 'Cold' && patch.next_followup_at && !('next_reactivation_at' in patch)
+    && lead.next_reactivation_at !== patch.next_followup_at) {
+    const { data: synced, error: syncError } = await supabase
+      .from('leads')
+      .update({ next_reactivation_at: patch.next_followup_at })
+      .eq('id', id)
+      .select()
+      .single();
+    if (syncError) throw syncError;
+    lead = synced as Lead;
+  }
   if (opts.claim !== false && !patch.assigned_to && !lead.assigned_to && qualifierName(patch.status)) {
     return (await claimIfUnassigned<Lead>('leads', id)) ?? lead;
   }
