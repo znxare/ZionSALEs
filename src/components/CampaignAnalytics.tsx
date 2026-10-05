@@ -326,6 +326,14 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
         </div>
       )}
 
+      {/* Lead Status across all campaigns */}
+      {dateFilteredLeads.length > 0 && (
+        <div className="mb-6 rounded-2xl border border-black/5 bg-white p-5 card-shadow">
+          <h3 className="mb-4 font-display text-base font-bold tracking-tight text-gray-900">Lead Status</h3>
+          <InteractiveStatusGrid leads={dateFilteredLeads} />
+        </div>
+      )}
+
       {/* Lead Trend - fixed to the current calendar year, Jan–Dec */}
       {dateFilteredLeads.length > 0 && (
         <div className="mb-6 rounded-2xl border border-black/5 bg-white p-5 card-shadow">
@@ -461,14 +469,6 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
         <div className="mb-6 rounded-2xl border border-black/5 bg-white p-5 card-shadow">
           <h3 className="mb-4 font-display text-base font-bold tracking-tight text-gray-900">Leads by Campaign</h3>
           <BarChart data={comparisonData} />
-        </div>
-      )}
-
-      {/* Lead Status across all campaigns */}
-      {dateFilteredLeads.length > 0 && (
-        <div className="mb-6 rounded-2xl border border-black/5 bg-white p-5 card-shadow">
-          <h3 className="mb-4 font-display text-base font-bold tracking-tight text-gray-900">Lead Status</h3>
-          <InteractiveStatusGrid leads={dateFilteredLeads} />
         </div>
       )}
 
