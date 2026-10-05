@@ -107,10 +107,10 @@ export default function LiveInventoryBoard() {
           </a>
           <a
             href="#/tour/screen"
-            title="On the iPad: show the cart's live position to the buyer"
+            title="Start the live cart tour on this iPad (uses its own GPS)"
             className="flex items-center gap-1.5 rounded-full border border-black/5 bg-white px-3 py-2.5 text-sm font-semibold text-gray-700 card-shadow hover:bg-gray-50 sm:px-3.5"
           >
-            <Tablet className="h-4 w-4" /> <span className="hidden sm:inline">Tour (iPad)</span>
+            <Tablet className="h-4 w-4" /> <span className="hidden sm:inline">Live tour</span>
           </a>
           <button
             onClick={() => {
@@ -1047,7 +1047,7 @@ function BuyerPresentation({ plots, onClose }: { plots: Plot[]; onClose: () => v
   const [showcase, setShowcase] = useState<Showcase>({});
   // Personal welcome: set up by the host, then the intro, then the map flies
   // to the homes picked for this buyer.
-  const [stage, setStage] = useState<'setup' | 'intro' | 'live'>('setup');
+  const [stage, setStage] = useState<'setup' | 'intro' | 'live'>('live');
   const [guest, setGuest] = useState('');
   const [curated, setCurated] = useState<Set<string>>(new Set());
   const [showCurated, setShowCurated] = useState(true);
@@ -1105,19 +1105,33 @@ function BuyerPresentation({ plots, onClose }: { plots: Plot[]; onClose: () => v
       <div className="pointer-events-none absolute inset-x-0 top-0 z-40 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5">
         <div className="flex items-start gap-2">
           <div className="pointer-events-auto flex min-w-0 flex-1 items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] lg:flex-wrap lg:overflow-visible">
-            {curated.size > 0 && (
+            {curated.size > 0 ? (
               <button
                 onClick={() => { setBhk('All'); setPhase('All'); setBudget('All'); setAvailableOnly(false); setShowCurated(true); flyTo(curated, 1600); }}
                 className={`${chip(curatedOn)} flex items-center gap-1.5`}
               >
                 <Sparkles className="h-4 w-4" /> Selected for you
               </button>
+            ) : (
+              // Optional personal welcome — only when the host asks for it.
+              <button onClick={() => setStage('setup')} title="Personal welcome for a guest" className={`${chip(false)} flex items-center gap-1.5`}>
+                <Sparkles className="h-4 w-4" /> Welcome
+              </button>
             )}
             <button onClick={() => { setBhk('All'); setShowCurated(false); }} className={chip(bhk === 'All' && !curatedOn)}>All homes</button>
             {BEDROOM_OPTIONS.map((b) => <button key={b} onClick={() => setBhk(b)} className={chip(bhk === b)}>{b}BHK</button>)}
-            {BUDGETS.map((b) => (
-              <button key={b.id} onClick={() => setBudget(budget === b.id ? 'All' : b.id)} className={chip(budget === b.id)}>{b.label}</button>
-            ))}
+            <div className="relative shrink-0">
+              <select
+                value={budget}
+                onChange={(e) => setBudget(e.target.value as BudgetId | 'All')}
+                aria-label="Budget"
+                className={`${chip(budget !== 'All')} cursor-pointer appearance-none pr-9 outline-none`}
+              >
+                <option value="All">All budgets</option>
+                {BUDGETS.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
+              </select>
+              <ChevronDown className={`pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 ${budget !== 'All' ? 'text-white' : 'text-gray-500'}`} />
+            </div>
             {PHASES.map((ph) => (
               <button key={ph} onClick={() => setPhase(phase === ph ? 'All' : ph)} className={chip(phase === ph)}>{ph}</button>
             ))}
@@ -1221,9 +1235,9 @@ function BuyerPresentation({ plots, onClose }: { plots: Plot[]; onClose: () => v
             setCurated(ids);
             setShowCurated(true);
             if (name) setStage('intro');
-            else { setStage('live'); window.setTimeout(() => flyTo(ids, 2600), 100); }
+            else { setStage('live'); if (ids.size) window.setTimeout(() => flyTo(ids, 2600), 100); }
           }}
-          onClose={onClose}
+          onClose={() => setStage('live')}
         />
       )}
       {stage === 'intro' && (

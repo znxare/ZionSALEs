@@ -15,11 +15,24 @@ import { loadShowcase, type Showcase, type TourStop } from '@/lib/showcase';
 const FOLLOW_ZOOM = 2.5;
 const SEND_EVERY_MS = 700;
 
+const TEAM_CAL_CACHE = 'zion-tour-team-calibration';
+
 function useCalibration() {
-  const [cal, setCal] = useState<Calibration | null>(null);
+  // Last team calibration kept on this device, so a tour starts straight away
+  // (and still works where mobile data is weak); refreshed from the server.
+  const [cal, setCal] = useState<Calibration | null>(() => {
+    try { return JSON.parse(localStorage.getItem(TEAM_CAL_CACHE) ?? 'null') as Calibration | null; } catch { return null; }
+  });
   const [loading, setLoading] = useState(true);
   useEffect(() => {
-    loadCalibration().then(setCal).catch(() => {}).finally(() => setLoading(false));
+    loadCalibration()
+      .then((c) => {
+        if (!c) return;
+        setCal(c);
+        try { localStorage.setItem(TEAM_CAL_CACHE, JSON.stringify(c)); } catch { /* storage unavailable */ }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
   return { cal, setCal, loading };
 }
@@ -537,9 +550,13 @@ function Calibrate({ fix, gpsError, cal, onChange, onSaved, onClose }: {
 // iPad: the buyer's screen
 // ---------------------------------------------------------------------------
 export function TourScreen({ onExit }: { onExit: () => void }) {
+  const sim = new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('sim') === '1';
+  // 'self' = this iPad's own GPS (starts straight away, no phone needed);
+  // 'pair' = follow a phone running Tour (phone), for iPads without GPS.
+  const [mode, setMode] = useState<'self' | 'pair'>('self');
   const [code, setCode] = useState('');
   const [joined, setJoined] = useState<string | null>(null);
-  const [fix, setFix] = useState<GpsFix | null>(null);
+  const [remoteFix, setFix] = useState<GpsFix | null>(null);
   const [follow, setFollow] = useState(true);
   const [live, setLive] = useState(false);
   const { cal, setCal } = useCalibration();
@@ -556,6 +573,16 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
   useEffect(() => { void loadShowcase().then(setShowcase); }, []);
 
   useEffect(() => { const t = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(t); }, []);
+
+  const own = useGps(mode === 'self', sim, cal);
+  const fix = mode === 'self' ? own.fix : remoteFix;
+
+  useEffect(() => {
+    if (mode !== 'self') return;
+    let release: (() => void) | undefined;
+    void keepScreenOn().then((r) => { release = r; });
+    return () => release?.();
+  }, [mode]);
 
   const calRef = useRef(cal);
   calRef.current = cal;
@@ -600,7 +627,7 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
     return () => { document.documentElement.style.overflow = ''; };
   }, []);
 
-  if (!joined) {
+  if (mode === 'pair' && !joined) {
     return (
       <div className="flex min-h-[100dvh] items-center justify-center bg-[#d7dac7] p-6">
         <div className="w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-xl">
@@ -621,7 +648,8 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
           >
             Connect
           </button>
-          <button onClick={onExit} className="mt-3 text-sm font-medium text-gray-400">Cancel</button>
+          <button onClick={() => setMode('self')} className="mt-3 block w-full text-sm font-medium text-gray-500">Use this iPad's own GPS instead</button>
+          <button onClick={onExit} className="mt-2 text-sm font-medium text-gray-400">Cancel</button>
         </div>
       </div>
     );
@@ -636,7 +664,12 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
   }
   const rotation = headingUp ? turn.current : 0;
   const age = fix ? Math.round((now - fix.t) / 1000) : null;
-  const state = !live ? 'Connecting…' : !fix ? 'Waiting for the phone to start…' : age != null && age > 15 ? `Signal lost · last seen ${age}s ago` : 'Live';
+  const state = mode === 'self'
+    ? (!fix ? 'Finding GPS…' : age != null && age > 15 ? `GPS signal lost · ${age}s` : 'Live')
+    : (!live ? 'Connecting…' : !fix ? 'Waiting for the phone to start…' : age != null && age > 15 ? `Signal lost · last seen ${age}s ago` : 'Live');
+  // A Wi-Fi-only iPad has no GPS chip; its location comes from nearby Wi-Fi and
+  // is far too rough for a cart tour — say so, and offer the phone instead.
+  const rough = mode === 'self' && !!fix && !sim && fix.accuracy > 35;
 
   return (
     <div className="fixed inset-0 z-[60] overflow-hidden bg-[#d7dac7]" style={{ height: '100dvh' }}>
@@ -683,7 +716,16 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
 
       {fix && !marker && (
         <div className="absolute left-1/2 top-16 z-40 -translate-x-1/2 rounded-full bg-amber-50/95 px-4 py-2 text-sm font-medium text-amber-800 shadow">
-          The map isn't calibrated yet — calibrate from the phone's Tour remote.
+          The map isn't calibrated yet — calibrate from Tour (phone).
+        </div>
+      )}
+
+      {mode === 'self' && (own.error || rough) && (
+        <div className="absolute left-1/2 top-16 z-40 w-[min(92vw,460px)] -translate-x-1/2 rounded-2xl bg-white/95 px-4 py-3 text-center text-[13px] text-gray-700 shadow-lg">
+          {own.error ?? `Location is only approximate here (±${Math.round(fix!.accuracy)} m) — this iPad may not have GPS.`}
+          <button onClick={() => { setMode('pair'); setFix(null); }} className="mt-1 block w-full font-semibold text-orange-600">
+            Use a phone's GPS instead
+          </button>
         </div>
       )}
 
