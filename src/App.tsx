@@ -21,6 +21,7 @@ import LiveInventoryBoard from '@/components/LiveInventoryBoard';
 import LeadImport from '@/components/LeadImport';
 import ActivityLog from '@/components/ActivityLog';
 import Settings from '@/components/Settings';
+import PublicPlotPage from '@/components/PublicPlotPage';
 import Reports from '@/components/Reports';
 import { usePermissions, useModuleAccess, setModuleVisibility } from '@/lib/access';
 import { fetchModuleVisibility } from '@/lib/appSettings';
@@ -42,6 +43,7 @@ type Route =
   | { name: 'reactivation' }
   | { name: 'activitylog' }
   | { name: 'settings' }
+  | { name: 'publicPlot'; id: string; to?: string; by?: string }
   | { name: 'reports' }
   | { name: 'inventory' }
   | { name: 'hospitality-leads' }
@@ -54,6 +56,12 @@ type Route =
 function parseHash(): Route {
   const h = window.location.hash.replace(/^#\/?/, '');
   if (h === '' || h === '/') return { name: 'dashboard' };
+  // Public plot page shared with buyers: #/p/<plot id>?to=<buyer>&by=<advisor>
+  if (h.startsWith('p/')) {
+    const [path, query = ''] = h.slice(2).split('?');
+    const q = new URLSearchParams(query);
+    return { name: 'publicPlot', id: decodeURIComponent(path), to: q.get('to') ?? undefined, by: q.get('by') ?? undefined };
+  }
   if (h.startsWith('lead/')) return { name: 'lead', id: h.slice(5) };
   if (h.startsWith('hospitality-lead/')) return { name: 'hospitality-lead', id: h.slice(17) };
   if (h === 'search') return { name: 'search' };
@@ -304,6 +312,11 @@ export default function App() {
     route.name === 'hospitality-leadbank' ? 'hospitality-leadbank' :
     route.name === 'lead' ? 'leads' :
     route.name === 'hospitality-lead' ? 'hospitality-leads' : 'dashboard';
+
+  // Buyer-facing plot page: no login, no CRM data.
+  if (route.name === 'publicPlot') {
+    return <PublicPlotPage plotId={route.id} buyerName={route.to} senderName={route.by} />;
+  }
 
   if (!authChecked) {
     return (

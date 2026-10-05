@@ -2,8 +2,11 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEven
 import {
   LayoutGrid, Search, X, Maximize2, List as ListIcon, Map as MapIcon, ChevronDown,
   BedDouble, CheckCircle2, Trash2, Receipt, Tag, Clock3, Plus, Minus, RotateCcw,
+  Presentation, Share2, FileText, Ruler, Home, MessageCircle,
 } from 'lucide-react';
 import { SAMPLE_PLOTS, PHASES, PLOT_STATUSES, BEDROOM_OPTIONS, STATUS_COLORS, type Plot, type PlotStatus } from '@/lib/inventory';
+import { BUDGETS, inBudget, outlineOf, centroidOf, plotAt, SHAPE_COLORS, plotShareLink, whatsappLink, type BudgetId } from '@/lib/plotMap';
+import { getCurrentUser } from '@/lib/auth';
 
 const STAT_TINT: Record<PlotStatus, { border: string; from: string; iconBg: string; iconText: string; ring: string }> = {
   Available: { border: 'border-emerald-200/60 hover:border-emerald-300/60', from: 'from-emerald-50/60', iconBg: 'bg-emerald-100', iconText: 'text-emerald-600', ring: 'ring-emerald-400' },
@@ -31,6 +34,8 @@ export default function LiveInventoryBoard() {
   const [statusFilter, setStatusFilter] = useState<PlotStatus | 'All'>('All');
   const [phaseFilter, setPhaseFilter] = useState<string>('All');
   const [bedroomFilter, setBedroomFilter] = useState<3 | 4 | 'All'>('All');
+  const [budget, setBudget] = useState<BudgetId | 'All'>('All');
+  const [presenting, setPresenting] = useState(false);
   const [selected, setSelected] = useState<Plot | null>(null);
   const [view, setView] = useState<'map' | 'list'>('map');
   const [fullscreen, setFullscreen] = useState(false);
@@ -47,10 +52,16 @@ export default function LiveInventoryBoard() {
       if (statusFilter !== 'All' && p.status !== statusFilter) return false;
       if (phaseFilter !== 'All' && p.phase !== phaseFilter) return false;
       if (bedroomFilter !== 'All' && p.bedrooms !== bedroomFilter) return false;
+      if (!inBudget(p, budget)) return false;
       if (q && !p.plotNo.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [plots, search, statusFilter, phaseFilter, bedroomFilter]);
+  }, [plots, search, statusFilter, phaseFilter, bedroomFilter, budget]);
+
+  // On the map every plot stays visible; plots outside the filters fade out
+  // and the matches glow, so the buyer sees where their options sit.
+  const anyFilter = statusFilter !== 'All' || phaseFilter !== 'All' || bedroomFilter !== 'All' || budget !== 'All' || search.trim() !== '';
+  const highlight = useMemo(() => (anyFilter ? new Set(filtered.map((p) => p.id)) : null), [anyFilter, filtered]);
 
   function updatePlot(next: Plot) {
     setPlots((prev) => prev.map((p) => (p.id === next.id ? next : p)));
@@ -70,9 +81,15 @@ export default function LiveInventoryBoard() {
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-600">
             <LayoutGrid className="h-5 w-5" />
           </div>
-          <div>
+          <div className="flex-1">
             <h1 className="font-display text-2xl font-bold tracking-tight text-gray-900">Live Inventory Board</h1>
           </div>
+          <button
+            onClick={() => setPresenting(true)}
+            className="flex items-center gap-2 rounded-full brand-gradient px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
+          >
+            <Presentation className="h-4 w-4" /> Present to buyer
+          </button>
         </div>
       </div>
 
@@ -144,6 +161,19 @@ export default function LiveInventoryBoard() {
           ))}
         </div>
 
+        <div className="relative">
+          <select
+            value={budget}
+            onChange={(e) => setBudget(e.target.value as BudgetId | 'All')}
+            aria-label="Budget"
+            className="appearance-none rounded-full border border-black/5 bg-white py-2.5 pl-3.5 pr-9 text-sm font-medium text-gray-600 outline-none card-shadow focus:border-emerald-200"
+          >
+            <option value="All">Any budget</option>
+            {BUDGETS.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        </div>
+
         {statusFilter !== 'All' && (
           <button
             onClick={() => setStatusFilter('All')}
@@ -169,12 +199,19 @@ export default function LiveInventoryBoard() {
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {view === 'map' ? (
+        <div className="space-y-2">
+          {anyFilter && (
+            <p className="text-[12.5px] text-gray-500">
+              {filtered.length === 0 ? 'No plots match these filters — showing all plots faded.' : `${filtered.length} plot${filtered.length === 1 ? '' : 's'} match — highlighted on the map.`}
+            </p>
+          )}
+          <MasterPlanBoard plots={plots} highlight={highlight} onSelect={setSelected} onExpand={() => setFullscreen(true)} />
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-200 bg-white py-16 text-center text-sm text-gray-400">
           No plots match these filters.
         </div>
-      ) : view === 'map' ? (
-        <MasterPlanBoard plots={filtered} onSelect={setSelected} onExpand={() => setFullscreen(true)} />
       ) : (
         <PlotListGrid plots={filtered} onSelect={setSelected} />
       )}
@@ -182,6 +219,8 @@ export default function LiveInventoryBoard() {
       {selected && (
         <PlotDetailModal plot={selected} onClose={() => setSelected(null)} onSave={updatePlot} onDelete={deletePlot} />
       )}
+
+      {presenting && <BuyerPresentation plots={plots} onClose={() => setPresenting(false)} />}
 
       {fullscreen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setFullscreen(false)}>
@@ -192,7 +231,7 @@ export default function LiveInventoryBoard() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <MasterPlanBoard plots={filtered} onSelect={(p) => { setFullscreen(false); setSelected(p); }} />
+            <MasterPlanBoard plots={plots} highlight={highlight} onSelect={(p) => { setFullscreen(false); setSelected(p); }} />
           </div>
         </div>
       )}
@@ -218,9 +257,17 @@ type ViewState = { zoom: number; pan: { x: number; y: number }; size: Size; inte
 function ZoomPanMap({
   mapLayer,
   overlay,
+  onTap,
+  onHover,
+  controlsClassName = '',
 }: {
   mapLayer: (state: ViewState) => ReactNode;
   overlay: (state: { zoom: number; pan: { x: number; y: number }; size: Size }) => ReactNode;
+  /** A tap/click that wasn't a drag, at a point on the map in % of its width/height. */
+  onTap?: (pt: [number, number]) => void;
+  /** Mouse hovering over the map (null when it leaves) — desktop tooltips. */
+  onHover?: (pt: [number, number] | null) => void;
+  controlsClassName?: string;
 }) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -245,6 +292,17 @@ function ZoomPanMap({
 
   function clampZoom(z: number) {
     return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
+  }
+
+  /** Screen point → point on the (un-zoomed) map, in % of its width/height. */
+  function toMapPct(clientX: number, clientY: number): [number, number] | null {
+    const el = viewportRef.current;
+    if (!el || size.width === 0) return null;
+    const r = el.getBoundingClientRect();
+    const sx = clientX - r.left, sy = clientY - r.top;
+    const x = size.width / 2 + (sx - size.width / 2 - pan.x) / zoom;
+    const y = size.height / 2 + (sy - size.height / 2 - pan.y) / zoom;
+    return [(x / size.width) * 100, (y / size.height) * 100];
   }
 
   /** Keeps the scaled image from being panned past its own edge, so it never leaves empty space in view. */
@@ -278,6 +336,7 @@ function ZoomPanMap({
   }
 
   function onPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
+    if (onHover && e.pointerType === 'mouse' && pointers.current.size === 0) onHover(toMapPct(e.clientX, e.clientY));
     if (!pointers.current.has(e.pointerId)) return;
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     const pts = Array.from(pointers.current.values());
@@ -321,7 +380,12 @@ function ZoomPanMap({
     if (dragged.current) {
       e.stopPropagation();
       dragged.current = false;
+      return;
     }
+    // Clicks on the zoom buttons aren't map taps.
+    if ((e.target as HTMLElement).closest('button')) return;
+    const pt = toMapPct(e.clientX, e.clientY);
+    if (pt && onTap) onTap(pt);
   }
 
   function zoomBy(delta: number) {
@@ -344,7 +408,7 @@ function ZoomPanMap({
       onPointerMove={onPointerMove}
       onPointerUp={endPointer}
       onPointerCancel={endPointer}
-      onPointerLeave={endPointer}
+      onPointerLeave={(e) => { endPointer(e); onHover?.(null); }}
       onWheel={onWheel}
       onClickCapture={onClickCapture}
     >
@@ -365,7 +429,7 @@ function ZoomPanMap({
       )}
 
       {/* Zoom controls */}
-      <div className="absolute bottom-3 left-3 z-30 flex flex-col overflow-hidden rounded-xl border border-black/5 bg-white/95 shadow backdrop-blur">
+      <div className={`absolute bottom-3 left-3 z-30 flex flex-col overflow-hidden rounded-xl border border-black/5 bg-white/95 shadow backdrop-blur ${controlsClassName}`}>
         <button onClick={() => zoomBy(0.6)} aria-label="Zoom in" className="p-2.5 text-gray-600 hover:bg-gray-50 active:bg-gray-100">
           <Plus className="h-4 w-4" />
         </button>
@@ -464,58 +528,113 @@ function MasterPlanImage({ view, loaded, onLoad }: { view: ViewState; loaded: bo
   );
 }
 
-function MasterPlanBoard({ plots, onSelect, onExpand }: { plots: Plot[]; onSelect: (p: Plot) => void; onExpand?: () => void }) {
+/** Plot outlines drawn on the map (inside the zoomed layer, in % coordinates). */
+function PlotShapes({ plots, highlight, hoverId, selectedId, large }: {
+  plots: Plot[];
+  highlight: Set<string> | null;
+  hoverId: string | null;
+  selectedId?: string | null;
+  large?: boolean;
+}) {
+  return (
+    <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+      {plots.map((p) => {
+        const c = SHAPE_COLORS[p.status];
+        const dim = highlight !== null && !highlight.has(p.id);
+        const glow = highlight !== null && highlight.has(p.id);
+        const hot = p.id === hoverId || p.id === selectedId;
+        return (
+          <polygon
+            key={p.id}
+            points={outlineOf(p).map(([x, y]) => `${x},${y}`).join(' ')}
+            fill={dim ? '#ffffff' : c.fill}
+            fillOpacity={dim ? 0.08 : hot ? 0.75 : 0.5}
+            stroke={dim ? '#9ca3af' : c.stroke}
+            strokeOpacity={dim ? 0.5 : 1}
+            strokeWidth={hot ? (large ? 4 : 3) : large ? 2.5 : 1.75}
+            vectorEffect="non-scaling-stroke"
+            strokeLinejoin="round"
+                       style={glow ? { filter: `drop-shadow(0 0 3px ${c.fill})` } : undefined}
+          />
+        );
+      })}
+    </svg>
+  );
+}
+
+function MasterPlanBoard({ plots, highlight = null, onSelect, onExpand, large, selectedId, tooltip = 'internal', bare }: {
+  plots: Plot[];
+  /** Plots matching the active filters; null = no filter (everything at full colour). */
+  highlight?: Set<string> | null;
+  onSelect: (p: Plot) => void;
+  onExpand?: () => void;
+  /** Presentation mode: thicker outlines, bigger controls. */
+  large?: boolean;
+  selectedId?: string | null;
+  /** 'buyer' tooltips never show internal status wording beyond Available/Sold. */
+  tooltip?: 'internal' | 'buyer';
+  /** No card frame (presentation mode supplies its own). */
+  bare?: boolean;
+}) {
   const [loaded, setLoaded] = useState(false);
+  const [hoverId, setHoverId] = useState<string | null>(null);
+  const hovered = hoverId ? plots.find((p) => p.id === hoverId) ?? null : null;
+
+  const board = (
+    <div className={`relative w-full bg-gray-100 ${bare ? 'overflow-hidden rounded-xl' : ''}`} style={{ aspectRatio: '3369.9 / 2383.8' }}>
+      {!loaded && <div className="skeleton absolute inset-0" />}
+
+      <ZoomPanMap
+        controlsClassName={large ? 'scale-125 origin-bottom-left' : ''}
+        onTap={(pt) => { const hit = plotAt(plots, pt); if (hit) onSelect(hit); }}
+        onHover={(pt) => setHoverId(pt ? plotAt(plots, pt)?.id ?? null : null)}
+        mapLayer={(view) => (
+          <>
+            <MasterPlanImage view={view} loaded={loaded} onLoad={() => setLoaded(true)} />
+            {loaded && <PlotShapes plots={plots} highlight={highlight} hoverId={hoverId} selectedId={selectedId} large={large} />}
+          </>
+        )}
+        overlay={({ zoom, pan, size }) => {
+          if (!loaded || !hovered) return null;
+          const [cx, cy] = centroidOf(hovered);
+          const x = size.width / 2 + pan.x + zoom * ((cx / 100) * size.width - size.width / 2);
+          const y = size.height / 2 + pan.y + zoom * ((cy / 100) * size.height - size.height / 2);
+          return (
+            <div
+              className="pointer-events-none absolute z-20 hidden w-max max-w-[240px] -translate-x-1/2 -translate-y-full rounded-lg bg-gray-900/95 px-2.5 py-1.5 text-left text-white shadow-xl sm:block"
+              style={{ left: x, top: y - 10 }}
+            >
+              <div className="text-[12px] font-bold">
+                Plot {hovered.plotNo} · {tooltip === 'buyer' ? SHAPE_COLORS[hovered.status].label : hovered.status}
+              </div>
+              <div className="text-[11px] text-white/70">{hovered.bedrooms}BHK · {hovered.phase} · {formatCr(hovered.cost.totalCostLacs)}</div>
+            </div>
+          );
+        }}
+      />
+
+      {onExpand && (
+        <button
+          onClick={onExpand}
+          className="absolute right-3 top-3 z-30 flex items-center gap-1.5 rounded-lg bg-white/90 px-2.5 py-1.5 text-[11.5px] font-semibold text-gray-600 shadow backdrop-blur hover:bg-white"
+        >
+          <Maximize2 className="h-3.5 w-3.5" /> Expand
+        </button>
+      )}
+    </div>
+  );
+
+  if (bare) return board;
   return (
     <div className="overflow-hidden rounded-2xl border border-black/5 bg-white card-shadow">
-      <div className="relative w-full bg-gray-100" style={{ aspectRatio: '3369.9 / 2383.8' }}>
-        {!loaded && <div className="skeleton absolute inset-0" />}
-
-        <ZoomPanMap
-          mapLayer={(view) => <MasterPlanImage view={view} loaded={loaded} onLoad={() => setLoaded(true)} />}
-          overlay={({ zoom, pan, size }) => {
-            if (!loaded) return null;
-            return (
-              <>
-                {plots.map((p) => {
-                  const c = STATUS_COLORS[p.status];
-                  const baseX = (p.positionPct.x / 100) * size.width;
-                  const baseY = (p.positionPct.y / 100) * size.height;
-                  const screenX = size.width / 2 + pan.x + zoom * (baseX - size.width / 2);
-                  const screenY = size.height / 2 + pan.y + zoom * (baseY - size.height / 2);
-                  return (
-                    <button
-                      key={p.id}
-                      onClick={() => onSelect(p)}
-                      style={{ left: screenX, top: screenY }}
-                      className="group pointer-events-auto absolute z-10 -translate-x-1/2 -translate-y-1/2 p-2 focus:outline-none"
-                    >
-                      <span className={`relative z-10 block h-2 w-2 rounded-full ring-1 ring-white shadow ${c.dot} transition group-hover:z-30 group-hover:h-3 group-hover:w-3`} />
-
-                      {/* Hover tooltip (desktop) */}
-                      <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-max max-w-[220px] -translate-x-1/2 rounded-lg bg-gray-900/95 px-2.5 py-1.5 text-left text-white opacity-0 shadow-xl transition group-hover:opacity-100 sm:block">
-                        <div className="text-[11.5px] font-bold">Plot {p.plotNo} · {p.status}</div>
-                        <div className="text-[10.5px] text-white/70">{p.bedrooms}BHK · {p.phase} · {formatCr(p.cost.totalCostLacs)}</div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </>
-            );
-          }}
-        />
-
-        {onExpand && (
-          <button
-            onClick={onExpand}
-            className="absolute right-3 top-3 z-30 flex items-center gap-1.5 rounded-lg bg-white/90 px-2.5 py-1.5 text-[11.5px] font-semibold text-gray-600 shadow backdrop-blur hover:bg-white"
-          >
-            <Maximize2 className="h-3.5 w-3.5" /> Expand
-          </button>
-        )}
-      </div>
-      <div className="border-t border-gray-100 px-3 py-1.5 text-center text-[10.5px] text-gray-400 sm:hidden">
-        Pinch or use +/- to zoom in, then tap a plot
+      {board}
+      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-gray-100 px-3 py-2 text-[11px] text-gray-500">
+        {(Object.keys(SHAPE_COLORS) as PlotStatus[]).map((st) => (
+          <span key={st} className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: SHAPE_COLORS[st].fill }} /> {SHAPE_COLORS[st].label}
+          </span>
+        ))}
+        <span className="text-gray-400 sm:hidden">· Pinch or use +/- to zoom, tap a plot</span>
       </div>
     </div>
   );
@@ -642,7 +761,8 @@ function PlotDetailModal({ plot, onClose, onSave, onDelete }: { plot: Plot; onCl
         </div>
 
         {/* Actions — always visible, never scrolls away */}
-        <div className="shrink-0 border-t border-gray-100 px-4 py-3">
+        <div className="shrink-0 space-y-3 border-t border-gray-100 px-4 py-3">
+          <SendToBuyer plot={plot} />
           {plot.status === 'Available' && (
             <div className="flex flex-wrap gap-2">
               <button onClick={markOnHold} className="rounded-xl border border-gray-200 px-3 py-2 text-[12.5px] font-medium text-gray-600 hover:bg-gray-50">
@@ -672,6 +792,175 @@ function PlotDetailModal({ plot, onClose, onSave, onDelete }: { plot: Plot; onCl
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Share one plot with a buyer: WhatsApp message with a public link, or open the quote. */
+function SendToBuyer({ plot, dark }: { plot: Plot; dark?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const sender = getCurrentUser()?.full_name;
+  const input = `w-full rounded-xl border px-3 py-2 text-[13px] outline-none ${dark ? 'border-white/15 bg-white/10 text-white placeholder:text-white/40 focus:border-white/40' : 'border-gray-200 bg-white text-gray-800 focus:border-emerald-300'}`;
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className={`flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition ${dark ? 'bg-white text-gray-900 hover:bg-white/90' : 'brand-gradient text-white hover:opacity-95'}`}
+      >
+        <Share2 className="h-4 w-4" /> Send to buyer
+      </button>
+    );
+  }
+  return (
+    <div className={`space-y-2 rounded-xl p-3 ${dark ? 'bg-white/5 ring-1 ring-white/10' : 'bg-gray-50'}`}>
+      <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Buyer's name" className={input} />
+      <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" placeholder="WhatsApp number (optional)" className={input} />
+      <div className="flex gap-2">
+        <a
+          href={whatsappLink(plot, name, phone, sender)}
+          target="_blank"
+          rel="noreferrer"
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#25D366] px-3 py-2 text-[13px] font-semibold text-white hover:opacity-95"
+        >
+          <MessageCircle className="h-4 w-4" /> WhatsApp
+        </a>
+        <a
+          href={plotShareLink(plot, name, sender)}
+          target="_blank"
+          rel="noreferrer"
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-semibold ${dark ? 'bg-white/10 text-white hover:bg-white/15' : 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
+        >
+          <FileText className="h-4 w-4" /> Quote / PDF
+        </a>
+      </div>
+      <p className={`text-[11px] ${dark ? 'text-white/50' : 'text-gray-400'}`}>The link shows only this plot's details and price — nothing internal.</p>
+    </div>
+  );
+}
+
+/**
+ * Full-screen showroom view for buyers: just the master plan, plot outlines,
+ * simple filters and a buyer-friendly plot card. No hold/sold controls, no
+ * rate maths, no internal notes.
+ */
+function BuyerPresentation({ plots, onClose }: { plots: Plot[]; onClose: () => void }) {
+  const [bhk, setBhk] = useState<3 | 4 | 'All'>('All');
+  const [phase, setPhase] = useState<string>('All');
+  const [budget, setBudget] = useState<BudgetId | 'All'>('All');
+  const [availableOnly, setAvailableOnly] = useState(false);
+  const [selected, setSelected] = useState<Plot | null>(null);
+
+  useEffect(() => {
+    // Real full screen where the browser allows it; the overlay works either way.
+    document.documentElement.requestFullscreen?.().catch(() => {});
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+    };
+  }, [onClose]);
+
+  const matches = plots.filter((p) =>
+    (bhk === 'All' || p.bedrooms === bhk) && (phase === 'All' || p.phase === phase) && inBudget(p, budget) && (!availableOnly || p.status === 'Available'));
+  const filtering = bhk !== 'All' || phase !== 'All' || budget !== 'All' || availableOnly;
+  const highlight = filtering ? new Set(matches.map((p) => p.id)) : null;
+  const chip = (on: boolean) => `rounded-full px-4 py-2 text-sm font-semibold transition ${on ? 'bg-white text-gray-900 shadow' : 'bg-white/10 text-white/80 hover:bg-white/15'}`;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col bg-[#0d1b14] text-white">
+      {/* Brand bar */}
+      <div className="flex items-center justify-between gap-4 px-5 py-3 sm:px-8">
+        <div className="flex items-baseline gap-3">
+          <span className="font-display text-xl font-bold tracking-[0.18em] sm:text-2xl">ZION HILLS</span>
+          <span className="hidden text-sm text-white/60 sm:inline">Golf County · Master Plan</span>
+        </div>
+        <button onClick={onClose} className="flex items-center gap-1.5 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/15">
+          <X className="h-4 w-4" /> Exit
+        </button>
+      </div>
+
+      {/* "Show me" filters */}
+      <div className="flex flex-wrap items-center gap-2 px-5 pb-3 sm:px-8">
+        <button onClick={() => setBhk('All')} className={chip(bhk === 'All')}>All homes</button>
+        {BEDROOM_OPTIONS.map((b) => <button key={b} onClick={() => setBhk(b)} className={chip(bhk === b)}>{b}BHK</button>)}
+        <span className="mx-1 h-6 w-px bg-white/15" />
+        {BUDGETS.map((b) => (
+          <button key={b.id} onClick={() => setBudget(budget === b.id ? 'All' : b.id)} className={chip(budget === b.id)}>{b.label}</button>
+        ))}
+        <span className="mx-1 h-6 w-px bg-white/15" />
+        {PHASES.map((ph) => (
+          <button key={ph} onClick={() => setPhase(phase === ph ? 'All' : ph)} className={chip(phase === ph)}>{ph}</button>
+        ))}
+        <button onClick={() => setAvailableOnly((v) => !v)} className={chip(availableOnly)}>Available only</button>
+        {filtering && (
+          <span className="ml-1 text-sm text-white/70">
+            {matches.length === 0 ? 'No homes match — try another budget' : `${matches.length} home${matches.length === 1 ? '' : 's'} match`}
+          </span>
+        )}
+      </div>
+
+      {/* Map, sized to fit the screen */}
+      <div className="flex min-h-0 flex-1 items-center justify-center px-3 pb-3 sm:px-6">
+        <div className="w-full" style={{ maxWidth: 'calc((100vh - 190px) * 3369.9 / 2383.8)' }}>
+          <MasterPlanBoard plots={plots} highlight={highlight} onSelect={setSelected} large bare tooltip="buyer" selectedId={selected?.id} />
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center justify-center gap-5 pb-4 text-sm text-white/70">
+        {(Object.keys(SHAPE_COLORS) as PlotStatus[]).map((st) => (
+          <span key={st} className="flex items-center gap-2">
+            <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: SHAPE_COLORS[st].fill }} /> {SHAPE_COLORS[st].label}
+          </span>
+        ))}
+      </div>
+
+      {/* Buyer plot card */}
+      {selected && (
+        <div className="absolute inset-0 z-10 flex items-end justify-center bg-black/40 p-3 sm:items-center" onClick={() => setSelected(null)}>
+          <div className="animate-scale-in w-full max-w-md overflow-hidden rounded-3xl bg-[#13261c] shadow-2xl ring-1 ring-white/10" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between px-6 pt-5">
+              <div>
+                <div className="text-sm text-white/60">{selected.phase}</div>
+                <div className="font-display text-3xl font-bold">Plot {selected.plotNo}</div>
+              </div>
+              <button onClick={() => setSelected(null)} className="rounded-full p-2 text-white/60 hover:bg-white/10 hover:text-white">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="grid grid-cols-3 gap-3 px-6 py-4">
+              <BuyerFact icon={Home} label="Villa" value={`${selected.bedrooms}BHK`} />
+              <BuyerFact icon={Ruler} label="Plot" value={`${Math.round(selected.landAreaSft).toLocaleString('en-IN')} sq ft`} />
+              <BuyerFact icon={BedDouble} label="Built-up" value={`${selected.builtUpSft.toLocaleString('en-IN')} sq ft`} />
+            </div>
+            <div className="mx-6 rounded-2xl bg-white/5 px-5 py-4 ring-1 ring-white/10">
+              <div className="text-sm text-white/60">Price (all-inclusive, with GST)</div>
+              <div className="font-display text-3xl font-bold">{formatCr(selected.cost.totalCostLacs)}</div>
+              <div className="mt-1 inline-flex items-center gap-1.5 text-sm" style={{ color: SHAPE_COLORS[selected.status].fill }}>
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: SHAPE_COLORS[selected.status].fill }} />
+                {selected.status === 'Available' ? 'Available now' : SHAPE_COLORS[selected.status].label}
+              </div>
+            </div>
+            <div className="px-6 py-5">
+              <SendToBuyer plot={selected} dark />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BuyerFact({ icon: Icon, label, value }: { icon: typeof Home; label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-white/5 px-3 py-3 ring-1 ring-white/10">
+      <Icon className="h-4 w-4 text-white/50" />
+      <div className="mt-2 text-[11px] uppercase tracking-wide text-white/50">{label}</div>
+      <div className="text-[15px] font-semibold">{value}</div>
     </div>
   );
 }
