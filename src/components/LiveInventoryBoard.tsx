@@ -4,6 +4,7 @@ import {
   BedDouble, CheckCircle2, Trash2, Receipt, Tag, Clock3, Plus, Minus, RotateCcw,
   Presentation, Share2, FileText, Ruler, Home, MessageCircle,
 } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { SAMPLE_PLOTS, PHASES, PLOT_STATUSES, BEDROOM_OPTIONS, STATUS_COLORS, type Plot, type PlotStatus } from '@/lib/inventory';
 import { BUDGETS, inBudget, outlineOf, centroidOf, plotAt, SHAPE_COLORS, plotShareLink, whatsappLink, type BudgetId } from '@/lib/plotMap';
 import { getCurrentUser } from '@/lib/auth';
@@ -220,7 +221,8 @@ export default function LiveInventoryBoard() {
         <PlotDetailModal plot={selected} onClose={() => setSelected(null)} onSave={updatePlot} onDelete={deletePlot} />
       )}
 
-      {presenting && <BuyerPresentation plots={plots} onClose={() => setPresenting(false)} />}
+      {/* Portalled to <body> so no animated/transformed ancestor can offset or clip it. */}
+      {presenting && createPortal(<BuyerPresentation plots={plots} onClose={() => setPresenting(false)} />, document.body)}
 
       {fullscreen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setFullscreen(false)}>
@@ -846,12 +848,34 @@ function SendToBuyer({ plot, dark }: { plot: Plot; dark?: boolean }) {
  * simple filters and a buyer-friendly plot card. No hold/sold controls, no
  * rate maths, no internal notes.
  */
+const PLAN_RATIO = 3369.9 / 2383.8;
+const PAPER = '#d7dac7'; // the master plan's own paper colour, so no bars show around it
+
 function BuyerPresentation({ plots, onClose }: { plots: Plot[]; onClose: () => void }) {
   const [bhk, setBhk] = useState<3 | 4 | 'All'>('All');
   const [phase, setPhase] = useState<string>('All');
   const [budget, setBudget] = useState<BudgetId | 'All'>('All');
   const [availableOnly, setAvailableOnly] = useState(false);
   const [selected, setSelected] = useState<Plot | null>(null);
+  // The map is sized to the space actually left under the header, so it can
+  // never spill over the header (which hid the Exit button on phones).
+  const areaRef = useRef<HTMLDivElement>(null);
+  const [mapWidth, setMapWidth] = useState(0);
+  const [roomy, setRoomy] = useState(false); // tall, narrow screen — suggest turning the phone
+
+  useEffect(() => {
+    const el = areaRef.current;
+    if (!el) return;
+    const fit = () => {
+      const w = Math.floor(Math.min(el.clientWidth, el.clientHeight * PLAN_RATIO));
+      setMapWidth(w);
+      setRoomy(el.clientHeight - w / PLAN_RATIO > 160);
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     // Real full screen where the browser allows it; the overlay works either way.
@@ -868,61 +892,63 @@ function BuyerPresentation({ plots, onClose }: { plots: Plot[]; onClose: () => v
     (bhk === 'All' || p.bedrooms === bhk) && (phase === 'All' || p.phase === phase) && inBudget(p, budget) && (!availableOnly || p.status === 'Available'));
   const filtering = bhk !== 'All' || phase !== 'All' || budget !== 'All' || availableOnly;
   const highlight = filtering ? new Set(matches.map((p) => p.id)) : null;
-  const chip = (on: boolean) => `rounded-full px-4 py-2 text-sm font-semibold transition ${on ? 'bg-white text-gray-900 shadow' : 'bg-white/10 text-white/80 hover:bg-white/15'}`;
+  const chip = (on: boolean) => `shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-semibold shadow-sm transition sm:px-4 sm:text-sm ${on ? 'bg-[#1f3a2b] text-white' : 'bg-white/85 text-gray-700 hover:bg-white'}`;
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-[#0d1b14] text-white">
-      {/* Brand bar */}
-      <div className="flex items-center justify-between gap-4 px-5 py-3 sm:px-8">
-        <div className="flex items-baseline gap-3">
-          <span className="font-display text-xl font-bold tracking-[0.18em] sm:text-2xl">ZION HILLS</span>
-          <span className="hidden text-sm text-white/60 sm:inline">Golf County · Master Plan</span>
+    <div className="fixed inset-0 z-[60] flex flex-col" style={{ backgroundColor: PAPER, height: '100dvh' }}>
+      {/* Brand bar — always visible */}
+      <div className="flex shrink-0 items-center justify-between gap-3 px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-6 sm:pt-3">
+        <div className="flex min-w-0 items-baseline gap-2 sm:gap-3">
+          <span className="font-display text-lg font-bold tracking-[0.18em] text-[#1f3a2b] sm:text-2xl">ZION HILLS</span>
+          <span className="hidden truncate text-sm text-[#1f3a2b]/70 sm:inline">Golf County · Master Plan</span>
         </div>
-        <button onClick={onClose} className="flex items-center gap-1.5 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/15">
+        <button onClick={onClose} className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/85 px-3.5 py-2 text-sm font-semibold text-gray-800 shadow-sm hover:bg-white">
           <X className="h-4 w-4" /> Exit
         </button>
       </div>
 
-      {/* "Show me" filters */}
-      <div className="flex flex-wrap items-center gap-2 px-5 pb-3 sm:px-8">
+      {/* "Show me" filters — one swipeable row on phones */}
+      <div className="flex shrink-0 items-center gap-2 overflow-x-auto px-3 pb-2 [scrollbar-width:none] sm:px-6 lg:flex-wrap lg:overflow-visible">
         <button onClick={() => setBhk('All')} className={chip(bhk === 'All')}>All homes</button>
         {BEDROOM_OPTIONS.map((b) => <button key={b} onClick={() => setBhk(b)} className={chip(bhk === b)}>{b}BHK</button>)}
-        <span className="mx-1 h-6 w-px bg-white/15" />
+        <span className="mx-0.5 h-6 w-px shrink-0 bg-[#1f3a2b]/20" />
         {BUDGETS.map((b) => (
           <button key={b.id} onClick={() => setBudget(budget === b.id ? 'All' : b.id)} className={chip(budget === b.id)}>{b.label}</button>
         ))}
-        <span className="mx-1 h-6 w-px bg-white/15" />
+        <span className="mx-0.5 h-6 w-px shrink-0 bg-[#1f3a2b]/20" />
         {PHASES.map((ph) => (
           <button key={ph} onClick={() => setPhase(phase === ph ? 'All' : ph)} className={chip(phase === ph)}>{ph}</button>
         ))}
         <button onClick={() => setAvailableOnly((v) => !v)} className={chip(availableOnly)}>Available only</button>
-        {filtering && (
-          <span className="ml-1 text-sm text-white/70">
-            {matches.length === 0 ? 'No homes match — try another budget' : `${matches.length} home${matches.length === 1 ? '' : 's'} match`}
-          </span>
-        )}
       </div>
-
-      {/* Map, sized to fit the screen */}
-      <div className="flex min-h-0 flex-1 items-center justify-center px-3 pb-3 sm:px-6">
-        <div className="w-full" style={{ maxWidth: 'calc((100vh - 190px) * 3369.9 / 2383.8)' }}>
-          <MasterPlanBoard plots={plots} highlight={highlight} onSelect={setSelected} large bare tooltip="buyer" selectedId={selected?.id} />
+      {filtering && (
+        <div className="shrink-0 px-3 pb-2 text-[13px] font-medium text-[#1f3a2b] sm:px-6">
+          {matches.length === 0 ? 'No homes match — try another budget' : `${matches.length} home${matches.length === 1 ? '' : 's'} match`}
         </div>
-      </div>
+      )}
 
-      {/* Legend */}
-      <div className="flex items-center justify-center gap-5 pb-4 text-sm text-white/70">
-        {(Object.keys(SHAPE_COLORS) as PlotStatus[]).map((st) => (
-          <span key={st} className="flex items-center gap-2">
-            <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: SHAPE_COLORS[st].fill }} /> {SHAPE_COLORS[st].label}
-          </span>
-        ))}
+      {/* Map — fits the remaining space exactly */}
+      <div ref={areaRef} className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden px-2 pb-2 sm:px-4 sm:pb-3">
+        {mapWidth > 0 && (
+          <div className="relative" style={{ width: mapWidth }}>
+            <MasterPlanBoard plots={plots} highlight={highlight} onSelect={setSelected} large bare tooltip="buyer" selectedId={selected?.id} />
+            {/* Legend floats on the map so it costs no height on phones */}
+            <div className="pointer-events-none absolute bottom-2 right-2 z-30 flex gap-3 rounded-full bg-white/85 px-3 py-1.5 text-[11px] font-medium text-gray-700 shadow-sm sm:text-[12px]">
+              {(Object.keys(SHAPE_COLORS) as PlotStatus[]).map((st) => (
+                <span key={st} className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: SHAPE_COLORS[st].fill }} /> {SHAPE_COLORS[st].label}
+                </span>
+              ))}
+            </div>
+            {roomy && <p className="mt-3 text-center text-[13px] text-[#1f3a2b]/70">Turn your phone sideways for a bigger map · pinch to zoom</p>}
+          </div>
+        )}
       </div>
 
       {/* Buyer plot card */}
       {selected && (
         <div className="absolute inset-0 z-10 flex items-end justify-center bg-black/40 p-3 sm:items-center" onClick={() => setSelected(null)}>
-          <div className="animate-scale-in w-full max-w-md overflow-hidden rounded-3xl bg-[#13261c] shadow-2xl ring-1 ring-white/10" onClick={(e) => e.stopPropagation()}>
+          <div className="animate-scale-in max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-3xl bg-[#13261c] text-white shadow-2xl ring-1 ring-white/10" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between px-6 pt-5">
               <div>
                 <div className="text-sm text-white/60">{selected.phase}</div>
