@@ -84,13 +84,15 @@ export default function LiveInventoryBoard() {
     <div className="animate-fade-in space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2.5">
+        {/* On phones the buttons drop to their own row under the title. */}
+        <div className="flex flex-wrap items-center gap-2.5">
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-600">
             <LayoutGrid className="h-5 w-5" />
           </div>
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             <h1 className="font-display text-2xl font-bold tracking-tight text-gray-900">Live Inventory Board</h1>
           </div>
+          <div className="flex w-full items-center gap-2 sm:w-auto">
           <button
             onClick={() => setSentQuotes(true)}
             title="Quotes sent to buyers — who opened them and when"
@@ -123,6 +125,7 @@ export default function LiveInventoryBoard() {
           >
             <Presentation className="h-4 w-4" /> <span className="hidden sm:inline">Present to buyer</span><span className="sm:hidden">Present</span>
           </button>
+          </div>
         </div>
       </div>
 

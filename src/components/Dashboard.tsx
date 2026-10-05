@@ -395,9 +395,9 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
             <div className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-100 text-emerald-600 shadow-sm">
               <CheckCircle2 className="h-4 w-4" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="font-display text-lg font-bold text-gray-900"><AnimatedNumber value={stats.bookings.length} /></div>
-              <div className="text-[11px] font-medium text-gray-500">Bookings This Month</div>
+              <div className="text-[11px] font-medium leading-tight text-gray-500 [overflow-wrap:anywhere]">Bookings This Month</div>
             </div>
           </div>
         </div>
@@ -406,9 +406,9 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
             <div className="grid h-8 w-8 place-items-center rounded-lg bg-gray-100 text-gray-500 shadow-sm">
               <UserPlus className="h-4 w-4" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="font-display text-lg font-bold text-gray-900"><AnimatedNumber value={stats.newToday.length} /></div>
-              <div className="text-[11px] font-medium text-gray-500">New Leads Today</div>
+              <div className="text-[11px] font-medium leading-tight text-gray-500 [overflow-wrap:anywhere]">New Leads Today</div>
             </div>
           </div>
         </div>
@@ -418,9 +418,9 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
               <div className="grid h-8 w-8 place-items-center rounded-lg bg-amber-100 text-amber-600 shadow-sm">
                 <Flame className="h-4 w-4" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <div className="font-display text-lg font-bold text-gray-900"><AnimatedNumber value={stats.warm.length} /></div>
-                <div className="text-[11px] font-medium text-gray-500">Warm Leads</div>
+                <div className="text-[11px] font-medium leading-tight text-gray-500 [overflow-wrap:anywhere]">Warm Leads</div>
               </div>
             </div>
           </div>
@@ -430,9 +430,9 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
               <div className="grid h-8 w-8 place-items-center rounded-lg bg-sky-100 text-sky-600 shadow-sm">
                 <Snowflake className="h-4 w-4" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <div className="font-display text-lg font-bold text-gray-900">{reactivationStats.dueToday + reactivationStats.overdue}</div>
-                <div className="text-[11px] font-medium text-gray-500">Reactivations Due</div>
+                <div className="text-[11px] font-medium leading-tight text-gray-500 [overflow-wrap:anywhere]">Reactivations Due</div>
               </div>
             </div>
           </div>
