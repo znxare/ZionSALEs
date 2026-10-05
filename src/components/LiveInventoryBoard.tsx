@@ -86,7 +86,12 @@ export default function LiveInventoryBoard() {
             <h1 className="font-display text-2xl font-bold tracking-tight text-gray-900">Live Inventory Board</h1>
           </div>
           <button
-            onClick={() => setPresenting(true)}
+            onClick={() => {
+              // Lock the page behind before the map measures the screen, so the
+              // page's scrollbar doesn't leave a strip down the side.
+              document.documentElement.style.overflow = 'hidden';
+              setPresenting(true);
+            }}
             className="flex items-center gap-2 rounded-full brand-gradient px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
           >
             <Presentation className="h-4 w-4" /> Present to buyer
@@ -222,7 +227,10 @@ export default function LiveInventoryBoard() {
       )}
 
       {/* Portalled to <body> so no animated/transformed ancestor can offset or clip it. */}
-      {presenting && createPortal(<BuyerPresentation plots={plots} onClose={() => setPresenting(false)} />, document.body)}
+      {presenting && createPortal(
+        <BuyerPresentation plots={plots} onClose={() => { document.documentElement.style.overflow = ''; setPresenting(false); }} />,
+        document.body,
+      )}
 
       {fullscreen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setFullscreen(false)}>
@@ -241,6 +249,7 @@ export default function LiveInventoryBoard() {
   );
 }
 
+const MAP_RATIO = 3369.9 / 2383.8;
 const ZOOM_MIN = 1;
 const ZOOM_MAX = 5;
 
@@ -254,7 +263,11 @@ type Size = { width: number; height: number };
  * GPU-smooth, while pins are placed with plain pixel math so they never grow or shrink with zoom and
  * are never fuzzy or misaligned.
  */
-type ViewState = { zoom: number; pan: { x: number; y: number }; size: Size; interacting: boolean };
+// `size` is the map layer's un-zoomed size; `viewport` is the visible box. They are
+// equal when the map is fitted (contain); with `cover` the layer is larger than
+// the viewport so the map fills it edge to edge and the rest is reached by dragging.
+type ViewState = { zoom: number; pan: { x: number; y: number }; size: Size; viewport: Size; interacting: boolean };
+type OverlayState = { zoom: number; pan: { x: number; y: number }; size: Size; viewport: Size };
 
 function ZoomPanMap({
   mapLayer,
@@ -262,9 +275,12 @@ function ZoomPanMap({
   onTap,
   onHover,
   controlsClassName = '',
+  cover = false,
 }: {
   mapLayer: (state: ViewState) => ReactNode;
-  overlay: (state: { zoom: number; pan: { x: number; y: number }; size: Size }) => ReactNode;
+  overlay: (state: OverlayState) => ReactNode;
+  /** Fill the whole viewport (cropping, draggable) instead of fitting inside it. */
+  cover?: boolean;
   /** A tap/click that wasn't a drag, at a point on the map in % of its width/height. */
   onTap?: (pt: [number, number]) => void;
   /** Mouse hovering over the map (null when it leaves) — desktop tooltips. */
@@ -296,23 +312,33 @@ function ZoomPanMap({
     return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
   }
 
+  // Un-zoomed map layer: the viewport itself, or — with `cover` — the smallest
+  // map-shaped box that fills it, centred.
+  const layer: Size = !cover || size.width === 0
+    ? size
+    : (() => {
+        const w = Math.max(size.width, size.height * MAP_RATIO);
+        return { width: w, height: w / MAP_RATIO };
+      })();
+
   /** Screen point → point on the (un-zoomed) map, in % of its width/height. */
   function toMapPct(clientX: number, clientY: number): [number, number] | null {
     const el = viewportRef.current;
     if (!el || size.width === 0) return null;
     const r = el.getBoundingClientRect();
     const sx = clientX - r.left, sy = clientY - r.top;
-    const x = size.width / 2 + (sx - size.width / 2 - pan.x) / zoom;
-    const y = size.height / 2 + (sy - size.height / 2 - pan.y) / zoom;
-    return [(x / size.width) * 100, (y / size.height) * 100];
+    const x = layer.width / 2 + (sx - size.width / 2 - pan.x) / zoom;
+    const y = layer.height / 2 + (sy - size.height / 2 - pan.y) / zoom;
+    return [(x / layer.width) * 100, (y / layer.height) * 100];
   }
 
   /** Keeps the scaled image from being panned past its own edge, so it never leaves empty space in view. */
   function clampPan(p: { x: number; y: number }, z: number) {
-    const maxX = Math.max(0, (size.width * (z - 1)) / 2);
-    const maxY = Math.max(0, (size.height * (z - 1)) / 2);
+    const maxX = Math.max(0, (layer.width * z - size.width) / 2);
+    const maxY = Math.max(0, (layer.height * z - size.height) / 2);
     return { x: Math.min(maxX, Math.max(-maxX, p.x)), y: Math.min(maxY, Math.max(-maxY, p.y)) };
   }
+  const canPan = layer.width * zoom > size.width + 0.5 || layer.height * zoom > size.height + 0.5;
 
   /**
    * Accepts either an absolute zoom or an updater — always resolves against the
@@ -351,7 +377,7 @@ function ZoomPanMap({
         dragged.current = true;
         setZoomClamped(pinch.current.startZoom * (dist / pinch.current.startDist));
       }
-    } else if (pts.length === 1 && zoom > 1) {
+    } else if (pts.length === 1 && canPan) {
       const dx = e.movementX;
       const dy = e.movementY;
       if (dx || dy) {
@@ -418,15 +444,23 @@ function ZoomPanMap({
           the browser freeze the map at its first (zoomed-out) sharpness and just
           stretch that bitmap — the cause of the blurry zoom. */}
       <div
-        className={`h-full w-full ${interacting ? 'will-change-transform' : ''}`}
-        style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: 'center center', transition }}
+        className={`absolute ${interacting ? 'will-change-transform' : ''}`}
+        style={{
+          left: (size.width - layer.width) / 2,
+          top: (size.height - layer.height) / 2,
+          width: layer.width || '100%',
+          height: layer.height || '100%',
+          transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+          transformOrigin: 'center center',
+          transition,
+        }}
       >
-        {mapLayer({ zoom, pan, size, interacting })}
+        {mapLayer({ zoom, pan, size: layer, viewport: size, interacting })}
       </div>
 
       {size.width > 0 && (
         <div className="pointer-events-none absolute inset-0 z-10">
-          {overlay({ zoom, pan, size })}
+          {overlay({ zoom, pan, size: layer, viewport: size })}
         </div>
       )}
 
@@ -487,12 +521,12 @@ function MasterPlanImage({ view, loaded, onLoad }: { view: ViewState; loaded: bo
   if (lvl.tiled && view.size.width > 0) {
     // Visible part of the map, as fractions of its width/height (plus half a
     // tile of margin so panning doesn't show unloaded edges).
-    const { zoom, pan, size } = view;
-    const fx = (sx: number) => (size.width / 2 + (sx - size.width / 2 - pan.x) / zoom) / size.width;
-    const fy = (sy: number) => (size.height / 2 + (sy - size.height / 2 - pan.y) / zoom) / size.height;
+    const { zoom, pan, size, viewport } = view;
+    const fx = (sx: number) => (size.width / 2 + (sx - viewport.width / 2 - pan.x) / zoom) / size.width;
+    const fy = (sy: number) => (size.height / 2 + (sy - viewport.height / 2 - pan.y) / zoom) / size.height;
     const mx = (PLAN_TILE / lvl.width) / 2;
     const my = (PLAN_TILE / lvl.height) / 2;
-    const x0 = fx(0) - mx, x1 = fx(size.width) + mx, y0 = fy(0) - my, y1 = fy(size.height) + my;
+    const x0 = fx(0) - mx, x1 = fx(viewport.width) + mx, y0 = fy(0) - my, y1 = fy(viewport.height) + my;
     for (let ty = 0; ty < lvl.rows; ty++) {
       const top = (ty * PLAN_TILE) / lvl.height;
       const bottom = Math.min(1, ((ty + 1) * PLAN_TILE) / lvl.height);
@@ -564,7 +598,7 @@ function PlotShapes({ plots, highlight, hoverId, selectedId, large }: {
   );
 }
 
-function MasterPlanBoard({ plots, highlight = null, onSelect, onExpand, large, selectedId, tooltip = 'internal', bare }: {
+function MasterPlanBoard({ plots, highlight = null, onSelect, onExpand, large, selectedId, tooltip = 'internal', bare, cover }: {
   plots: Plot[];
   /** Plots matching the active filters; null = no filter (everything at full colour). */
   highlight?: Set<string> | null;
@@ -577,16 +611,22 @@ function MasterPlanBoard({ plots, highlight = null, onSelect, onExpand, large, s
   tooltip?: 'internal' | 'buyer';
   /** No card frame (presentation mode supplies its own). */
   bare?: boolean;
+  /** Fill the parent edge to edge (presentation mode) instead of a map-shaped box. */
+  cover?: boolean;
 }) {
   const [loaded, setLoaded] = useState(false);
   const [hoverId, setHoverId] = useState<string | null>(null);
   const hovered = hoverId ? plots.find((p) => p.id === hoverId) ?? null : null;
 
   const board = (
-    <div className={`relative w-full bg-gray-100 ${bare ? 'overflow-hidden rounded-xl' : ''}`} style={{ aspectRatio: '3369.9 / 2383.8' }}>
+    <div
+      className={`relative w-full bg-gray-100 ${cover ? 'h-full' : ''} ${bare && !cover ? 'overflow-hidden rounded-xl' : ''}`}
+      style={cover ? undefined : { aspectRatio: '3369.9 / 2383.8' }}
+    >
       {!loaded && <div className="skeleton absolute inset-0" />}
 
       <ZoomPanMap
+        cover={cover}
         controlsClassName={large ? 'scale-125 origin-bottom-left' : ''}
         onTap={(pt) => { const hit = plotAt(plots, pt); if (hit) onSelect(hit); }}
         onHover={(pt) => setHoverId(pt ? plotAt(plots, pt)?.id ?? null : null)}
@@ -596,11 +636,11 @@ function MasterPlanBoard({ plots, highlight = null, onSelect, onExpand, large, s
             {loaded && <PlotShapes plots={plots} highlight={highlight} hoverId={hoverId} selectedId={selectedId} large={large} />}
           </>
         )}
-        overlay={({ zoom, pan, size }) => {
+        overlay={({ zoom, pan, size, viewport }) => {
           if (!loaded || !hovered) return null;
           const [cx, cy] = centroidOf(hovered);
-          const x = size.width / 2 + pan.x + zoom * ((cx / 100) * size.width - size.width / 2);
-          const y = size.height / 2 + pan.y + zoom * ((cy / 100) * size.height - size.height / 2);
+          const x = viewport.width / 2 + pan.x + zoom * ((cx / 100) * size.width - size.width / 2);
+          const y = viewport.height / 2 + pan.y + zoom * ((cy / 100) * size.height - size.height / 2);
           return (
             <div
               className="pointer-events-none absolute z-20 hidden w-max max-w-[240px] -translate-x-1/2 -translate-y-full rounded-lg bg-gray-900/95 px-2.5 py-1.5 text-left text-white shadow-xl sm:block"
@@ -844,38 +884,16 @@ function SendToBuyer({ plot, dark }: { plot: Plot; dark?: boolean }) {
 }
 
 /**
- * Full-screen showroom view for buyers: just the master plan, plot outlines,
- * simple filters and a buyer-friendly plot card. No hold/sold controls, no
- * rate maths, no internal notes.
+ * Full-screen showroom view for buyers: the master plan fills the whole screen
+ * edge to edge (drag to see the rest), with filters and Exit floating on top.
+ * No hold/sold controls, no rate maths, no internal notes.
  */
-const PLAN_RATIO = 3369.9 / 2383.8;
-const PAPER = '#d7dac7'; // the master plan's own paper colour, so no bars show around it
-
 function BuyerPresentation({ plots, onClose }: { plots: Plot[]; onClose: () => void }) {
   const [bhk, setBhk] = useState<3 | 4 | 'All'>('All');
   const [phase, setPhase] = useState<string>('All');
   const [budget, setBudget] = useState<BudgetId | 'All'>('All');
   const [availableOnly, setAvailableOnly] = useState(false);
   const [selected, setSelected] = useState<Plot | null>(null);
-  // The map is sized to the space actually left under the header, so it can
-  // never spill over the header (which hid the Exit button on phones).
-  const areaRef = useRef<HTMLDivElement>(null);
-  const [mapWidth, setMapWidth] = useState(0);
-  const [roomy, setRoomy] = useState(false); // tall, narrow screen — suggest turning the phone
-
-  useEffect(() => {
-    const el = areaRef.current;
-    if (!el) return;
-    const fit = () => {
-      const w = Math.floor(Math.min(el.clientWidth, el.clientHeight * PLAN_RATIO));
-      setMapWidth(w);
-      setRoomy(el.clientHeight - w / PLAN_RATIO > 160);
-    };
-    fit();
-    const ro = new ResizeObserver(fit);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
 
   useEffect(() => {
     // Real full screen where the browser allows it; the overlay works either way.
@@ -892,57 +910,47 @@ function BuyerPresentation({ plots, onClose }: { plots: Plot[]; onClose: () => v
     (bhk === 'All' || p.bedrooms === bhk) && (phase === 'All' || p.phase === phase) && inBudget(p, budget) && (!availableOnly || p.status === 'Available'));
   const filtering = bhk !== 'All' || phase !== 'All' || budget !== 'All' || availableOnly;
   const highlight = filtering ? new Set(matches.map((p) => p.id)) : null;
-  const chip = (on: boolean) => `shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-semibold shadow-sm transition sm:px-4 sm:text-sm ${on ? 'bg-[#1f3a2b] text-white' : 'bg-white/85 text-gray-700 hover:bg-white'}`;
+  const chip = (on: boolean) => `shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-semibold shadow-md backdrop-blur transition sm:px-4 sm:text-sm ${on ? 'bg-[#1f3a2b] text-white' : 'bg-white/85 text-gray-800 hover:bg-white'}`;
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col" style={{ backgroundColor: PAPER, height: '100dvh' }}>
-      {/* Brand bar — always visible */}
-      <div className="flex shrink-0 items-center justify-between gap-3 px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-6 sm:pt-3">
-        <div className="flex min-w-0 items-baseline gap-2 sm:gap-3">
-          <span className="font-display text-lg font-bold tracking-[0.18em] text-[#1f3a2b] sm:text-2xl">ZION HILLS</span>
-          <span className="hidden truncate text-sm text-[#1f3a2b]/70 sm:inline">Golf County · Master Plan</span>
-        </div>
-        <button onClick={onClose} className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/85 px-3.5 py-2 text-sm font-semibold text-gray-800 shadow-sm hover:bg-white">
-          <X className="h-4 w-4" /> Exit
-        </button>
+    <div className="fixed inset-0 z-[60] overflow-hidden bg-[#d7dac7]" style={{ height: '100dvh' }}>
+      {/* The map, edge to edge */}
+      <div className="absolute inset-0">
+        <MasterPlanBoard plots={plots} highlight={highlight} onSelect={setSelected} large bare cover tooltip="buyer" selectedId={selected?.id} />
       </div>
 
-      {/* "Show me" filters — one swipeable row on phones */}
-      <div className="flex shrink-0 items-center gap-2 overflow-x-auto px-3 pb-2 [scrollbar-width:none] sm:px-6 lg:flex-wrap lg:overflow-visible">
-        <button onClick={() => setBhk('All')} className={chip(bhk === 'All')}>All homes</button>
-        {BEDROOM_OPTIONS.map((b) => <button key={b} onClick={() => setBhk(b)} className={chip(bhk === b)}>{b}BHK</button>)}
-        <span className="mx-0.5 h-6 w-px shrink-0 bg-[#1f3a2b]/20" />
-        {BUDGETS.map((b) => (
-          <button key={b.id} onClick={() => setBudget(budget === b.id ? 'All' : b.id)} className={chip(budget === b.id)}>{b.label}</button>
-        ))}
-        <span className="mx-0.5 h-6 w-px shrink-0 bg-[#1f3a2b]/20" />
-        {PHASES.map((ph) => (
-          <button key={ph} onClick={() => setPhase(phase === ph ? 'All' : ph)} className={chip(phase === ph)}>{ph}</button>
-        ))}
-        <button onClick={() => setAvailableOnly((v) => !v)} className={chip(availableOnly)}>Available only</button>
-      </div>
-      {filtering && (
-        <div className="shrink-0 px-3 pb-2 text-[13px] font-medium text-[#1f3a2b] sm:px-6">
-          {matches.length === 0 ? 'No homes match — try another budget' : `${matches.length} home${matches.length === 1 ? '' : 's'} match`}
+      {/* Floating controls */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-40 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5">
+        <div className="flex items-start gap-2">
+          <div className="pointer-events-auto flex min-w-0 flex-1 items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] lg:flex-wrap lg:overflow-visible">
+            <button onClick={() => setBhk('All')} className={chip(bhk === 'All')}>All homes</button>
+            {BEDROOM_OPTIONS.map((b) => <button key={b} onClick={() => setBhk(b)} className={chip(bhk === b)}>{b}BHK</button>)}
+            {BUDGETS.map((b) => (
+              <button key={b.id} onClick={() => setBudget(budget === b.id ? 'All' : b.id)} className={chip(budget === b.id)}>{b.label}</button>
+            ))}
+            {PHASES.map((ph) => (
+              <button key={ph} onClick={() => setPhase(phase === ph ? 'All' : ph)} className={chip(phase === ph)}>{ph}</button>
+            ))}
+            <button onClick={() => setAvailableOnly((v) => !v)} className={chip(availableOnly)}>Available only</button>
+          </div>
+          <button onClick={onClose} className="pointer-events-auto flex shrink-0 items-center gap-1.5 rounded-full bg-white/90 px-3.5 py-2 text-sm font-semibold text-gray-800 shadow-md backdrop-blur hover:bg-white">
+            <X className="h-4 w-4" /> Exit
+          </button>
         </div>
-      )}
-
-      {/* Map — fits the remaining space exactly */}
-      <div ref={areaRef} className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden px-2 pb-2 sm:px-4 sm:pb-3">
-        {mapWidth > 0 && (
-          <div className="relative" style={{ width: mapWidth }}>
-            <MasterPlanBoard plots={plots} highlight={highlight} onSelect={setSelected} large bare tooltip="buyer" selectedId={selected?.id} />
-            {/* Legend floats on the map so it costs no height on phones */}
-            <div className="pointer-events-none absolute bottom-2 right-2 z-30 flex gap-3 rounded-full bg-white/85 px-3 py-1.5 text-[11px] font-medium text-gray-700 shadow-sm sm:text-[12px]">
-              {(Object.keys(SHAPE_COLORS) as PlotStatus[]).map((st) => (
-                <span key={st} className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: SHAPE_COLORS[st].fill }} /> {SHAPE_COLORS[st].label}
-                </span>
-              ))}
-            </div>
-            {roomy && <p className="mt-3 text-center text-[13px] text-[#1f3a2b]/70">Turn your phone sideways for a bigger map · pinch to zoom</p>}
+        {filtering && (
+          <div className="mt-1.5 inline-block rounded-full bg-white/85 px-3 py-1 text-[13px] font-semibold text-[#1f3a2b] shadow-md backdrop-blur">
+            {matches.length === 0 ? 'No homes match — try another budget' : `${matches.length} home${matches.length === 1 ? '' : 's'} match`}
           </div>
         )}
+      </div>
+
+      {/* Legend */}
+      <div className="pointer-events-none absolute bottom-3 right-3 z-40 flex gap-3 rounded-full bg-white/85 px-3.5 py-1.5 text-[11px] font-medium text-gray-700 shadow-md backdrop-blur sm:text-[12px]">
+        {(Object.keys(SHAPE_COLORS) as PlotStatus[]).map((st) => (
+          <span key={st} className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: SHAPE_COLORS[st].fill }} /> {SHAPE_COLORS[st].label}
+          </span>
+        ))}
       </div>
 
       {/* Buyer plot card */}
