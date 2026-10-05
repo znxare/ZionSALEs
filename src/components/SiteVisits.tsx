@@ -41,18 +41,28 @@ function getRange(preset: DateRangePreset, customStart: string, customEnd: strin
     case 'this_week': {
       const sow = new Date(now); sow.setDate(sow.getDate() - ((sow.getDay() + 6) % 7)); sow.setHours(0, 0, 0, 0);
       const eow = new Date(sow); eow.setDate(eow.getDate() + 7);
-      return { start: sow, end: eow };
+      return { start: sow, end: new Date(eow.getTime() - 1) };
     }
     case 'last_week': {
       const sow = new Date(now); sow.setDate(sow.getDate() - ((sow.getDay() + 6) % 7) - 7); sow.setHours(0, 0, 0, 0);
       const eow = new Date(sow); eow.setDate(eow.getDate() + 7);
-      return { start: sow, end: eow };
+      return { start: sow, end: new Date(eow.getTime() - 1) };
     }
-    case 'this_month': { const s = new Date(now.getFullYear(), now.getMonth(), 1); const e = new Date(now.getFullYear(), now.getMonth() + 1, 1); return { start: s, end: e }; }
-    case 'last_month': { const s = new Date(now.getFullYear(), now.getMonth() - 1, 1); const e = new Date(now.getFullYear(), now.getMonth(), 1); return { start: s, end: e }; }
-    case 'custom': { const s = customStart ? new Date(customStart) : new Date(0); const e = customEnd ? endOfDay(new Date(customEnd)) : endOfDay(now); return { start: s, end: e }; }
+    case 'this_month': { const s = new Date(now.getFullYear(), now.getMonth(), 1); const e = new Date(now.getFullYear(), now.getMonth() + 1, 1); return { start: s, end: new Date(e.getTime() - 1) }; }
+    case 'last_month': { const s = new Date(now.getFullYear(), now.getMonth() - 1, 1); const e = new Date(now.getFullYear(), now.getMonth(), 1); return { start: s, end: new Date(e.getTime() - 1) }; }
+    case 'custom': {
+      // Parse as local dates — new Date('YYYY-MM-DD') is UTC midnight (5:30 am in India).
+      const s = customStart ? new Date(customStart + 'T00:00:00') : new Date(0);
+      const e = customEnd ? endOfDay(new Date(customEnd + 'T00:00:00')) : endOfDay(now);
+      return { start: s, end: e };
+    }
     default: return { start: new Date(0), end: endOfDay(now) };
   }
+}
+
+function toInputDate(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 export default function SiteVisits({ leads, campaigns, onOpenLead, onChanged }: Props) {
@@ -111,6 +121,23 @@ export default function SiteVisits({ leads, campaigns, onOpenLead, onChanged }: 
   }, [campaigns]);
 
   const range = useMemo(() => getRange(rangePreset, customStart, customEnd), [rangePreset, customStart, customEnd]);
+  const rangeActive = rangePreset !== 'all' && !(rangePreset === 'custom' && !customStart && !customEnd);
+
+  // Picking a range moves the calendar to its first month.
+  useEffect(() => {
+    if (!rangeActive) return;
+    setCalMonth(new Date(range.start.getFullYear(), range.start.getMonth(), 1));
+  }, [range.start, rangeActive]);
+
+  // Editing a date box switches to a custom range, keeping the other end.
+  function pickDate(which: 'start' | 'end', value: string) {
+    if (rangePreset !== 'custom') {
+      setCustomStart(rangeActive ? toInputDate(range.start) : '');
+      setCustomEnd(rangeActive ? toInputDate(range.end) : '');
+      setRangePreset('custom');
+    }
+    if (which === 'start') setCustomStart(value); else setCustomEnd(value);
+  }
 
   // Visits within selected date range
   const rangedVisits = useMemo(() => {
@@ -138,6 +165,7 @@ export default function SiteVisits({ leads, campaigns, onOpenLead, onChanged }: 
 
   // Date range KPIs
   const rangeKpis = useMemo(() => {
+    const scheduled = rangedVisits.filter((v) => v.status === 'Scheduled').length;
     const done = rangedVisits.filter((v) => v.status === 'Completed');
     const total = done.length;
     const uniqueProspects = new Set(done.map((v) => v.lead_id)).size;
@@ -145,7 +173,7 @@ export default function SiteVisits({ leads, campaigns, onOpenLead, onChanged }: 
     const counts = new Map<string, number>();
     done.forEach((v) => { const c = (counts.get(v.lead_id) ?? 0) + 1; counts.set(v.lead_id, c); if (c > 1) repeatProspects.add(v.lead_id); });
     const avg = uniqueProspects > 0 ? (total / uniqueProspects).toFixed(1) : '0';
-    return { total, uniqueProspects, repeat: repeatProspects.size, avg };
+    return { total, scheduled, uniqueProspects, repeat: repeatProspects.size, avg };
   }, [rangedVisits]);
 
   // Prospects table (within range)
@@ -179,39 +207,48 @@ export default function SiteVisits({ leads, campaigns, onOpenLead, onChanged }: 
   }, [rangedVisits, leadMap, campaignMap, search]);
 
   // Analytics charts
+  // Completed visits inside the selected range — what the analytics charts show.
+  const rangedDone = useMemo(() => rangedVisits.filter((v) => v.status === 'Completed'), [rangedVisits]);
+
+  // One bar per month across the selected range (at most its last 12 months;
+  // "All Time" shows the last 6 months).
   const monthlyData = useMemo(() => {
-    const buckets = new Map<string, number>();
-    const now = new Date();
-    for (let i = 3; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const e = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
-      const label = d.toLocaleDateString('en-IN', { month: 'short' });
-      const count = doneVisits.filter((v) => { const td = new Date(v.scheduled_at); return td >= d && td < e; }).length;
-      buckets.set(label, count);
+    const endMonth = new Date(range.end.getFullYear(), range.end.getMonth(), 1);
+    let startMonth = rangeActive
+      ? new Date(range.start.getFullYear(), range.start.getMonth(), 1)
+      : new Date(endMonth.getFullYear(), endMonth.getMonth() - 5, 1);
+    const earliest = new Date(endMonth.getFullYear(), endMonth.getMonth() - 11, 1);
+    if (startMonth < earliest) startMonth = earliest;
+    const spansYears = startMonth.getFullYear() !== endMonth.getFullYear();
+    const out: { label: string; value: number }[] = [];
+    for (let d = new Date(startMonth); d <= endMonth; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
+      const e = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+      const label = d.toLocaleDateString('en-IN', spansYears ? { month: 'short', year: '2-digit' } : { month: 'short' });
+      out.push({ label, value: rangedDone.filter((v) => { const td = new Date(v.scheduled_at); return td >= d && td < e; }).length });
     }
-    return [...buckets.entries()].map(([label, value]) => ({ label, value }));
-  }, [doneVisits]);
+    return out;
+  }, [rangedDone, range, rangeActive]);
 
   const byCampaign = useMemo(() => {
     const m = new Map<string, number>();
-    doneVisits.forEach((v) => {
+    rangedDone.forEach((v) => {
       const lead = leadMap.get(v.lead_id);
       const camp = lead?.campaign_id ? campaignMap.get(lead.campaign_id) : null;
       const k = camp?.name ?? UNASSIGNED_CAMPAIGN_LABEL;
       m.set(k, (m.get(k) ?? 0) + 1);
     });
     return [...m.entries()].map(([label, value], i) => ({ label, value, color: CHART_COLORS[i % CHART_COLORS.length] }));
-  }, [doneVisits, leadMap, campaignMap]);
+  }, [rangedDone, leadMap, campaignMap]);
 
   const byStatus = useMemo(() => {
     const m = new Map<string, number>();
-    doneVisits.forEach((v) => {
+    rangedDone.forEach((v) => {
       const lead = leadMap.get(v.lead_id);
       const k = lead?.status ?? 'Unknown';
       m.set(k, (m.get(k) ?? 0) + 1);
     });
     return [...m.entries()].map(([label, value], i) => ({ label, value, color: CHART_COLORS[i % CHART_COLORS.length] }));
-  }, [doneVisits, leadMap]);
+  }, [rangedDone, leadMap]);
 
   // Calendar
   const calendarDays = useMemo(() => {
@@ -282,6 +319,48 @@ export default function SiteVisits({ leads, campaigns, onOpenLead, onChanged }: 
         <Kpi icon={TrendingUp} label="Avg Done / Prospect" value={kpis.avg} tint="bg-amber-50 text-amber-700" />
       </div>
 
+      {/* Date range — applies to the list, analytics and calendar */}
+      <div className="mb-4 rounded-2xl border border-black/5 bg-white p-4 card-shadow">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[12px] font-semibold uppercase tracking-wide text-gray-400">Date Range:</span>
+          {(['today', 'yesterday', 'this_week', 'last_week', 'this_month', 'last_month', 'all'] as const).map((p) => (
+            <button key={p} onClick={() => setRangePreset(p)} className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition ${rangePreset === p ? 'brand-gradient text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+              {p === 'all' ? 'All Time' : p.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+            </button>
+          ))}
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 text-[12px] font-medium text-gray-500">
+            From
+            <input
+              type="date"
+              value={rangePreset === 'custom' ? customStart : rangeActive ? toInputDate(range.start) : ''}
+              onChange={(e) => pickDate('start', e.target.value)}
+              className={`rounded-lg border px-2.5 py-1.5 text-[13px] text-gray-800 outline-none focus:border-emerald-300 ${rangePreset === 'custom' ? 'border-emerald-300' : 'border-gray-200'}`}
+            />
+          </label>
+          <label className="flex items-center gap-2 text-[12px] font-medium text-gray-500">
+            To
+            <input
+              type="date"
+              value={rangePreset === 'custom' ? customEnd : rangeActive ? toInputDate(range.end) : ''}
+              onChange={(e) => pickDate('end', e.target.value)}
+              className={`rounded-lg border px-2.5 py-1.5 text-[13px] text-gray-800 outline-none focus:border-emerald-300 ${rangePreset === 'custom' ? 'border-emerald-300' : 'border-gray-200'}`}
+            />
+          </label>
+          {rangePreset === 'custom' && <span className="text-[12px] font-medium text-emerald-700">Custom range</span>}
+        </div>
+
+        {/* Range KPIs */}
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <RangeKpi icon={CheckCircle2} label="Visits Done" value={rangeKpis.total} />
+          <RangeKpi icon={CalendarClock} label="Scheduled" value={rangeKpis.scheduled} />
+          <RangeKpi icon={Users} label="Unique Prospects" value={rangeKpis.uniqueProspects} />
+          <RangeKpi icon={Repeat} label="Repeat Visits" value={rangeKpis.repeat} />
+          <RangeKpi icon={TrendingUp} label="Avg / Prospect" value={rangeKpis.avg} />
+        </div>
+      </div>
+
       {/* View toggle */}
       <div className="mb-4 flex justify-center">
         <div className="flex overflow-hidden rounded-full border border-black/5 bg-white card-shadow">
@@ -296,33 +375,6 @@ export default function SiteVisits({ leads, campaigns, onOpenLead, onChanged }: 
       {/* List view */}
       {view === 'list' && (
         <>
-          {/* Date range selector */}
-          <div className="mb-4 rounded-2xl border border-black/5 bg-white p-4 card-shadow">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[12px] font-semibold uppercase tracking-wide text-gray-400">Date Range:</span>
-              {(['today', 'yesterday', 'this_week', 'last_week', 'this_month', 'last_month', 'custom', 'all'] as const).map((p) => (
-                <button key={p} onClick={() => setRangePreset(p)} className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition ${rangePreset === p ? 'brand-gradient text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                  {p === 'all' ? 'All Time' : p.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
-                </button>
-              ))}
-              {rangePreset === 'custom' && (
-                <div className="flex items-center gap-2">
-                  <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-[13px] outline-none focus:border-emerald-300" />
-                  <span className="text-gray-400">→</span>
-                  <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-[13px] outline-none focus:border-emerald-300" />
-                </div>
-              )}
-            </div>
-
-            {/* Range KPIs */}
-            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <RangeKpi icon={MapPin} label="Visits Done" value={rangeKpis.total} />
-              <RangeKpi icon={Users} label="Unique Prospects" value={rangeKpis.uniqueProspects} />
-              <RangeKpi icon={Repeat} label="Repeat Visits" value={rangeKpis.repeat} />
-              <RangeKpi icon={TrendingUp} label="Avg / Prospect" value={rangeKpis.avg} />
-            </div>
-          </div>
-
           {/* Search */}
           <div className="mb-4 relative">
             <Search className="absolute left-3.5 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-gray-400" />
@@ -388,7 +440,8 @@ export default function SiteVisits({ leads, campaigns, onOpenLead, onChanged }: 
       {view === 'analytics' && (
         <div className="space-y-5">
           <div className="rounded-2xl border border-black/5 bg-white p-5 card-shadow">
-            <h3 className="mb-4 font-display text-base font-bold tracking-tight text-gray-900">Site Visits by Month</h3>
+            <h3 className="mb-1 font-display text-base font-bold tracking-tight text-gray-900">Site Visits Done by Month</h3>
+            <p className="mb-4 text-[12px] text-gray-400">Completed visits in the selected date range.</p>
             <BarChart data={monthlyData} />
           </div>
           <div className="grid gap-4 lg:grid-cols-2">
@@ -430,8 +483,9 @@ export default function SiteVisits({ leads, campaigns, onOpenLead, onChanged }: 
               if (!d) return <div key={i} className="min-h-[72px] rounded-lg bg-gray-50/50" />;
               const dayVisits = visitsByDay.get(formatDate(d.toISOString())) ?? [];
               const isTodayCell = isToday(d.toISOString());
+              const outside = rangeActive && (endOfDay(d) < range.start || startOfDay(d) > range.end);
               return (
-                <div key={i} className={`min-h-[72px] rounded-lg border p-1.5 transition hover:border-emerald-200 ${isTodayCell ? 'border-emerald-300 bg-emerald-50/40' : 'border-gray-100 bg-white'}`}>
+                <div key={i} className={`min-h-[72px] rounded-lg border p-1.5 transition hover:border-emerald-200 ${isTodayCell ? 'border-emerald-300 bg-emerald-50/40' : 'border-gray-100 bg-white'} ${outside ? 'opacity-40' : ''}`}>
                   <div className={`mb-1 text-[11px] font-bold ${isTodayCell ? 'text-emerald-600' : 'text-gray-500'}`}>{d.getDate()}</div>
                   <div className="space-y-0.5">
                     {dayVisits.slice(0, 3).map((v) => {
