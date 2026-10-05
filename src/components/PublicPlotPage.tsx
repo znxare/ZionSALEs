@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
-import { Download, MapPin, Phone, MessageCircle, ChevronDown } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Download, Phone, MessageCircle, ChevronDown } from 'lucide-react';
 import type { Plot } from '@/lib/inventory';
-import { findPlot, outlineOf, centroidOf, formatCrore, formatLakh, SHAPE_COLORS } from '@/lib/plotMap';
+import { findPlot, formatCrore, formatLakh, SHAPE_COLORS } from '@/lib/plotMap';
+import { PlanCrop } from './PlanCrop';
+import { QuotePrint, usePrintData, usePrintFonts } from './QuotePrint';
 import { loadPublicShowcase, renderFor, viewFor, type Showcase, type HostCard } from '@/lib/showcase';
 import { openQuote } from '@/lib/quoteLinks';
 import { VideoModal, TestimonialButton } from './ShowcaseMedia';
@@ -15,60 +17,6 @@ import { VideoModal, TestimonialButton } from './ShowcaseMedia';
 //   #/p/<plot id>?to=<buyer>&by=<advisor>  older untracked links, still work
 
 const LOGO = '/zion-hills-logo.svg';
-const MAP_W = 11233, MAP_H = 7946;
-const L2 = { name: 'l2', width: 7200, height: 5093, cols: 8, rows: 5, tile: 1024 };
-
-/** Close-up of the master plan around one plot, built from the sharp map tiles. */
-function PlanCrop({ plot, widthPct = 9, aspect = 4 / 3, className = 'rounded-2xl', label = true }: {
-  plot: Plot;
-  /** How much of the map's width to show (smaller = closer). */
-  widthPct?: number;
-  aspect?: number;
-  className?: string;
-  label?: boolean;
-}) {
-  const [cx, cy] = centroidOf(plot);
-  const rw = widthPct;
-  const rh = (rw * MAP_W) / (aspect * MAP_H);
-  const rx = Math.min(100 - rw, Math.max(0, cx - rw / 2));
-  const ry = Math.min(100 - rh, Math.max(0, cy - rh / 2));
-  const tiles: { key: string; src: string; style: React.CSSProperties }[] = [];
-  for (let ty = 0; ty < L2.rows; ty++) {
-    for (let tx = 0; tx < L2.cols; tx++) {
-      const left = (tx * L2.tile * 100) / L2.width, top = (ty * L2.tile * 100) / L2.height;
-      const right = Math.min(100, ((tx + 1) * L2.tile * 100) / L2.width), bottom = Math.min(100, ((ty + 1) * L2.tile * 100) / L2.height);
-      if (right < rx || left > rx + rw || bottom < ry || top > ry + rh) continue;
-      tiles.push({
-        key: `${tx}-${ty}`,
-        src: `/master-plan/${L2.name}/${tx}_${ty}.webp`,
-        // +1px so neighbouring tiles overlap instead of leaving hairline seams.
-        style: { left: `${((left - rx) / rw) * 100}%`, top: `${((top - ry) / rh) * 100}%`, width: `calc(${((right - left) / rw) * 100}% + 1px)`, height: `calc(${((bottom - top) / rh) * 100}% + 1px)` },
-      });
-    }
-  }
-  return (
-    <div className={`relative w-full overflow-hidden bg-[#d7dac7] ${className}`} style={{ aspectRatio: String(aspect) }}>
-      {tiles.map((t) => <img key={t.key} src={t.src} alt="" className="absolute max-w-none" style={t.style} />)}
-      <svg className="absolute inset-0 h-full w-full" viewBox={`${rx} ${ry} ${rw} ${rh}`} preserveAspectRatio="none">
-        <polygon
-          points={outlineOf(plot).map(([x, y]) => `${x},${y}`).join(' ')}
-          fill="#d4a548"
-          fillOpacity={0.5}
-          stroke="#9a6b12"
-          strokeWidth={3.5}
-          vectorEffect="non-scaling-stroke"
-          strokeLinejoin="round"
-        />
-      </svg>
-      {label && (
-        <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1 text-[12px] font-semibold text-gray-800 shadow">
-          <MapPin className="h-3.5 w-3.5 text-[#a8884f]" /> Plot {plot.plotNo}
-        </div>
-      )}
-    </div>
-  );
-}
-
 type Loaded = { plot: Plot; buyerName?: string; senderName?: string; senderId?: string | null };
 
 export default function PublicPlotPage({ plotId, linkId, buyerName, senderName }: { plotId?: string; linkId?: string; buyerName?: string; senderName?: string }) {
@@ -79,6 +27,23 @@ export default function PublicPlotPage({ plotId, linkId, buyerName, senderName }
   });
   const [showcase, setShowcase] = useState<Showcase>({});
   const [video, setVideo] = useState(false);
+  const [preparing, setPreparing] = useState(false);
+  const loadedPlot = typeof state === 'object' ? state.plot : null;
+  const printData = usePrintData(loadedPlot, window.location.href);
+  usePrintFonts();
+
+  /** Waits for the PDF's distances, fonts and pictures, then opens the print/save dialog. */
+  async function savePdf() {
+    setPreparing(true);
+    for (let i = 0; i < 40 && !printDataRef.current.ready; i++) await new Promise((r) => setTimeout(r, 100));
+    await document.fonts.ready.catch(() => undefined);
+    const imgs = Array.from(document.querySelectorAll<HTMLImageElement>('.quote-print img'));
+    await Promise.all(imgs.map((im) => (im.complete ? null : new Promise((r) => { im.onload = im.onerror = r; }))));
+    setPreparing(false);
+    window.print();
+  }
+  const printDataRef = useRef(printData);
+  printDataRef.current = printData;
 
   useEffect(() => {
     void loadPublicShowcase().then(setShowcase);
@@ -120,20 +85,12 @@ export default function PublicPlotPage({ plotId, linkId, buyerName, senderName }
   const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
 
   return (
-    <div className="min-h-[100dvh] bg-[#f6f2ea] text-[#1d2a22] print:bg-white">
-      {/* PDF letterhead: our logo, who it's for, and the date. */}
-      <div className="hidden items-end justify-between border-b border-[#d9cfbd] px-2 pb-3 print:flex">
-        <img src={LOGO} alt="Zion Hills Golf County" className="h-16 w-auto" />
-        <div className="text-right text-[12px] text-[#7a7466]">
-          {buyer && <div className="font-semibold text-[#13261c]">Prepared for {buyer}</div>}
-          <div>Plot {plot.plotNo} · {today}</div>
-        </div>
-      </div>
-      {render && <img src={render} alt={`Villa at plot ${plot.plotNo}`} className="mt-4 hidden max-h-[9cm] w-full rounded-xl object-cover print:block" />}
+    <>
+    <div className="min-h-[100dvh] bg-[#f6f2ea] text-[#1d2a22] print:hidden">
       {/* Hero — the home they could own */}
-      <header className="relative h-[100svh] min-h-[520px] overflow-hidden bg-[#13261c] print:hidden">
+      <header className="relative h-[100svh] min-h-[520px] overflow-hidden bg-[#13261c]">
         {render ? (
-          <img src={render} alt={`Villa at plot ${plot.plotNo}`} className="absolute inset-0 h-full w-full object-cover animate-hero-zoom print:static print:h-72" />
+          <img src={render} alt={`Villa at plot ${plot.plotNo}`} className="absolute inset-0 h-full w-full object-cover animate-hero-zoom" />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
             <div className="h-full min-w-full animate-hero-zoom" style={{ aspectRatio: '3 / 4' }}>
@@ -160,12 +117,12 @@ export default function PublicPlotPage({ plotId, linkId, buyerName, senderName }
             </div>
           </div>
         </div>
-        <ChevronDown className="absolute bottom-4 left-1/2 h-6 w-6 -translate-x-1/2 animate-bounce text-white/70 print:hidden" />
+        <ChevronDown className="absolute bottom-4 left-1/2 h-6 w-6 -translate-x-1/2 animate-bounce text-white/70" />
       </header>
 
       <main className="mx-auto max-w-3xl px-6 sm:px-10">
         {/* Welcome note */}
-        <section className="py-14 text-center sm:py-20 print:py-6">
+        <section className="py-14 text-center sm:py-20">
           <p className="mx-auto max-w-xl font-lux text-2xl leading-relaxed text-[#2c3a31] sm:text-[28px]">
             Mornings on the fairway, evenings on your own terrace — a home set within a championship golf course, made for a slower, finer life.
           </p>
@@ -174,14 +131,14 @@ export default function PublicPlotPage({ plotId, linkId, buyerName, senderName }
 
         {/* The view */}
         {view && (
-          <section className="pb-14 sm:pb-20 print:break-inside-avoid print:pb-6">
+          <section className="pb-14 sm:pb-20">
             <SectionTitle eyebrow="From your plot" title="The view you'll wake up to" />
             <img src={view} alt={`View from plot ${plot.plotNo}`} className="mt-6 w-full rounded-2xl object-cover shadow-xl" />
           </section>
         )}
 
         {/* The home */}
-        <section className="pb-14 sm:pb-20 print:break-inside-avoid print:pb-6">
+        <section className="pb-14 sm:pb-20">
           <SectionTitle eyebrow="The residence" title={`Plot ${plot.plotNo}`} />
           <div className="mt-8 grid grid-cols-3 divide-x divide-[#d9cfbd] border-y border-[#d9cfbd] py-6 text-center">
             <Fact value={`${plot.bedrooms}`} unit="bedrooms" />
@@ -189,13 +146,13 @@ export default function PublicPlotPage({ plotId, linkId, buyerName, senderName }
             <Fact value={plot.builtUpSft.toLocaleString('en-IN')} unit="sq ft built-up" />
           </div>
           <div className="mt-8">
-            <PlanCrop plot={plot} className="rounded-2xl shadow-xl print:mx-auto print:max-w-[13cm] print:shadow-none" />
+            <PlanCrop plot={plot} className="rounded-2xl shadow-xl" />
             <p className="mt-3 text-center text-[13px] text-[#7a7466]">Your plot, outlined in gold on the Zion Hills master plan.</p>
           </div>
         </section>
 
         {/* The price */}
-        <section className="pb-14 sm:pb-20 print:break-inside-avoid print:pb-6">
+        <section className="pb-14 sm:pb-20">
           <SectionTitle eyebrow="Your investment" title="" />
           <div className="mt-2 rounded-3xl bg-[#13261c] px-6 py-10 text-center text-white shadow-2xl sm:px-10">
             <div className="font-lux text-6xl font-medium tracking-tight sm:text-7xl">{formatCrore(k.totalCostLacs)}</div>
@@ -205,16 +162,7 @@ export default function PublicPlotPage({ plotId, linkId, buyerName, senderName }
                 This plot is currently {SHAPE_COLORS[plot.status].label.toLowerCase()}. Your host will gladly show you similar homes.
               </p>
             )}
-            {/* On paper the breakdown can't be tapped open, so the PDF always shows it. */}
-            <dl className="mx-auto mt-6 hidden max-w-sm divide-y divide-white/10 text-left text-[14px] print:block">
-              <Line label="Land">{formatLakh(k.landCostLacs)}</Line>
-              <Line label="Villa construction">{formatLakh(k.constnCostLacs)}</Line>
-              <Line label="Club membership">{formatLakh(k.clubChargesLacs)}</Line>
-              <Line label="Landscaping">{formatLakh(k.landscapeChargesLacs)}</Line>
-              <Line label="Utilities">{formatLakh(k.utilityChargesLacs)}</Line>
-              <Line label="GST">{formatLakh(k.gstLacs)}</Line>
-            </dl>
-            <details className="group mx-auto mt-8 max-w-sm text-left print:hidden">
+            <details className="group mx-auto mt-8 max-w-sm text-left">
               <summary className="flex cursor-pointer list-none items-center justify-center gap-1.5 text-[13px] text-white/70 hover:text-white">
                 See the breakdown <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
               </summary>
@@ -232,7 +180,7 @@ export default function PublicPlotPage({ plotId, linkId, buyerName, senderName }
 
         {/* Owner stories */}
         {showcase.testimonial?.url && (
-          <section className="pb-14 text-center sm:pb-20 print:hidden">
+          <section className="pb-14 text-center sm:pb-20">
             <SectionTitle eyebrow="In their words" title="Life at Zion Hills" />
             <div className="mt-6 flex justify-center">
               <TestimonialButton onClick={() => setVideo(true)} dark={false} />
@@ -242,7 +190,7 @@ export default function PublicPlotPage({ plotId, linkId, buyerName, senderName }
 
         {/* Your host */}
         {(sender || host) && (
-          <section className="pb-14 sm:pb-20 print:break-inside-avoid print:pb-6">
+          <section className="pb-14 sm:pb-20">
             <div className="flex flex-col items-center rounded-3xl bg-white px-6 py-8 text-center shadow-sm ring-1 ring-[#e7dfd0] sm:flex-row sm:gap-6 sm:text-left">
               {host?.photo ? (
                 <img src={host.photo} alt={sender ?? 'Your host'} className="h-24 w-24 shrink-0 rounded-full object-cover ring-4 ring-[#f6f2ea]" />
@@ -254,7 +202,7 @@ export default function PublicPlotPage({ plotId, linkId, buyerName, senderName }
                 <div className="font-lux text-3xl">{sender ?? 'Zion Hills'}</div>
                 {host?.title && <div className="text-[14px] text-[#7a7466]">{host.title}</div>}
                 {host?.phone && (
-                  <div className="mt-4 flex justify-center gap-2 sm:justify-start print:hidden">
+                  <div className="mt-4 flex justify-center gap-2 sm:justify-start">
                     <a href={`tel:${host.phone.replace(/[^\d+]/g, '')}`} className="flex items-center gap-2 rounded-full bg-[#13261c] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#1d3a2a]">
                       <Phone className="h-4 w-4" /> Call
                     </a>
@@ -263,15 +211,14 @@ export default function PublicPlotPage({ plotId, linkId, buyerName, senderName }
                     </a>
                   </div>
                 )}
-                {host?.phone && <div className="mt-2 hidden text-sm print:block">{host.phone}</div>}
               </div>
             </div>
           </section>
         )}
 
         <footer className="border-t border-[#d9cfbd] pb-12 pt-8 text-center">
-          <button onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-full border border-[#13261c]/20 px-5 py-2.5 text-sm font-semibold text-[#13261c] hover:bg-[#13261c]/5 print:hidden">
-            <Download className="h-4 w-4" /> Save as PDF
+          <button onClick={() => void savePdf()} disabled={preparing} className="inline-flex items-center gap-2 rounded-full border border-[#13261c]/20 px-5 py-2.5 text-sm font-semibold text-[#13261c] hover:bg-[#13261c]/5">
+            <Download className="h-4 w-4" /> {preparing ? 'Preparing…' : 'Save as PDF'}
           </button>
           <p className="mx-auto mt-6 max-w-md text-[12px] leading-relaxed text-[#9a9384]">
             Prepared on {today}. Prices are indicative and subject to change; the final price is as per the sale agreement. Images are artist's impressions.
@@ -282,6 +229,10 @@ export default function PublicPlotPage({ plotId, linkId, buyerName, senderName }
 
       {video && showcase.testimonial?.url && <VideoModal url={showcase.testimonial.url} caption={showcase.testimonial.caption} onClose={() => setVideo(false)} />}
     </div>
+    <div className="hidden print:block">
+      <QuotePrint plot={plot} buyer={buyer} sender={sender} host={host} render={render} view={view} link={window.location.href} yardages={printData.yardages} qr={printData.qr} today={today} />
+    </div>
+    </>
   );
 }
 

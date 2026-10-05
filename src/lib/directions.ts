@@ -165,3 +165,41 @@ export function describeDistance(m: number | null): string | null {
   const min = Math.max(1, Math.round(m / 200));
   return `${dist} · about ${min} min by cart`;
 }
+
+// ---------- distances without a login (e.g. the buyer's quote PDF) ----------
+
+// Plan % → metres, from the 36-spot calibration ride of 5 Oct 2026 (the plan
+// is ~2.37 km × 1.69 km). Good to within a few metres over a route.
+const PLAN_TO_METRES = [[23.711, 0.175], [-0.006, -16.9]] as const;
+
+export function planMetres(points: MapPt[]): number {
+  let m = 0;
+  for (let i = 1; i < points.length; i++) {
+    const dx = points[i][0] - points[i - 1][0], dy = points[i][1] - points[i - 1][1];
+    m += Math.hypot(PLAN_TO_METRES[0][0] * dx + PLAN_TO_METRES[0][1] * dy, PLAN_TO_METRES[1][0] * dx + PLAN_TO_METRES[1][1] * dy);
+  }
+  return m;
+}
+
+export interface Yardage { label: string; metres: number; note?: string }
+
+/** By-road distances from a point to the places that matter to a buyer. */
+export function yardagesFrom(pt: MapPt): Yardage[] {
+  const by = (to: MapPt) => { const r = findRoute(pt, to); return r ? planMetres(r.points) : Infinity; };
+  const pick = (id: string) => AMENITIES.find((a) => a.id === id)!;
+  const out: Yardage[] = [
+    { label: 'Club House', metres: by(pick('clubhouse').pt) },
+    { label: 'Golf practice', metres: by(pick('practice').pt) },
+    { label: 'Sports courts', metres: by(pick('sports').pt) },
+    { label: 'Main entry gate', metres: by(pick('entry-main').pt) },
+  ];
+  let nearest: Yardage | null = null;
+  for (const h of HOLES) {
+    // Straight-line first so only the few closest holes need a route.
+    if (nearest && planMetres([pt, h.pt]) > nearest.metres) continue;
+    const m = by(h.pt);
+    if (!nearest || m < nearest.metres) nearest = { label: h.label, metres: m, note: 'nearest hole' };
+  }
+  if (nearest) out.splice(1, 0, nearest);
+  return out.filter((y) => Number.isFinite(y.metres));
+}
