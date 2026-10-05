@@ -213,11 +213,13 @@ type Size = { width: number; height: number };
  * GPU-smooth, while pins are placed with plain pixel math so they never grow or shrink with zoom and
  * are never fuzzy or misaligned.
  */
+type ViewState = { zoom: number; pan: { x: number; y: number }; size: Size; interacting: boolean };
+
 function ZoomPanMap({
   mapLayer,
   overlay,
 }: {
-  mapLayer: ReactNode;
+  mapLayer: (state: ViewState) => ReactNode;
   overlay: (state: { zoom: number; pan: { x: number; y: number }; size: Size }) => ReactNode;
 }) {
   const [zoom, setZoom] = useState(1);
@@ -346,11 +348,14 @@ function ZoomPanMap({
       onWheel={onWheel}
       onClickCapture={onClickCapture}
     >
+      {/* will-change only while a finger/mouse is moving the map: kept on, it makes
+          the browser freeze the map at its first (zoomed-out) sharpness and just
+          stretch that bitmap — the cause of the blurry zoom. */}
       <div
-        className="h-full w-full will-change-transform"
+        className={`h-full w-full ${interacting ? 'will-change-transform' : ''}`}
         style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: 'center center', transition }}
       >
-        {mapLayer}
+        {mapLayer({ zoom, pan, size, interacting })}
       </div>
 
       {size.width > 0 && (
@@ -381,6 +386,84 @@ function ZoomPanMap({
   );
 }
 
+// The master plan as a zoom pyramid (generated from the original 11233x7946 scan):
+// l0/l1 are whole-map images for zoomed-out views, l2/l3 are 1024px tiles so a
+// close zoom loads only the visible area at full sharpness — no single image
+// is too big for a phone to decode at full resolution.
+const PLAN_LEVELS = [
+  { name: 'l0', width: 1600, tiled: false, cols: 1, rows: 1 },
+  { name: 'l1', width: 3600, tiled: false, cols: 1, rows: 1 },
+  { name: 'l2', width: 7200, height: 5093, tiled: true, cols: 8, rows: 5 },
+  { name: 'l3', width: 11233, height: 7946, tiled: true, cols: 11, rows: 8 },
+] as const;
+const PLAN_TILE = 1024;
+
+/** Sharpest level the screen can actually show at this zoom. */
+function planLevelFor(view: ViewState): number {
+  const needed = view.size.width * view.zoom * (window.devicePixelRatio || 1);
+  const i = PLAN_LEVELS.findIndex((l) => l.width >= needed);
+  return i === -1 ? PLAN_LEVELS.length - 1 : i;
+}
+
+function MasterPlanImage({ view, loaded, onLoad }: { view: ViewState; loaded: boolean; onLoad: () => void }) {
+  // Switch to a sharper level only once zooming settles, so a pinch doesn't
+  // fire off tile requests for every in-between zoom.
+  const [level, setLevel] = useState(0);
+  const target = view.size.width > 0 ? planLevelFor(view) : 0;
+  useEffect(() => {
+    if (view.interacting) return;
+    const t = window.setTimeout(() => setLevel(target), 150);
+    return () => window.clearTimeout(t);
+  }, [target, view.interacting]);
+
+  const lvl = PLAN_LEVELS[level];
+  let tiles: { key: string; src: string; style: React.CSSProperties }[] = [];
+  if (lvl.tiled && view.size.width > 0) {
+    // Visible part of the map, as fractions of its width/height (plus half a
+    // tile of margin so panning doesn't show unloaded edges).
+    const { zoom, pan, size } = view;
+    const fx = (sx: number) => (size.width / 2 + (sx - size.width / 2 - pan.x) / zoom) / size.width;
+    const fy = (sy: number) => (size.height / 2 + (sy - size.height / 2 - pan.y) / zoom) / size.height;
+    const mx = (PLAN_TILE / lvl.width) / 2;
+    const my = (PLAN_TILE / lvl.height) / 2;
+    const x0 = fx(0) - mx, x1 = fx(size.width) + mx, y0 = fy(0) - my, y1 = fy(size.height) + my;
+    for (let ty = 0; ty < lvl.rows; ty++) {
+      const top = (ty * PLAN_TILE) / lvl.height;
+      const bottom = Math.min(1, ((ty + 1) * PLAN_TILE) / lvl.height);
+      if (bottom < y0 || top > y1) continue;
+      for (let tx = 0; tx < lvl.cols; tx++) {
+        const left = (tx * PLAN_TILE) / lvl.width;
+        const right = Math.min(1, ((tx + 1) * PLAN_TILE) / lvl.width);
+        if (right < x0 || left > x1) continue;
+        tiles.push({
+          key: `${lvl.name}-${tx}-${ty}`,
+          src: `/master-plan/${lvl.name}/${tx}_${ty}.webp`,
+          style: { left: `${left * 100}%`, top: `${top * 100}%`, width: `${(right - left) * 100}%`, height: `${(bottom - top) * 100}%` },
+        });
+      }
+    }
+  }
+  if (!lvl.tiled) tiles = [];
+
+  return (
+    <>
+      <img
+        src="/master-plan/l0.webp"
+        alt="Zion Hills master plan"
+        onLoad={onLoad}
+        className={`absolute inset-0 h-full w-full transition-opacity ${loaded ? 'opacity-100' : 'opacity-0'}`}
+        draggable={false}
+      />
+      {level >= 1 && (
+        <img src="/master-plan/l1.webp" alt="" aria-hidden className="absolute inset-0 h-full w-full" draggable={false} />
+      )}
+      {tiles.map((t) => (
+        <img key={t.key} src={t.src} alt="" aria-hidden decoding="async" className="absolute" style={t.style} draggable={false} />
+      ))}
+    </>
+  );
+}
+
 function MasterPlanBoard({ plots, onSelect, onExpand }: { plots: Plot[]; onSelect: (p: Plot) => void; onExpand?: () => void }) {
   const [loaded, setLoaded] = useState(false);
   return (
@@ -389,15 +472,7 @@ function MasterPlanBoard({ plots, onSelect, onExpand }: { plots: Plot[]; onSelec
         {!loaded && <div className="skeleton absolute inset-0" />}
 
         <ZoomPanMap
-          mapLayer={
-            <img
-              src="/zion-hills-master-plan.svg"
-              alt="Zion Hills master plan"
-              onLoad={() => setLoaded(true)}
-              className={`absolute inset-0 h-full w-full object-contain transition-opacity ${loaded ? 'opacity-100' : 'opacity-0'}`}
-              draggable={false}
-            />
-          }
+          mapLayer={(view) => <MasterPlanImage view={view} loaded={loaded} onLoad={() => setLoaded(true)} />}
           overlay={({ zoom, pan, size }) => {
             if (!loaded) return null;
             return (
