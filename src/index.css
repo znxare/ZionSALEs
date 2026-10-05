@@ -68,6 +68,11 @@ body {
   color: #1a1a1a;
 }
 
+/* Saved PDFs (e.g. a buyer's quote): plain white paper, no page texture. */
+@media print {
+  body { background: #fff; }
+}
+
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #e0dcd5; border-radius: 999px; border: 2px solid #faf8f5; }

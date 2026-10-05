@@ -14,6 +14,7 @@ import { VideoModal, TestimonialButton } from './ShowcaseMedia';
 //   #/q/<link id>  tracked quote (the team sees when it's opened)
 //   #/p/<plot id>?to=<buyer>&by=<advisor>  older untracked links, still work
 
+const LOGO = '/zion-hills-logo.svg';
 const MAP_W = 11233, MAP_H = 7946;
 const L2 = { name: 'l2', width: 7200, height: 5093, cols: 8, rows: 5, tile: 1024 };
 
@@ -95,7 +96,7 @@ export default function PublicPlotPage({ plotId, linkId, buyerName, senderName }
   if (state === 'loading') {
     return (
       <div className="flex min-h-[100dvh] items-center justify-center bg-[#13261c]">
-        <div className="font-lux text-2xl tracking-[0.3em] text-[#e9dcc0] animate-pulse">ZION HILLS</div>
+        <img src={LOGO} alt="Zion Hills Golf County" className="h-16 w-auto animate-pulse brightness-0 invert" />
       </div>
     );
   }
@@ -103,7 +104,7 @@ export default function PublicPlotPage({ plotId, linkId, buyerName, senderName }
     return (
       <div className="flex min-h-[100dvh] items-center justify-center bg-[#f6f2ea] p-6 text-center">
         <div>
-          <div className="font-lux text-3xl tracking-[0.25em] text-[#13261c]">ZION HILLS</div>
+          <img src={LOGO} alt="Zion Hills Golf County" className="mx-auto h-16 w-auto" />
           <p className="mt-3 text-sm text-gray-500">This link is no longer valid. Please contact your Zion Hills host.</p>
         </div>
       </div>
@@ -120,8 +121,17 @@ export default function PublicPlotPage({ plotId, linkId, buyerName, senderName }
 
   return (
     <div className="min-h-[100dvh] bg-[#f6f2ea] text-[#1d2a22] print:bg-white">
+      {/* PDF letterhead: our logo, who it's for, and the date. */}
+      <div className="hidden items-end justify-between border-b border-[#d9cfbd] px-2 pb-3 print:flex">
+        <img src={LOGO} alt="Zion Hills Golf County" className="h-16 w-auto" />
+        <div className="text-right text-[12px] text-[#7a7466]">
+          {buyer && <div className="font-semibold text-[#13261c]">Prepared for {buyer}</div>}
+          <div>Plot {plot.plotNo} · {today}</div>
+        </div>
+      </div>
+      {render && <img src={render} alt={`Villa at plot ${plot.plotNo}`} className="mt-4 hidden max-h-[9cm] w-full rounded-xl object-cover print:block" />}
       {/* Hero — the home they could own */}
-      <header className="relative h-[100svh] min-h-[520px] overflow-hidden bg-[#13261c] print:h-auto print:min-h-0">
+      <header className="relative h-[100svh] min-h-[520px] overflow-hidden bg-[#13261c] print:hidden">
         {render ? (
           <img src={render} alt={`Villa at plot ${plot.plotNo}`} className="absolute inset-0 h-full w-full object-cover animate-hero-zoom print:static print:h-72" />
         ) : (
@@ -134,8 +144,7 @@ export default function PublicPlotPage({ plotId, linkId, buyerName, senderName }
         <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/10 to-black/75" />
 
         <div className="absolute inset-x-0 top-0 flex items-center justify-between px-6 pt-[max(1.25rem,env(safe-area-inset-top))] text-white sm:px-10">
-          <div className="font-lux text-xl tracking-[0.3em]">ZION HILLS</div>
-          <div className="text-[11px] uppercase tracking-[0.2em] text-white/70">Golf County</div>
+          <img src={LOGO} alt="Zion Hills Golf County" className="h-12 w-auto brightness-0 invert drop-shadow sm:h-14" />
         </div>
 
         <div className="absolute inset-x-0 bottom-0 px-6 pb-14 text-white sm:px-10 sm:pb-16">
@@ -156,7 +165,7 @@ export default function PublicPlotPage({ plotId, linkId, buyerName, senderName }
 
       <main className="mx-auto max-w-3xl px-6 sm:px-10">
         {/* Welcome note */}
-        <section className="py-14 text-center sm:py-20">
+        <section className="py-14 text-center sm:py-20 print:py-6">
           <p className="mx-auto max-w-xl font-lux text-2xl leading-relaxed text-[#2c3a31] sm:text-[28px]">
             Mornings on the fairway, evenings on your own terrace — a home set within a championship golf course, made for a slower, finer life.
           </p>
@@ -165,14 +174,14 @@ export default function PublicPlotPage({ plotId, linkId, buyerName, senderName }
 
         {/* The view */}
         {view && (
-          <section className="pb-14 sm:pb-20">
+          <section className="pb-14 sm:pb-20 print:break-inside-avoid print:pb-6">
             <SectionTitle eyebrow="From your plot" title="The view you'll wake up to" />
             <img src={view} alt={`View from plot ${plot.plotNo}`} className="mt-6 w-full rounded-2xl object-cover shadow-xl" />
           </section>
         )}
 
         {/* The home */}
-        <section className="pb-14 sm:pb-20">
+        <section className="pb-14 sm:pb-20 print:break-inside-avoid print:pb-6">
           <SectionTitle eyebrow="The residence" title={`Plot ${plot.plotNo}`} />
           <div className="mt-8 grid grid-cols-3 divide-x divide-[#d9cfbd] border-y border-[#d9cfbd] py-6 text-center">
             <Fact value={`${plot.bedrooms}`} unit="bedrooms" />
@@ -180,13 +189,13 @@ export default function PublicPlotPage({ plotId, linkId, buyerName, senderName }
             <Fact value={plot.builtUpSft.toLocaleString('en-IN')} unit="sq ft built-up" />
           </div>
           <div className="mt-8">
-            <PlanCrop plot={plot} className="rounded-2xl shadow-xl" />
+            <PlanCrop plot={plot} className="rounded-2xl shadow-xl print:mx-auto print:max-w-[13cm] print:shadow-none" />
             <p className="mt-3 text-center text-[13px] text-[#7a7466]">Your plot, outlined in gold on the Zion Hills master plan.</p>
           </div>
         </section>
 
         {/* The price */}
-        <section className="pb-14 sm:pb-20">
+        <section className="pb-14 sm:pb-20 print:break-inside-avoid print:pb-6">
           <SectionTitle eyebrow="Your investment" title="" />
           <div className="mt-2 rounded-3xl bg-[#13261c] px-6 py-10 text-center text-white shadow-2xl sm:px-10">
             <div className="font-lux text-6xl font-medium tracking-tight sm:text-7xl">{formatCrore(k.totalCostLacs)}</div>
@@ -196,7 +205,16 @@ export default function PublicPlotPage({ plotId, linkId, buyerName, senderName }
                 This plot is currently {SHAPE_COLORS[plot.status].label.toLowerCase()}. Your host will gladly show you similar homes.
               </p>
             )}
-            <details className="group mx-auto mt-8 max-w-sm text-left">
+            {/* On paper the breakdown can't be tapped open, so the PDF always shows it. */}
+            <dl className="mx-auto mt-6 hidden max-w-sm divide-y divide-white/10 text-left text-[14px] print:block">
+              <Line label="Land">{formatLakh(k.landCostLacs)}</Line>
+              <Line label="Villa construction">{formatLakh(k.constnCostLacs)}</Line>
+              <Line label="Club membership">{formatLakh(k.clubChargesLacs)}</Line>
+              <Line label="Landscaping">{formatLakh(k.landscapeChargesLacs)}</Line>
+              <Line label="Utilities">{formatLakh(k.utilityChargesLacs)}</Line>
+              <Line label="GST">{formatLakh(k.gstLacs)}</Line>
+            </dl>
+            <details className="group mx-auto mt-8 max-w-sm text-left print:hidden">
               <summary className="flex cursor-pointer list-none items-center justify-center gap-1.5 text-[13px] text-white/70 hover:text-white">
                 See the breakdown <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
               </summary>
@@ -224,7 +242,7 @@ export default function PublicPlotPage({ plotId, linkId, buyerName, senderName }
 
         {/* Your host */}
         {(sender || host) && (
-          <section className="pb-14 sm:pb-20">
+          <section className="pb-14 sm:pb-20 print:break-inside-avoid print:pb-6">
             <div className="flex flex-col items-center rounded-3xl bg-white px-6 py-8 text-center shadow-sm ring-1 ring-[#e7dfd0] sm:flex-row sm:gap-6 sm:text-left">
               {host?.photo ? (
                 <img src={host.photo} alt={sender ?? 'Your host'} className="h-24 w-24 shrink-0 rounded-full object-cover ring-4 ring-[#f6f2ea]" />
@@ -258,7 +276,7 @@ export default function PublicPlotPage({ plotId, linkId, buyerName, senderName }
           <p className="mx-auto mt-6 max-w-md text-[12px] leading-relaxed text-[#9a9384]">
             Prepared on {today}. Prices are indicative and subject to change; the final price is as per the sale agreement. Images are artist's impressions.
           </p>
-          <div className="mt-6 font-lux text-lg tracking-[0.3em] text-[#13261c]">ZION HILLS</div>
+          <img src={LOGO} alt="Zion Hills Golf County" className="mx-auto mt-6 h-14 w-auto" />
         </footer>
       </main>
 
