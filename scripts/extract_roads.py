@@ -6,8 +6,8 @@ from collections import deque
 import numpy as np
 from PIL import Image
 
-HERE = os.path.dirname(os.path.abspath(__file__))  # preview images are written here
-REPO = r'C:\Users\Thisi\zion-fixes'
+HERE = os.environ.get("ROADS_OUT", os.path.dirname(os.path.abspath(__file__)))  # preview images go here
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 im = np.asarray(Image.open(os.path.join(REPO, 'public/master-plan/l1.webp')).convert('RGB')).astype(np.int16)
 H0, W0 = im.shape[:2]
 
