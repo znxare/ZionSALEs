@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import {
   CalendarClock, AlertTriangle, Flame, MapPin, CheckCircle2, UserPlus, ArrowRight,
-  TrendingUp, Award, Snowflake,
+  TrendingUp, Snowflake,
   Phone, MessageCircle, X, ChevronRight, Zap, Quote as QuoteIcon,
 } from 'lucide-react';
 import type { Lead, Campaign, SiteVisit, ReactivationAttempt } from '@/lib/supabase';
@@ -179,18 +179,10 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
 
     // Campaigns only attach to Real Estate leads.
     if (isHospitality) {
-      return { totalLeads, totalSales, leadToSaleRate, bestCampaign: '-', avgCampaignRate: 0, bestRate: 0 };
+      return { totalLeads, totalSales, leadToSaleRate, avgCampaignRate: 0 };
     }
 
     const campaignsWithLeads = campaigns.filter((c) => leads.some((l) => l.campaign_id === c.id));
-    let bestCampaign = '-';
-    let bestRate = 0;
-    campaignsWithLeads.forEach((c) => {
-      const cLeads = leads.filter((l) => l.campaign_id === c.id);
-      const cSold = cLeads.filter((l) => !!l.booked_at);
-      const rate = cLeads.length > 0 ? (cSold.length / cLeads.length) * 100 : 0;
-      if (rate > bestRate) { bestRate = rate; bestCampaign = c.name; }
-    });
     const avgCampaignRate = campaignsWithLeads.length > 0
       ? Math.round(campaignsWithLeads.reduce((sum, c) => {
           const cLeads = leads.filter((l) => l.campaign_id === c.id);
@@ -199,7 +191,7 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
         }, 0) / campaignsWithLeads.length)
       : 0;
 
-    return { totalLeads, totalSales, leadToSaleRate, bestCampaign, avgCampaignRate, bestRate };
+    return { totalLeads, totalSales, leadToSaleRate, avgCampaignRate };
   }, [activeLeads, leads, campaigns, isHospitality]);
 
   const priorityList = useMemo(() => {
@@ -565,12 +557,6 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
               </div>
             )}
           </div>
-          {execMetrics.bestCampaign !== '-' && (
-            <div className="mt-4 flex items-center gap-2 rounded-xl bg-purple-50/60 px-3 py-2 ring-1 ring-purple-200/50">
-              <Award className="h-4 w-4 text-purple-600" />
-              <span className="text-[12px] font-medium text-gray-600">Best: <span className="font-semibold text-gray-900">{execMetrics.bestCampaign}</span> ({Math.round(execMetrics.bestRate)}% conv.)</span>
-            </div>
-          )}
         </div>
 
         {/* Lead Reactivation — Real Estate only (hospitality leads have no reactivation tracking yet) */}
