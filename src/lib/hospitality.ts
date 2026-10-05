@@ -3,7 +3,7 @@ import type { LeadStatus, LeadPriority, ActivityType } from './supabase';
 import { normalizePhone } from './normalize';
 import { getCurrentUser } from './auth';
 import { assertWritable } from './demoMode';
-import { rolledFollowUp, fetchAllPages, qualifierName, claimIfUnassigned } from './crm';
+import { rolledFollowUp, fetchAllPages, qualifierName, claimIfUnassigned, withClosedFollowUp } from './crm';
 
 // A parallel lead pipeline for the Hospitality division (getaway stays &
 // corporate bookings), backed by its own `hospitality_leads` /
@@ -120,7 +120,8 @@ export async function createHospitalityLead(input: HospitalityLeadInsert): Promi
   return lead;
 }
 
-export async function updateHospitalityLead(id: string, patch: Partial<HospitalityLead>): Promise<HospitalityLead> {
+export async function updateHospitalityLead(id: string, rawPatch: Partial<HospitalityLead>): Promise<HospitalityLead> {
+  const patch = withClosedFollowUp(rawPatch);
   assertWritable();
   const { data, error } = await supabase
     .from('hospitality_leads')

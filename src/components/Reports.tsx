@@ -7,6 +7,7 @@ import {
   fetchActivitiesBetween, fetchAllSiteVisits, formatDate, formatDateTime, STATUSES, UNASSIGNED_CAMPAIGN_LABEL,
 } from '@/lib/crm';
 import { fetchHospitalityActivitiesBetween, type HospitalityLead } from '@/lib/hospitality';
+import { csvCell } from '@/lib/csv';
 
 type Vertical = 'all' | 'realestate' | 'hospitality';
 type RangePreset = 'this_month' | 'last_month' | 'last_30' | 'last_90' | 'this_year' | 'custom';
@@ -146,8 +147,7 @@ function isActive(l: ReportLead): boolean {
 }
 
 function downloadCsv(filename: string, header: string[], rows: (string | number | null | undefined)[][]) {
-  const esc = (v: string | number | null | undefined) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const csv = [header.map(esc).join(','), ...rows.map((r) => r.map(esc).join(','))].join('\n');
+  const csv = [header.map(csvCell).join(','), ...rows.map((r) => r.map(csvCell).join(','))].join('\n');
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
   const a = document.createElement('a');
   a.href = url;

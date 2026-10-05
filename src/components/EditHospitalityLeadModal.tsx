@@ -3,6 +3,7 @@ import { X, Save, AlertTriangle } from 'lucide-react';
 import type { LeadStatus } from '@/lib/supabase';
 import { updateHospitalityLead, findHospitalityLeadByPhone, HOSPITALITY_SOURCES, HOSPITALITY_STATUSES, type HospitalityLead, type HospitalitySource } from '@/lib/hospitality';
 import { normalizePhone } from '@/lib/normalize';
+import { toLocalInputValue } from '@/lib/crm';
 import type { Profile } from '@/lib/supabase';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -123,7 +124,7 @@ export default function EditHospitalityLeadModal({ lead, profiles, onClose, onSa
               <label className="mb-1.5 block text-[12px] font-semibold uppercase tracking-wide text-gray-400">Next follow-up</label>
               <input
                 type="datetime-local"
-                value={(form.next_followup_at ?? '').slice(0, 16)}
+                value={toLocalInputValue(form.next_followup_at)}
                 onChange={(e) => setForm({ ...form, next_followup_at: new Date(e.target.value).toISOString() })}
                 className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-rose-300"
               />

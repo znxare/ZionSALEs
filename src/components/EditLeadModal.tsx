@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Save, AlertTriangle } from 'lucide-react';
 import type { Lead, LeadSource, LeadStatus, Campaign, Profile } from '@/lib/supabase';
-import { updateLead, findLeadByPhone, SOURCES, STATUSES, UNASSIGNED_CAMPAIGN_LABEL } from '@/lib/crm';
+import { updateLead, findLeadByPhone, SOURCES, STATUSES, UNASSIGNED_CAMPAIGN_LABEL, toLocalInputValue } from '@/lib/crm';
 import { normalizePhone } from '@/lib/normalize';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -143,7 +143,7 @@ export default function EditLeadModal({ lead, campaigns, profiles, onClose, onSa
               <label className="mb-1.5 block text-[12px] font-semibold uppercase tracking-wide text-gray-400">Next follow-up</label>
               <input
                 type="datetime-local"
-                value={(form.next_followup_at ?? '').slice(0, 16)}
+                value={toLocalInputValue(form.next_followup_at)}
                 onChange={(e) => setForm({ ...form, next_followup_at: new Date(e.target.value).toISOString() })}
                 className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-emerald-300"
               />

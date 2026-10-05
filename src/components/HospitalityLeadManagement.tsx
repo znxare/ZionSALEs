@@ -20,6 +20,7 @@ import EditHospitalityLeadModal from './EditHospitalityLeadModal';
 import AddHospitalityLeadModal from './AddHospitalityLeadModal';
 import FollowUpSheet from './FollowUpSheet';
 import { usePermissions } from '@/lib/access';
+import { csvCell } from '@/lib/csv';
 
 type SortKey = 'newest' | 'oldest' | 'followup' | 'lastcontacted' | 'name' | 'hot';
 type ViewMode = 'table' | 'card';
@@ -90,11 +91,16 @@ function getRange(preset: DateRangePreset, customStart: string, customEnd: strin
     case 'this_week': {
       const sow = new Date(now); sow.setDate(sow.getDate() - ((sow.getDay() + 6) % 7)); sow.setHours(0, 0, 0, 0);
       const eow = new Date(sow); eow.setDate(eow.getDate() + 7);
-      return { start: sow, end: eow };
+      return { start: sow, end: new Date(eow.getTime() - 1) };
     }
-    case 'this_month': { const s = new Date(now.getFullYear(), now.getMonth(), 1); const e = new Date(now.getFullYear(), now.getMonth() + 1, 1); return { start: s, end: e }; }
-    case 'last_month': { const s = new Date(now.getFullYear(), now.getMonth() - 1, 1); const e = new Date(now.getFullYear(), now.getMonth(), 1); return { start: s, end: e }; }
-    case 'custom': { const s = customStart ? new Date(customStart) : new Date(0); const e = customEnd ? endOfDay(new Date(customEnd)) : endOfDay(now); return { start: s, end: e }; }
+    case 'this_month': { const s = new Date(now.getFullYear(), now.getMonth(), 1); const e = new Date(now.getFullYear(), now.getMonth() + 1, 1); return { start: s, end: new Date(e.getTime() - 1) }; }
+    case 'last_month': { const s = new Date(now.getFullYear(), now.getMonth() - 1, 1); const e = new Date(now.getFullYear(), now.getMonth(), 1); return { start: s, end: new Date(e.getTime() - 1) }; }
+    case 'custom': {
+      // Local dates — new Date('YYYY-MM-DD') would be UTC midnight (5:30 am in India).
+      const s = customStart ? new Date(customStart + 'T00:00:00') : new Date(0);
+      const e = customEnd ? endOfDay(new Date(customEnd + 'T00:00:00')) : endOfDay(now);
+      return { start: s, end: e };
+    }
     default: return { start: new Date(0), end: endOfDay(now) };
   }
 }
@@ -263,7 +269,7 @@ export default function HospitalityLeadManagement({ leads, profiles, onOpenLead,
     const cols = ['Name', 'Phone', 'Email', 'City', 'Source', 'Status', 'Next Follow-up', 'Created'];
     const lines = [cols.join(',')];
     rows.forEach((l) => {
-      lines.push([l.name, l.phone, l.email ?? '', l.city ?? '', l.source, l.status, l.next_followup_at, l.created_at].map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','));
+      lines.push([l.name, l.phone, l.email ?? '', l.city ?? '', l.source, l.status, l.next_followup_at, l.created_at].map(csvCell).join(','));
     });
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -303,7 +309,7 @@ export default function HospitalityLeadManagement({ leads, profiles, onOpenLead,
           l.last_activity_type ?? '',
           l.booked_at ? formatDate(l.booked_at) : '',
           notes, formatDate(l.created_at),
-        ].map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','));
+        ].map(csvCell).join(','));
       }
       const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
       const url = URL.createObjectURL(blob);

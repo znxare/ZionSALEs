@@ -11,6 +11,7 @@ import {
 } from '@/lib/crm';
 import { BarChart, DonutChart } from './charts';
 import Private from './Private';
+import { csvCell } from '@/lib/csv';
 
 type ViewMode = 'list' | 'analytics' | 'calendar';
 type DateRangePreset = 'today' | 'yesterday' | 'this_week' | 'last_week' | 'this_month' | 'last_month' | 'custom' | 'all';
@@ -278,7 +279,7 @@ export default function SiteVisits({ leads, campaigns, onOpenLead, onChanged }: 
     const cols = ['Prospect', 'Phone', 'Visits Done', 'Last Visit Done', 'Next Scheduled', 'Campaign', 'Status'];
     const lines = [cols.join(',')];
     prospects.forEach((r) => {
-      lines.push([r.name, r.phone, r.visits, r.latest ? formatDateTime(r.latest) : '', r.next ? formatDateTime(r.next) : '', r.campaign, r.status].map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','));
+      lines.push([r.name, r.phone, r.visits, r.latest ? formatDateTime(r.latest) : '', r.next ? formatDateTime(r.next) : '', r.campaign, r.status].map(csvCell).join(','));
     });
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);

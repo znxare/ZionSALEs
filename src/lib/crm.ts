@@ -216,7 +216,16 @@ export interface UpdateLeadOptions {
   claim?: boolean;
 }
 
-export async function updateLead(id: string, patch: Partial<Lead>, opts: UpdateLeadOptions = {}): Promise<Lead> {
+// A Dead, Junk or sold lead needs no follow-up — clear it however the status
+// or sale was set (bulk edit, Edit Lead, quick actions), unless the caller
+// sets a follow-up explicitly.
+export function withClosedFollowUp<T extends { status?: LeadStatus; booked_at?: string | null; next_followup_at?: string | null }>(patch: T): T {
+  const closing = (patch.status && TERMINAL_STATUSES.includes(patch.status)) || !!patch.booked_at;
+  return closing && !('next_followup_at' in patch) ? { ...patch, next_followup_at: null } : patch;
+}
+
+export async function updateLead(id: string, rawPatch: Partial<Lead>, opts: UpdateLeadOptions = {}): Promise<Lead> {
+  const patch = withClosedFollowUp(rawPatch);
   const { data, error } = await supabase
     .from('leads')
     .update(patch)
