@@ -6,6 +6,7 @@ import { supabase } from './supabase';
 // Nothing is stored — positions only pass between the two paired devices.
 
 export type MapPt = [number, number]; // % of the master plan's width / height
+const PLAN_W = 3369.9, PLAN_H = 2383.8; // master plan proportions (for directions on the plan)
 
 export interface GpsFix {
   lat: number;
@@ -58,16 +59,69 @@ export interface GpsTransform {
   toGps: (pt: MapPt) => { lat: number; lng: number };
   /** Roughly how many metres one % of map width spans (for drawing accuracy circles). */
   metresPerPct: number;
-  /** Per calibration point: how far (m) the fit lands from where it was tapped. */
+  /** Per calibration point: how far (m) a single overall fit lands from where it was tapped
+   *  (a big number usually means a mis-tapped spot, or a part of the drawing that's distorted). */
   errors: number[];
+  /** Map-direction (degrees clockwise from "up" on the plan) of a compass heading at a GPS point. */
+  mapHeading: (lat: number, lng: number, compassDeg: number) => number;
+  /** The spots imply a mirror-image map (east↔west) — almost always a mis-tapped spot. */
+  mirrored: boolean;
+}
+
+// ---------- Delaunay triangulation (Bowyer–Watson; fine for a few dozen points) ----------
+
+type Tri = [number, number, number];
+
+function circumcircleContains(pts: [number, number][], t: Tri, p: [number, number]): boolean {
+  const [a, b, c] = t.map((i) => pts[i]);
+  const ax = a[0] - p[0], ay = a[1] - p[1];
+  const bx = b[0] - p[0], by = b[1] - p[1];
+  const cx = c[0] - p[0], cy = c[1] - p[1];
+  const det = (ax * ax + ay * ay) * (bx * cy - cx * by) - (bx * bx + by * by) * (ax * cy - cx * ay) + (cx * cx + cy * cy) * (ax * by - bx * ay);
+  const orient = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+  return orient > 0 ? det > 0 : det < 0;
+}
+
+function delaunay(input: [number, number][]): Tri[] {
+  const n = input.length;
+  const xs = input.map((p) => p[0]), ys = input.map((p) => p[1]);
+  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+  const d = Math.max(maxX - minX, maxY - minY) * 20 || 1;
+  const mx = (minX + maxX) / 2, my = (minY + maxY) / 2;
+  const pts: [number, number][] = [...input, [mx - d, my - d], [mx + d, my - d], [mx, my + d]];
+  let tris: Tri[] = [[n, n + 1, n + 2]];
+  for (let i = 0; i < n; i++) {
+    const bad = tris.filter((t) => circumcircleContains(pts, t, pts[i]));
+    const edges: [number, number][] = [];
+    for (const t of bad) {
+      for (const [a, b] of [[t[0], t[1]], [t[1], t[2]], [t[2], t[0]]] as [number, number][]) {
+        const shared = bad.some((o) => o !== t && o.includes(a) && o.includes(b));
+        if (!shared) edges.push([a, b]);
+      }
+    }
+    tris = tris.filter((t) => !bad.includes(t));
+    for (const [a, b] of edges) tris.push([a, b, i]);
+  }
+  return tris.filter((t) => t.every((i) => i < n));
+}
+
+function barycentric(p: [number, number], a: [number, number], b: [number, number], c: [number, number]): [number, number, number] | null {
+  const den = (b[1] - c[1]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[1] - c[1]);
+  if (Math.abs(den) < 1e-9) return null;
+  const w1 = ((b[1] - c[1]) * (p[0] - c[0]) + (c[0] - b[0]) * (p[1] - c[1])) / den;
+  const w2 = ((c[1] - a[1]) * (p[0] - c[0]) + (a[0] - c[0]) * (p[1] - c[1])) / den;
+  return [w1, w2, 1 - w1 - w2];
 }
 
 /**
- * Best-fit (least-squares affine) mapping from GPS to the master plan, from 3+
- * calibration points. Affine absorbs the drawing's scale, rotation and skew;
- * the per-point errors show how well the illustration matches the ground.
+ * GPS → master plan. The master plan is an illustration, not a survey, so one
+ * overall fit is only right near the calibration spots. With 4+ spots the area
+ * between neighbouring spots is matched separately ("rubber-sheeting" over a
+ * triangulation of the spots): exact at every spot, smooth in between — like
+ * pinning a stretchy sheet at each one. Outside the spots' outline (and with
+ * only 3 spots) a least-squares affine fit is used.
  */
-export function fitTransform(cal: Calibration | null): GpsTransform | null {
+export function fitTransform(cal: Calibration | null, opts: { rubberSheet?: boolean } = {}): GpsTransform | null {
   const pts = cal?.points ?? [];
   if (pts.length < 3) return null;
   const lat0 = pts.reduce((s, p) => s + p.lat, 0) / pts.length;
@@ -95,8 +149,29 @@ export function fitTransform(cal: Calibration | null): GpsTransform | null {
     const [px, py] = toMapM(m[i][0], m[i][1]);
     return Math.hypot(px - p.x, py - p.y) * metresPerPct;
   });
+  const tris = pts.length >= 4 && opts.rubberSheet !== false ? delaunay(m) : [];
+  const toMap = (lat: number, lng: number): MapPt => {
+    const P = toMetres(lat, lng, lat0, lng0);
+    for (const [i, j, k] of tris) {
+      const w = barycentric(P, m[i], m[j], m[k]);
+      if (w && w[0] >= -1e-9 && w[1] >= -1e-9 && w[2] >= -1e-9) {
+        return [w[0] * pts[i].x + w[1] * pts[j].x + w[2] * pts[k].x, w[0] * pts[i].y + w[1] * pts[j].y + w[2] * pts[k].y];
+      }
+    }
+    return toMapM(P[0], P[1]);
+  };
   return {
-    toMap: (lat, lng) => { const [X, Y] = toMetres(lat, lng, lat0, lng0); return toMapM(X, Y); },
+    toMap,
+    // Map y grows downward while north grows upward, so a correct fit has a
+    // negative determinant; positive means the plan came out mirrored.
+    mirrored: det > 0,
+    mapHeading: (lat, lng, compassDeg) => {
+      // Project a point 15 m ahead along the compass heading and see where it lands on the plan.
+      const r = (compassDeg * Math.PI) / 180;
+      const a = toMap(lat, lng);
+      const b = toMap(lat + (Math.cos(r) * 15) / 110540, lng + (Math.sin(r) * 15) / kx);
+      return (Math.atan2((b[0] - a[0]) * PLAN_W, -(b[1] - a[1]) * PLAN_H) * 180) / Math.PI;
+    },
     toGps: ([x, y]) => {
       const bx = x - cx[2], by = y - cy[2];
       const X = (bx * cy[1] - cx[1] * by) / det;
@@ -145,6 +220,20 @@ export function joinTour(code: string, onMessage: (m: TourMessage) => void, onSt
     send: (m: TourMessage) => { void channel.send({ type: 'broadcast', event: 'm', payload: m }); },
     leave: () => { void supabase.removeChannel(channel); },
   };
+}
+
+// ---------- GPS helpers ----------
+
+/** Compass bearing (degrees from north) from one GPS point to another. */
+export function bearing(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const kx = Math.cos((a.lat * Math.PI) / 180);
+  return ((Math.atan2((b.lng - a.lng) * kx, b.lat - a.lat) * 180) / Math.PI + 360) % 360;
+}
+
+/** Metres between two GPS points (short distances). */
+export function distanceM(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const [x, y] = toMetres(b.lat, b.lng, a.lat, a.lng);
+  return Math.hypot(x, y);
 }
 
 // ---------- GPS smoothing ----------

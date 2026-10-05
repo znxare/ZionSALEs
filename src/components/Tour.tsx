@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { X, Navigation, Radio, Smartphone, Tablet, Crosshair, Trash2, Save, Locate, MapPin, Loader2 } from 'lucide-react';
+import { X, Navigation, Radio, Smartphone, Tablet, Crosshair, Trash2, Save, Locate, MapPin, Loader2, Download } from 'lucide-react';
 import { SAMPLE_PLOTS } from '@/lib/inventory';
 import { centroidOf } from '@/lib/plotMap';
 import { usePermissions } from '@/lib/access';
 import {
-  fitTransform, loadCalibration, saveCalibration, joinTour, newPairCode, smoothFix, keepScreenOn,
+  fitTransform, loadCalibration, saveCalibration, joinTour, newPairCode, smoothFix, keepScreenOn, bearing, distanceM,
   type Calibration, type CalPoint, type GpsFix, type MapPt, type TourMessage,
 } from '@/lib/tour';
 import { MasterPlanBoard, type TourMarker } from './LiveInventoryBoard';
@@ -24,7 +24,43 @@ function useCalibration() {
 function markerFor(fix: GpsFix | null, cal: Calibration | null): TourMarker | null {
   const tf = fitTransform(cal);
   if (!fix || !tf) return null;
-  return { pt: tf.toMap(fix.lat, fix.lng), accuracyPct: fix.accuracy / tf.metresPerPct, heading: fix.heading };
+  return {
+    pt: tf.toMap(fix.lat, fix.lng),
+    accuracyPct: fix.accuracy / tf.metresPerPct,
+    // GPS headings are compass bearings; the plan isn't drawn north-up, so turn
+    // them into a direction on the plan.
+    heading: fix.heading == null ? null : tf.mapHeading(fix.lat, fix.lng, fix.heading),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Calibration kept on this phone too — never lost, even if saving fails
+// ---------------------------------------------------------------------------
+const LOCAL_CAL_KEY = 'zion-tour-calibration';
+
+function loadLocalCalibration(): Calibration | null {
+  try {
+    const v = JSON.parse(localStorage.getItem(LOCAL_CAL_KEY) ?? 'null') as Calibration | null;
+    return v && Array.isArray(v.points) && v.points.length > 0 ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveLocalCalibration(cal: Calibration) {
+  try { localStorage.setItem(LOCAL_CAL_KEY, JSON.stringify(cal)); } catch { /* storage unavailable */ }
+}
+
+function downloadSpots(points: CalPoint[]) {
+  const rows = [['Spot', 'Latitude', 'Longitude', 'Map X %', 'Map Y %']];
+  points.forEach((p, i) => rows.push([p.label ?? `Spot ${i + 1}`, p.lat.toFixed(7), p.lng.toFixed(7), p.x.toFixed(3), p.y.toFixed(3)]));
+  const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `zion-tour-spots-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ---------------------------------------------------------------------------
@@ -46,6 +82,7 @@ function useGps(active: boolean, sim: boolean, cal: Calibration | null) {
   const [fix, setFix] = useState<GpsFix | null>(null);
   const [error, setError] = useState<string | null>(null);
   const last = useRef<GpsFix | null>(null);
+  const lastRaw = useRef<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
     if (!active) return;
@@ -58,7 +95,7 @@ function useGps(active: boolean, sim: boolean, cal: Calibration | null) {
         const a = route[i % route.length], b = route[(i + 1) % route.length];
         const pt: MapPt = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
         const g = tf.toGps(pt);
-        const heading = (Math.atan2(b[0] - a[0], -(b[1] - a[1])) * 180) / Math.PI;
+        const heading = bearing(tf.toGps(a), tf.toGps(b));
         const next = { lat: g.lat, lng: g.lng, accuracy: 4, heading, t: Date.now() };
         last.current = next;
         setFix(next);
@@ -73,13 +110,17 @@ function useGps(active: boolean, sim: boolean, cal: Calibration | null) {
     }
     const id = navigator.geolocation.watchPosition(
       (pos) => {
-        const raw: GpsFix = {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          accuracy: pos.coords.accuracy,
-          heading: pos.coords.heading != null && !Number.isNaN(pos.coords.heading) && (pos.coords.speed ?? 0) > 0.5 ? pos.coords.heading : last.current?.heading ?? null,
-          t: pos.timestamp,
-        };
+        const here = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        // Direction of travel: the phone's own heading when moving, else worked
+        // out from the last few metres travelled (many phones report none).
+        let heading: number | null = last.current?.heading ?? null;
+        if (pos.coords.heading != null && !Number.isNaN(pos.coords.heading) && (pos.coords.speed ?? 0) > 0.5) {
+          heading = pos.coords.heading;
+        } else if (lastRaw.current && distanceM(lastRaw.current, here) >= 4) {
+          heading = bearing(lastRaw.current, here);
+        }
+        if (!lastRaw.current || distanceM(lastRaw.current, here) >= 4) lastRaw.current = here;
+        const raw: GpsFix = { ...here, accuracy: pos.coords.accuracy, heading, t: pos.timestamp };
         const next = smoothFix(last.current, raw);
         last.current = next;
         setFix(next);
@@ -107,8 +148,11 @@ export function TourRemote({ onExit }: { onExit: () => void }) {
   const [live, setLive] = useState(false);
   const [calibrating, setCalibrating] = useState(false);
   const { cal: savedCal, setCal, loading } = useCalibration();
-  // In simulation with no real calibration yet, use the stand-in one (and hand it to the iPad).
-  const cal = savedCal ?? (sim ? SIM_CAL : null);
+  const [localCal, setLocalCal] = useState<Calibration | null>(() => loadLocalCalibration());
+  // Team calibration first, else the one recorded on this phone (works even if
+  // it was never saved), else — in simulation — a stand-in. The iPad gets the same.
+  const usingLocal = !savedCal && !!localCal && !!fitTransform(localCal);
+  const cal = savedCal ?? (usingLocal ? localCal : null) ?? (sim ? SIM_CAL : null);
   const { fix, error } = useGps(sharing || calibrating, sim, cal);
   const link = useRef<ReturnType<typeof joinTour> | null>(null);
   const lastSent = useRef(0);
@@ -155,7 +199,16 @@ export function TourRemote({ onExit }: { onExit: () => void }) {
   const tf = fitTransform(cal);
 
   if (calibrating) {
-    return <Calibrate fix={fix} gpsError={error} cal={savedCal} onSaved={(c) => { setCal(c); link.current?.send({ kind: 'calibration', cal: c }); }} onClose={() => setCalibrating(false)} />;
+    return (
+      <Calibrate
+        fix={fix}
+        gpsError={error}
+        cal={savedCal ?? localCal}
+        onChange={(c) => { setLocalCal(c); if (fitTransform(c)) link.current?.send({ kind: 'calibration', cal: c }); }}
+        onSaved={(c) => { setCal(c); link.current?.send({ kind: 'calibration', cal: c }); }}
+        onClose={() => setCalibrating(false)}
+      />
+    );
   }
 
   return (
@@ -177,6 +230,11 @@ export function TourRemote({ onExit }: { onExit: () => void }) {
         </div>
       </div>
 
+      {usingLocal && (
+        <div className="mx-4 mt-3 rounded-xl bg-sky-50 px-4 py-3 text-[13px] text-sky-800">
+          Using the calibration recorded on this phone (not saved for the team yet) — tours work normally.
+        </div>
+      )}
       {!loading && !tf && (
         <div className="mx-4 mt-3 rounded-xl bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
           Not calibrated yet — the dot can't be placed on the map until you calibrate (3+ spots, 5–6 is best).
@@ -223,10 +281,11 @@ function Status({ ok, label }: { ok: boolean; label: string }) {
 // ---------------------------------------------------------------------------
 // Calibration — tap a spot on the plan, record the phone's averaged GPS there
 // ---------------------------------------------------------------------------
-function Calibrate({ fix, gpsError, cal, onSaved, onClose }: {
+function Calibrate({ fix, gpsError, cal, onChange, onSaved, onClose }: {
   fix: GpsFix | null;
   gpsError: string | null;
   cal: Calibration | null;
+  onChange: (c: Calibration) => void;
   onSaved: (c: Calibration) => void;
   onClose: () => void;
 }) {
@@ -238,6 +297,17 @@ function Calibrate({ fix, gpsError, cal, onSaved, onClose }: {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const samples = useRef<GpsFix[]>([]);
   const tf = useMemo(() => fitTransform({ points }), [points]);
+
+  // Every change is kept on this phone straight away and used for tours, so
+  // nothing recorded on site is ever lost — even if saving for the team fails.
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    const c = { points };
+    saveLocalCalibration(c);
+    onChange(c);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [points]);
 
   // While sampling, collect fixes for ~6 s and average the good ones.
   useEffect(() => {
@@ -272,7 +342,8 @@ function Calibrate({ fix, gpsError, cal, onSaved, onClose }: {
       onSaved(c);
       setMsg({ ok: true, text: 'Calibration saved for the whole team.' });
     } catch (e) {
-      setMsg({ ok: false, text: e instanceof Error ? e.message : 'Could not save.' });
+      const why = e instanceof Error ? e.message : String(e);
+      setMsg({ ok: false, text: `Couldn't save for the team (${why}). Your spots are still kept on this phone and work for tours — or tap Download and send me the file.` });
     } finally {
       setSaving(false);
     }
@@ -308,10 +379,15 @@ function Calibrate({ fix, gpsError, cal, onSaved, onClose }: {
 
       <div className="mx-4 mt-3 flex flex-wrap items-center gap-2 text-[12px]">
         <Status ok={!!fix && fix.accuracy <= 15} label={fix ? `GPS ±${Math.round(fix.accuracy)} m` : 'Finding GPS…'} />
-        {avgErr != null && points.length >= 4 && <Status ok={avgErr <= 12} label={`Fit accuracy ≈ ${Math.round(avgErr)} m`} />}
+        {avgErr != null && points.length >= 4 && <Status ok={avgErr <= 15} label={`Drawing match ≈ ${Math.round(avgErr)} m`} />}
         {points.length === 3 && <span className="text-gray-500">3 spots always fit exactly — add 2–3 more to measure real accuracy</span>}
         {points.length > 0 && points.length < 3 && <span className="text-gray-500">{3 - points.length} more spot(s) needed</span>}
       </div>
+      {tf?.mirrored && (
+        <div className="mx-4 mt-2 rounded-xl bg-red-50 px-4 py-2 text-[13px] font-medium text-red-700">
+          These spots make the map come out mirror-image, so the dot would move the wrong way. One spot is probably tapped in the wrong place — remove the most recent one (or any marked orange) and record it again.
+        </div>
+      )}
       {gpsError && <div className="mx-4 mt-2 rounded-xl bg-red-50 px-4 py-2 text-[13px] text-red-700">{gpsError}</div>}
       {msg && <div className={`mx-4 mt-2 rounded-xl px-4 py-2 text-[13px] ${msg.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'}`}>{msg.text}</div>}
 
@@ -344,7 +420,18 @@ function Calibrate({ fix, gpsError, cal, onSaved, onClose }: {
         >
           <Save className="h-4 w-4" /> {saving ? 'Saving…' : 'Save'}
         </button>
-        {!can.isAdmin && <p className="col-span-2 text-center text-[12px] text-gray-500">Only the admin can save the calibration.</p>}
+        <button
+          onClick={() => downloadSpots(points)}
+          disabled={points.length === 0}
+          className="col-span-2 flex items-center justify-center gap-2 rounded-2xl bg-white py-3 text-sm font-semibold text-gray-700 card-shadow disabled:opacity-50"
+        >
+          <Download className="h-4 w-4" /> Download spots (Excel / CSV)
+        </button>
+        {!can.isAdmin && (
+          <p className="col-span-2 text-center text-[12px] text-gray-500">
+            Saving for the whole team needs the Admin login. Spots are kept on this phone and work for your tours anyway.
+          </p>
+        )}
         {!picked && !sampling && <p className="col-span-2 text-center text-[12px] text-gray-400">Tap your current spot on the plan first.</p>}
       </div>
     </div>
