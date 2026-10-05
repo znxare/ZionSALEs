@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import type { Lead, Campaign, SiteVisit } from '@/lib/supabase';
 import {
-  fetchAllSiteVisits, removeSiteVisit, formatDate, formatTime, formatDateTime, isToday, isThisWeek, isThisMonth,
+  fetchAllSiteVisits, removeSiteVisit, formatDate, formatTime, formatDateTime, isToday, isThisMonth,
   UNASSIGNED_CAMPAIGN_LABEL,
 } from '@/lib/crm';
 import { BarChart, DonutChart } from './charts';
@@ -21,6 +21,12 @@ interface Props {
   onOpenLead: (id: string) => void;
   onChanged?: () => void;
 }
+
+// Calendar chips: planned visits in violet, completed in green, others struck through.
+const CALENDAR_STYLES: Record<string, string> = {
+  Scheduled: 'bg-violet-50 text-violet-700',
+  Completed: 'bg-emerald-50 text-emerald-700',
+};
 
 const CHART_COLORS = ['#1f6f43', '#c9a227', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899'];
 
@@ -114,23 +120,30 @@ export default function SiteVisits({ leads, campaigns, onOpenLead, onChanged }: 
     });
   }, [visits, range]);
 
+  // A visit counts as done only once it's marked Completed; Scheduled ones are
+  // plans — they show on the calendar and as "upcoming", not in visit counts.
+  const doneVisits = useMemo(() => visits.filter((v) => v.status === 'Completed'), [visits]);
+
   // KPI cards (all-time)
   const kpis = useMemo(() => {
-    const today = visits.filter((v) => isToday(v.scheduled_at));
-    const week = visits.filter((v) => isThisWeek(v.scheduled_at));
-    const month = visits.filter((v) => isThisMonth(v.scheduled_at));
-    const uniqueProspects = new Set(visits.map((v) => v.lead_id)).size;
-    const avg = uniqueProspects > 0 ? (visits.length / uniqueProspects).toFixed(1) : '0';
-    return { today: today.length, week: week.length, month: month.length, total: visits.length, avg };
-  }, [visits]);
+    const startToday = new Date(); startToday.setHours(0, 0, 0, 0);
+    const scheduled = visits.filter((v) => v.status === 'Scheduled');
+    const scheduledToday = scheduled.filter((v) => isToday(v.scheduled_at));
+    const upcoming = scheduled.filter((v) => new Date(v.scheduled_at) >= startToday);
+    const doneMonth = doneVisits.filter((v) => isThisMonth(v.scheduled_at));
+    const uniqueProspects = new Set(doneVisits.map((v) => v.lead_id)).size;
+    const avg = uniqueProspects > 0 ? (doneVisits.length / uniqueProspects).toFixed(1) : '0';
+    return { today: scheduledToday.length, upcoming: upcoming.length, month: doneMonth.length, total: doneVisits.length, avg };
+  }, [visits, doneVisits]);
 
   // Date range KPIs
   const rangeKpis = useMemo(() => {
-    const total = rangedVisits.length;
-    const uniqueProspects = new Set(rangedVisits.map((v) => v.lead_id)).size;
+    const done = rangedVisits.filter((v) => v.status === 'Completed');
+    const total = done.length;
+    const uniqueProspects = new Set(done.map((v) => v.lead_id)).size;
     const repeatProspects = new Set<string>();
     const counts = new Map<string, number>();
-    rangedVisits.forEach((v) => { const c = (counts.get(v.lead_id) ?? 0) + 1; counts.set(v.lead_id, c); if (c > 1) repeatProspects.add(v.lead_id); });
+    done.forEach((v) => { const c = (counts.get(v.lead_id) ?? 0) + 1; counts.set(v.lead_id, c); if (c > 1) repeatProspects.add(v.lead_id); });
     const avg = uniqueProspects > 0 ? (total / uniqueProspects).toFixed(1) : '0';
     return { total, uniqueProspects, repeat: repeatProspects.size, avg };
   }, [rangedVisits]);
@@ -145,14 +158,18 @@ export default function SiteVisits({ leads, campaigns, onOpenLead, onChanged }: 
     });
     const rows = [...byLead.entries()].map(([leadId, vList]) => {
       const lead = leadMap.get(leadId);
-      const sorted = vList.sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime());
+      const done = vList.filter((v) => v.status === 'Completed')
+        .sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime());
+      const next = vList.filter((v) => v.status === 'Scheduled')
+        .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())[0];
       const campaign = lead?.campaign_id ? campaignMap.get(lead.campaign_id) : null;
       return {
         leadId,
         name: lead?.name ?? 'Unknown',
         phone: lead?.phone ?? '—',
-        visits: vList.length,
-        latest: sorted[0].scheduled_at,
+        visits: done.length,
+        latest: done[0]?.scheduled_at ?? null,
+        next: next?.scheduled_at ?? null,
         status: lead?.status ?? '—',
         campaign: campaign?.name ?? UNASSIGNED_CAMPAIGN_LABEL,
       };
@@ -169,32 +186,32 @@ export default function SiteVisits({ leads, campaigns, onOpenLead, onChanged }: 
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const e = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
       const label = d.toLocaleDateString('en-IN', { month: 'short' });
-      const count = visits.filter((v) => { const td = new Date(v.scheduled_at); return td >= d && td < e; }).length;
+      const count = doneVisits.filter((v) => { const td = new Date(v.scheduled_at); return td >= d && td < e; }).length;
       buckets.set(label, count);
     }
     return [...buckets.entries()].map(([label, value]) => ({ label, value }));
-  }, [visits]);
+  }, [doneVisits]);
 
   const byCampaign = useMemo(() => {
     const m = new Map<string, number>();
-    visits.forEach((v) => {
+    doneVisits.forEach((v) => {
       const lead = leadMap.get(v.lead_id);
       const camp = lead?.campaign_id ? campaignMap.get(lead.campaign_id) : null;
       const k = camp?.name ?? UNASSIGNED_CAMPAIGN_LABEL;
       m.set(k, (m.get(k) ?? 0) + 1);
     });
     return [...m.entries()].map(([label, value], i) => ({ label, value, color: CHART_COLORS[i % CHART_COLORS.length] }));
-  }, [visits, leadMap, campaignMap]);
+  }, [doneVisits, leadMap, campaignMap]);
 
   const byStatus = useMemo(() => {
     const m = new Map<string, number>();
-    visits.forEach((v) => {
+    doneVisits.forEach((v) => {
       const lead = leadMap.get(v.lead_id);
       const k = lead?.status ?? 'Unknown';
       m.set(k, (m.get(k) ?? 0) + 1);
     });
     return [...m.entries()].map(([label, value], i) => ({ label, value, color: CHART_COLORS[i % CHART_COLORS.length] }));
-  }, [visits, leadMap]);
+  }, [doneVisits, leadMap]);
 
   // Calendar
   const calendarDays = useMemo(() => {
@@ -221,10 +238,10 @@ export default function SiteVisits({ leads, campaigns, onOpenLead, onChanged }: 
   }, [visits]);
 
   function exportCsv() {
-    const cols = ['Prospect', 'Phone', 'Visits', 'Latest Visit', 'Campaign', 'Status'];
+    const cols = ['Prospect', 'Phone', 'Visits Done', 'Last Visit Done', 'Next Scheduled', 'Campaign', 'Status'];
     const lines = [cols.join(',')];
     prospects.forEach((r) => {
-      lines.push([r.name, r.phone, r.visits, formatDateTime(r.latest), r.campaign, r.status].map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','));
+      lines.push([r.name, r.phone, r.visits, r.latest ? formatDateTime(r.latest) : '', r.next ? formatDateTime(r.next) : '', r.campaign, r.status].map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','));
     });
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -258,11 +275,11 @@ export default function SiteVisits({ leads, campaigns, onOpenLead, onChanged }: 
 
       {/* KPI cards */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <Kpi icon={CalendarClock} label="Today" value={kpis.today} tint="bg-blue-50 text-blue-700" />
-        <Kpi icon={CalendarClock} label="This Week" value={kpis.week} tint="bg-violet-50 text-violet-700" />
-        <Kpi icon={CalendarClock} label="This Month" value={kpis.month} tint="bg-emerald-50 text-emerald-700" />
-        <Kpi icon={MapPin} label="Total Visits" value={kpis.total} tint="bg-teal-50 text-teal-700" />
-        <Kpi icon={TrendingUp} label="Avg / Prospect" value={kpis.avg} tint="bg-amber-50 text-amber-700" />
+        <Kpi icon={CalendarClock} label="Scheduled Today" value={kpis.today} tint="bg-blue-50 text-blue-700" />
+        <Kpi icon={CalendarClock} label="Upcoming (Scheduled)" value={kpis.upcoming} tint="bg-violet-50 text-violet-700" />
+        <Kpi icon={CheckCircle2} label="Done This Month" value={kpis.month} tint="bg-emerald-50 text-emerald-700" />
+        <Kpi icon={MapPin} label="Total Visits Done" value={kpis.total} tint="bg-teal-50 text-teal-700" />
+        <Kpi icon={TrendingUp} label="Avg Done / Prospect" value={kpis.avg} tint="bg-amber-50 text-amber-700" />
       </div>
 
       {/* View toggle */}
@@ -299,7 +316,7 @@ export default function SiteVisits({ leads, campaigns, onOpenLead, onChanged }: 
 
             {/* Range KPIs */}
             <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <RangeKpi icon={MapPin} label="Total Visits" value={rangeKpis.total} />
+              <RangeKpi icon={MapPin} label="Visits Done" value={rangeKpis.total} />
               <RangeKpi icon={Users} label="Unique Prospects" value={rangeKpis.uniqueProspects} />
               <RangeKpi icon={Repeat} label="Repeat Visits" value={rangeKpis.repeat} />
               <RangeKpi icon={TrendingUp} label="Avg / Prospect" value={rangeKpis.avg} />
@@ -325,8 +342,9 @@ export default function SiteVisits({ leads, campaigns, onOpenLead, onChanged }: 
                   <tr className="text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400">
                     <th className="px-4 py-3">Prospect</th>
                     <th className="px-4 py-3">Phone</th>
-                    <th className="px-4 py-3">Visits</th>
-                    <th className="px-4 py-3">Latest Visit</th>
+                    <th className="px-4 py-3">Visits Done</th>
+                    <th className="px-4 py-3">Last Done</th>
+                    <th className="px-4 py-3">Next Scheduled</th>
                     <th className="px-4 py-3">Campaign</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3 text-right">Actions</th>
@@ -334,7 +352,7 @@ export default function SiteVisits({ leads, campaigns, onOpenLead, onChanged }: 
                 </thead>
                 <tbody>
                   {prospects.length === 0 ? (
-                    <tr><td colSpan={7} className="px-4 py-12 text-center text-sm text-gray-400">No site visits in this period.</td></tr>
+                    <tr><td colSpan={8} className="px-4 py-12 text-center text-sm text-gray-400">No site visits in this period.</td></tr>
                   ) : prospects.map((r) => (
                     <tr key={r.leadId} className="group border-t border-gray-100 transition hover:bg-gray-50/60">
                       <td className="px-4 py-3">
@@ -342,9 +360,10 @@ export default function SiteVisits({ leads, campaigns, onOpenLead, onChanged }: 
                       </td>
                       <td className="px-4 py-3 text-[13px] text-gray-600"><Private>{r.phone}</Private></td>
                       <td className="px-4 py-3">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[12px] font-bold text-violet-700">{r.visits}</span>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[12px] font-bold text-emerald-700">{r.visits}</span>
                       </td>
-                      <td className="px-4 py-3 text-[13px] text-gray-500">{formatDate(r.latest)}</td>
+                      <td className="px-4 py-3 text-[13px] text-gray-500">{r.latest ? formatDate(r.latest) : '—'}</td>
+                      <td className="px-4 py-3 text-[13px] text-violet-600">{r.next ? formatDateTime(r.next) : '—'}</td>
                       <td className="px-4 py-3 text-[13px] text-gray-500">{r.campaign}</td>
                       <td className="px-4 py-3 text-[13px] text-gray-500">{r.status}</td>
                       <td className="px-4 py-3 text-right">
@@ -398,6 +417,11 @@ export default function SiteVisits({ leads, campaigns, onOpenLead, onChanged }: 
               <button onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1))} className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50"><ChevronRight className="h-4 w-4" /></button>
             </div>
           </div>
+          <div className="mb-3 flex flex-wrap gap-3 text-[11px] text-gray-500">
+            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded bg-violet-200" /> Scheduled</span>
+            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded bg-emerald-200" /> Done</span>
+            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded bg-gray-200" /> Cancelled / no-show</span>
+          </div>
           <div className="mb-1 grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase tracking-wide text-gray-400">
             {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => <div key={d} className="py-1">{d}</div>)}
           </div>
@@ -413,8 +437,13 @@ export default function SiteVisits({ leads, campaigns, onOpenLead, onChanged }: 
                     {dayVisits.slice(0, 3).map((v) => {
                       const lead = leadMap.get(v.lead_id);
                       return (
-                        <button key={v.id} onClick={() => onOpenLead(v.lead_id)} className="block w-full truncate rounded bg-violet-50 px-1.5 py-0.5 text-left text-[10px] font-medium text-violet-700 transition hover:opacity-80">
-                          {formatTime(v.scheduled_at)} {lead?.name ?? 'Visit'}
+                        <button
+                          key={v.id}
+                          onClick={() => onOpenLead(v.lead_id)}
+                          title={`${lead?.name ?? 'Visit'} — ${v.status}`}
+                          className={`block w-full truncate rounded px-1.5 py-0.5 text-left text-[10px] font-medium transition hover:opacity-80 ${CALENDAR_STYLES[v.status] ?? 'bg-gray-100 text-gray-500 line-through'}`}
+                        >
+                          {v.status === 'Completed' ? '✓ ' : ''}{formatTime(v.scheduled_at)} {lead?.name ?? 'Visit'}
                         </button>
                       );
                     })}

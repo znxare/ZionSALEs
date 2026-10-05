@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import type { Lead, Campaign, CampaignInsert, CampaignType, CampaignPlatform } from '@/lib/supabase';
 import {
-  fetchCampaigns, createCampaign, updateCampaign, deleteCampaign,
+  fetchCampaigns, createCampaign, updateCampaign, deleteCampaign, fetchAllSiteVisits,
   archiveCampaign, unarchiveCampaign,
   CAMPAIGN_TYPES, CAMPAIGN_PLATFORMS, formatDate,
   leadQualityScore, UNASSIGNED_CAMPAIGN_LABEL,
@@ -28,6 +28,9 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
   const [actionError, setActionError] = useState<string | null>(null);
+  // Leads with at least one *completed* site visit — a visit that's only
+  // scheduled hasn't happened yet, so it doesn't count as a visit done.
+  const [visitedLeadIds, setVisitedLeadIds] = useState<Set<string>>(new Set());
 
   async function load() {
     try {
@@ -49,6 +52,12 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
   }
 
   useEffect(() => { load(); }, [showArchived]);
+
+  useEffect(() => {
+    fetchAllSiteVisits()
+      .then((vs) => setVisitedLeadIds(new Set(vs.filter((v) => v.status === 'Completed').map((v) => v.lead_id))))
+      .catch(() => {});
+  }, [leads]);
 
   // Date range filter
   const dateFilteredLeads = useMemo(() => {
@@ -84,7 +93,7 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
       const warm = cLeads.filter((l) => l.status === 'Warm').length;
       const cold = cLeads.filter((l) => l.status === 'Cold').length;
       const siteVisitScheduled = cLeads.filter((l) => !!l.site_visit_at).length;
-      const siteVisitDone = cLeads.filter((l) => !!l.site_visit_at).length;
+      const siteVisitDone = cLeads.filter((l) => visitedLeadIds.has(l.id)).length;
       const bookings = cLeads.filter((l) => !!l.booked_at).length;
       const calling = cLeads.filter((l) => l.status === 'Calling').length;
       const dead = cLeads.filter((l) => l.status === 'Dead').length;
@@ -108,7 +117,8 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
       const hot = organicLeads.filter((l) => l.status === 'Hot').length;
       const warm = organicLeads.filter((l) => l.status === 'Warm').length;
       const cold = organicLeads.filter((l) => l.status === 'Cold').length;
-      const siteVisitDone = organicLeads.filter((l) => !!l.site_visit_at).length;
+      const siteVisitDone = organicLeads.filter((l) => visitedLeadIds.has(l.id)).length;
+      const siteVisitScheduled = organicLeads.filter((l) => !!l.site_visit_at).length;
       const bookings = organicLeads.filter((l) => !!l.booked_at).length;
       const calling = organicLeads.filter((l) => l.status === 'Calling').length;
       const dead = organicLeads.filter((l) => l.status === 'Dead').length;
@@ -129,7 +139,7 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
           created_at: '',
         },
         total, contacted, hot, warm, cold, calling, dead, junk, duplicate: 0,
-        siteVisitScheduled: siteVisitDone, siteVisitDone, bookings,
+        siteVisitScheduled, siteVisitDone, bookings,
         interested: hot + warm,
         conversionRate: total > 0 ? Math.round((bookings / total) * 100) : 0,
         tourToBooking: siteVisitDone > 0 ? Math.round((bookings / siteVisitDone) * 100) : 0,
@@ -139,7 +149,7 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
     }
 
     return fromCampaigns;
-  }, [campaigns, leadsByCampaign, organicLeads]);
+  }, [campaigns, leadsByCampaign, organicLeads, visitedLeadIds]);
 
   // Overall lead trend across ALL campaigns (for main view) — fixed to the
   // current calendar year, January through December.
@@ -163,7 +173,7 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
     const total = cLeads.length;
     const contacted = cLeads.filter((l) => l.last_contacted_at || l.last_activity_type).length;
     const interested = cLeads.filter((l) => l.status === 'Hot' || l.status === 'Warm').length;
-    const siteVisits = cLeads.filter((l) => !!l.site_visit_at).length;
+    const siteVisits = cLeads.filter((l) => visitedLeadIds.has(l.id)).length;
     const stages = [
       { label: 'Leads Generated', value: total },
       { label: 'Contacted', value: contacted },
@@ -176,7 +186,7 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
       const dropOff = i > 0 ? 100 - conv : 0;
       return { ...s, conv, dropOff };
     });
-  }, [selectedCampaign, leadsByCampaign]);
+  }, [selectedCampaign, leadsByCampaign, visitedLeadIds]);
 
   if (loading) {
     return (

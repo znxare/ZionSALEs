@@ -155,8 +155,12 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
     return { today, overdue, hot, warm, cold, siteVisitsToday, nextVisit, bookings, newToday };
   }, [activeLeads, visits, isHospitality]);
 
+  // Sales booked on or before the day the lead was entered were already sold
+  // when added to the CRM (e.g. back-filled on day one) — they'd show a fake
+  // 0-day close, so they're left out of time-to-close.
   const closeStats = useMemo(() => {
-    const sold = activeLeads.filter((l) => !!l.booked_at);
+    const sold = activeLeads.filter((l) => !!l.booked_at
+      && new Date(l.booked_at).setHours(0, 0, 0, 0) > new Date(l.created_at).setHours(0, 0, 0, 0));
     if (sold.length === 0) return { avg: 0, fastest: 0, longest: 0 };
     const daysArr = sold.map((l) => Math.max(0, Math.round((new Date(l.booked_at!).getTime() - new Date(l.created_at).getTime()) / 86400000)));
     const totalDays = daysArr.reduce((sum, d) => sum + d, 0);
@@ -168,7 +172,8 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
     if (isHospitality) return { avg: '0', closedCount: 0, totalVisits: 0 };
     const soldLeadIds = new Set(leads.filter((l) => !!l.booked_at).map((l) => l.id));
     if (soldLeadIds.size === 0) return { avg: '0', closedCount: 0, totalVisits: 0 };
-    const soldVisits = visits.filter((v) => soldLeadIds.has(v.lead_id));
+    // Only visits that actually happened — a still-scheduled one isn't a visit.
+    const soldVisits = visits.filter((v) => soldLeadIds.has(v.lead_id) && v.status === 'Completed');
     return { avg: (soldVisits.length / soldLeadIds.size).toFixed(1), closedCount: soldLeadIds.size, totalVisits: soldVisits.length };
   }, [leads, visits, isHospitality]);
 
@@ -183,12 +188,14 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
     }
 
     const campaignsWithLeads = campaigns.filter((c) => leads.some((l) => l.campaign_id === c.id));
-    const avgCampaignRate = campaignsWithLeads.length > 0
-      ? Math.round(campaignsWithLeads.reduce((sum, c) => {
-          const cLeads = leads.filter((l) => l.campaign_id === c.id);
-          const cSold = cLeads.filter((l) => !!l.booked_at);
-          return sum + (cLeads.length > 0 ? (cSold.length / cLeads.length) * 100 : 0);
-        }, 0) / campaignsWithLeads.length)
+    // Sales ÷ leads across every campaign together (weighted), not an average
+    // of each campaign's rate — a 13-lead campaign shouldn't count as much as a
+    // 71-lead one. Leads with no campaign are excluded (they aren't campaign leads).
+    const campaignIds = new Set(campaignsWithLeads.map((c) => c.id));
+    const campaignLeads = leads.filter((l) => l.campaign_id && campaignIds.has(l.campaign_id));
+    const campaignSales = campaignLeads.filter((l) => !!l.booked_at).length;
+    const avgCampaignRate = campaignLeads.length > 0
+      ? Math.round((campaignSales / campaignLeads.length) * 1000) / 10
       : 0;
 
     return { totalLeads, totalSales, leadToSaleRate, avgCampaignRate };
@@ -552,7 +559,7 @@ export default function Dashboard({ leads, hospitalityLeads, campaigns, loading,
             </div>
             {!isHospitality && (
               <div>
-                <div className="font-display text-xl font-bold text-gray-900"><AnimatedNumber value={execMetrics.avgCampaignRate} />%</div>
+                <div className="font-display text-xl font-bold text-gray-900">{execMetrics.avgCampaignRate}%</div>
                 <div className="text-[11px] font-medium text-gray-400">Campaign Conv. Rate</div>
               </div>
             )}
