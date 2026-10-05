@@ -147,11 +147,18 @@ body {
   .animate-hero-zoom {
     animation: heroZoom 14s ease-out both;
   }
+  /* Directions: dots flowing along the route line. */
+  .animate-route-flow {
+    animation: routeFlow 0.9s linear infinite;
+  }
   .animate-lux-rise {
     animation: luxRise 1.6s cubic-bezier(0.16, 1, 0.3, 1) backwards;
   }
 }
 
+@keyframes routeFlow {
+  to { stroke-dashoffset: -24; }
+}
 @keyframes heroZoom {
   from { transform: scale(1.12); }
   to { transform: scale(1); }

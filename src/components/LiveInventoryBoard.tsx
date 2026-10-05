@@ -13,6 +13,8 @@ import { SentQuotesPanel } from './QuoteActivity';
 import { WelcomeIntro } from './BuyerWelcome';
 import { VideoModal, TestimonialButton } from './ShowcaseMedia';
 import { loadShowcase, renderFor, viewFor, type Showcase } from '@/lib/showcase';
+import { DirectionsControls, type DirectionsView } from './Directions';
+import { loadCalibration, fitTransform } from '@/lib/tour';
 
 const STAT_TINT: Record<PlotStatus, { border: string; from: string; iconBg: string; iconText: string; ring: string }> = {
   Available: { border: 'border-emerald-200/60 hover:border-emerald-300/60', from: 'from-emerald-50/60', iconBg: 'bg-emerald-100', iconText: 'text-emerald-600', ring: 'ring-emerald-400' },
@@ -299,7 +301,7 @@ type Size = { width: number; height: number };
 // equal when the map is fitted (contain); with `cover` the layer is larger than
 // the viewport so the map fills it edge to edge and the rest is reached by dragging.
 type ViewState = { zoom: number; pan: { x: number; y: number }; size: Size; viewport: Size; interacting: boolean };
-type OverlayState = { zoom: number; pan: { x: number; y: number }; size: Size; viewport: Size };
+type OverlayState = { zoom: number; pan: { x: number; y: number }; size: Size; viewport: Size; rotation: number };
 
 /** Where the map should look. `durationMs` glides there slowly (the welcome
  *  fly-in); change `nonce` to fly to the same place again. With `exact`, the
@@ -550,7 +552,7 @@ function ZoomPanMap({
 
       {size.width > 0 && (
         <div className="pointer-events-none absolute inset-0 z-10">
-          {overlay({ zoom, pan, size: layer, viewport: size })}
+          {overlay({ zoom, pan, size: layer, viewport: size, rotation })}
         </div>
       )}
       </div>
@@ -693,7 +695,7 @@ export type TourMarker = { pt: [number, number]; accuracyPct?: number; heading?:
 
 export function MasterPlanBoard({
   plots, highlight = null, onSelect, onExpand, large, selectedId, tooltip = 'internal', bare, cover,
-  marker = null, focus = null, onUserMove, onMapPoint, pins = [], rotation = 0,
+  marker = null, focus = null, onUserMove, onMapPoint, pins = [], rotation = 0, route = null, places = [], destination = null,
 }: {
   plots: Plot[];
   /** Plots matching the active filters; null = no filter (everything at full colour). */
@@ -719,6 +721,12 @@ export function MasterPlanBoard({
   onMapPoint?: (pt: [number, number]) => void;
   /** Numbered pins (calibration points). */
   pins?: { pt: [number, number]; label: string; tone?: 'ok' | 'warn' | 'new' }[];
+  /** Directions: the line to follow, in % of the plan. */
+  route?: [number, number][] | null;
+  /** Labelled places layer (clubhouse, entry gates…). */
+  places?: { pt: [number, number]; label: string }[];
+  /** Where the directions lead (a flag is drawn there). */
+  destination?: { pt: [number, number]; label: string } | null;
 }) {
   const [loaded, setLoaded] = useState(false);
   const [hoverId, setHoverId] = useState<string | null>(null);
@@ -749,14 +757,45 @@ export function MasterPlanBoard({
             {loaded && <PlotShapes plots={plots} highlight={highlight} hoverId={hoverId} selectedId={selectedId} large={large} />}
           </>
         )}
-        overlay={({ zoom, pan, size, viewport }) => {
+        overlay={({ zoom, pan, size, viewport, rotation: turned }) => {
           if (!loaded) return null;
           const toScreen = ([px, py]: [number, number]) => [
             viewport.width / 2 + pan.x + zoom * ((px / 100) * size.width - size.width / 2),
             viewport.height / 2 + pan.y + zoom * ((py / 100) * size.height - size.height / 2),
           ];
+          // Labels stay upright even when the map is turned (heading-up).
+          const upright = turned ? { transform: `rotate(${turned}deg)` } : undefined;
           const extras = (
             <>
+              {route && route.length > 1 && (
+                <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" style={{ zIndex: 15 }}>
+                  <polyline points={route.map((q) => toScreen(q).join(',')).join(' ')} fill="none" stroke="white" strokeWidth={11} strokeLinecap="round" strokeLinejoin="round" />
+                  <polyline points={route.map((q) => toScreen(q).join(',')).join(' ')} fill="none" stroke="#2563eb" strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" />
+                  <polyline points={route.map((q) => toScreen(q).join(',')).join(' ')} fill="none" stroke="white" strokeOpacity={0.7} strokeWidth={2} strokeDasharray="2 10" strokeLinecap="round" className="animate-route-flow" />
+                </svg>
+              )}
+              {places.map((pl, i) => {
+                const [px, py] = toScreen(pl.pt);
+                return (
+                  <div key={`pl-${i}`} className="absolute z-20" style={{ left: px, top: py, ...upright, transformOrigin: '0 0' }}>
+                    <div className="absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 whitespace-nowrap rounded-full bg-[#13261c]/90 py-0.5 pl-1 pr-2 text-[11px] font-semibold text-white shadow ring-1 ring-white/30">
+                      <span className="h-2 w-2 rounded-full bg-[#e9dcc0]" /> {pl.label}
+                    </div>
+                  </div>
+                );
+              })}
+              {destination && (() => {
+                const [dx, dy] = toScreen(destination.pt);
+                return (
+                  <div className="absolute z-30" style={{ left: dx, top: dy, ...upright, transformOrigin: '0 0' }}>
+                    <div className="absolute flex -translate-x-1/2 -translate-y-full flex-col items-center" style={{ marginTop: 5 }}>
+                      <div className="whitespace-nowrap rounded-full bg-red-600 px-2.5 py-1 text-[12px] font-bold text-white shadow-lg">{destination.label}</div>
+                      <div className="h-3 w-0.5 bg-red-600" />
+                      <div className="h-2.5 w-2.5 rounded-full bg-red-600 ring-2 ring-white" />
+                    </div>
+                  </div>
+                );
+              })()}
               {pins.map((pin, i) => {
                 const [px, py] = toScreen(pin.pt);
                 const tone = pin.tone === 'warn' ? 'bg-amber-500' : pin.tone === 'new' ? 'bg-orange-600 animate-pulse' : 'bg-emerald-600';
@@ -1065,8 +1104,14 @@ function BuyerPresentation({ plots, onClose }: { plots: Plot[]; onClose: () => v
   const [showCurated, setShowCurated] = useState(true);
   const [focus, setFocus] = useState<MapFocus | null>(null);
   const [video, setVideo] = useState(false);
+  const [dirView, setDirView] = useState<DirectionsView>({ route: null, destination: null, places: [] });
+  const [toGps, setToGps] = useState<((pt: [number, number]) => { lat: number; lng: number }) | null>(null);
 
   useEffect(() => { void loadShowcase().then(setShowcase); }, []);
+  // Calibration only to show distances in metres on the directions.
+  useEffect(() => {
+    void loadCalibration().then((c) => { const tf = fitTransform(c); if (tf) setToGps(() => (pt: [number, number]) => tf.toGps(pt)); }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     // Real full screen where the browser allows it; the overlay works either way.
@@ -1110,7 +1155,10 @@ function BuyerPresentation({ plots, onClose }: { plots: Plot[]; onClose: () => v
     <div data-buyer-facing className="fixed inset-0 z-[60] overflow-hidden bg-[#d7dac7]" style={{ height: '100dvh' }}>
       {/* The map, edge to edge */}
       <div className="absolute inset-0">
-        <MasterPlanBoard plots={plots} highlight={highlight} onSelect={setSelected} large bare cover tooltip="buyer" selectedId={selected?.id} focus={focus} />
+        <MasterPlanBoard
+          plots={plots} highlight={highlight} onSelect={setSelected} large bare cover tooltip="buyer" selectedId={selected?.id} focus={focus}
+          route={dirView.route} destination={dirView.destination} places={dirView.places}
+        />
       </div>
 
       {/* Floating controls */}
@@ -1153,6 +1201,7 @@ function BuyerPresentation({ plots, onClose }: { plots: Plot[]; onClose: () => v
             <X className="h-4 w-4" /> Exit
           </button>
         </div>
+        <DirectionsControls className="mt-1.5" toGps={toGps} onView={setDirView} />
         {filtering && (
           <div className="mt-1.5 inline-block rounded-full bg-white/85 px-3 py-1 text-[13px] font-semibold text-[#1f3a2b] shadow-md backdrop-blur">
             {matches.length === 0 ? 'No homes match — try another budget' : `${matches.length} home${matches.length === 1 ? '' : 's'} match`}
