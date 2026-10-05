@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { X, Navigation, Radio, Smartphone, Tablet, Crosshair, Trash2, Save, Locate, Loader2, Download, Sparkles } from 'lucide-react';
+import { X, Navigation, Radio, Smartphone, Tablet, Crosshair, Trash2, Save, Locate, Loader2, Download, Sparkles, LocateFixed } from 'lucide-react';
 import { SAMPLE_PLOTS } from '@/lib/inventory';
 import { centroidOf } from '@/lib/plotMap';
 import { usePermissions } from '@/lib/access';
@@ -11,7 +11,6 @@ import { MasterPlanBoard, type TourMarker, type MapFocus } from './LiveInventory
 import { WelcomeIntro } from './BuyerWelcome';
 import { VideoModal, TestimonialButton } from './ShowcaseMedia';
 import { loadShowcase, type Showcase, type TourStop } from '@/lib/showcase';
-import { DirectionsControls, type DirectionsView } from './Directions';
 
 const FOLLOW_ZOOM = 2.5;
 const SEND_EVERY_MS = 700;
@@ -584,7 +583,6 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
   const [stop, setStop] = useState<TourStop | null>(null);
   const stopShownAt = useRef(new Map<string, number>());
   const [video, setVideo] = useState(false);
-  const [dirView, setDirView] = useState<DirectionsView>({ route: null, destination: null, places: [] });
 
   useEffect(() => { void loadShowcase().then(setShowcase); }, []);
 
@@ -679,7 +677,6 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
     if (Math.abs(delta) >= 4) turn.current += delta;
   }
   const rotation = headingUp ? turn.current : 0;
-  const tfScreen = fitTransform(cal);
   const age = fix ? Math.round((now - fix.t) / 1000) : null;
   const state = mode === 'self'
     ? (!fix ? 'Finding GPS…' : age != null && age > 15 ? `GPS signal lost · ${age}s` : 'Live')
@@ -700,23 +697,11 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
           tooltip="buyer"
           marker={marker}
           rotation={rotation}
-          route={dirView.route}
-          destination={dirView.destination}
-          places={dirView.places}
           // Heading-up shows more of the road ahead: cart sits below the centre.
           focus={marker && follow ? { pt: marker.pt, zoom: FOLLOW_ZOOM, offsetY: headingUp ? window.innerHeight * 0.18 : 0 } : null}
           onUserMove={() => setFollow(false)}
         />
       </div>
-
-      {/* Directions + places layer */}
-      <DirectionsControls
-        className="absolute left-3 top-16 z-40 sm:left-5"
-        from={marker?.pt ?? null}
-        toGps={tfScreen ? (pt) => tfScreen.toGps(pt) : null}
-        spots={(cal?.points ?? []).flatMap((q, i) => (q.label && q.x != null && q.y != null ? [{ id: `spot-${i}`, label: q.label, kind: 'spot' as const, pt: [q.x, q.y] as MapPt }] : []))}
-        onView={setDirView}
-      />
 
       {/* Compass: the needle points to north on screen. Tap to switch between
           "turn with the cart" and "north up" (matches the plan's drawn compass). */}
@@ -781,12 +766,15 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
       {welcome !== null && <WelcomeIntro guest={welcome} image={showcase.welcomeImage} onDone={() => setWelcome(null)} />}
       {video && showcase.testimonial?.url && <VideoModal url={showcase.testimonial.url} caption={showcase.testimonial.caption} onClose={() => setVideo(false)} />}
 
-      {marker && !follow && (
+      {/* "My location" (like Google Maps): blue when the map is following the
+          cart; tap after dragging the map to jump back to the cart. */}
+      {marker && (
         <button
           onClick={() => setFollow(true)}
-          className="absolute bottom-16 right-3 z-40 flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg"
+          aria-label={follow ? 'Following the cart' : 'Show my location'}
+          className="absolute bottom-6 right-3 z-40 grid h-12 w-12 place-items-center rounded-full bg-white shadow-lg ring-1 ring-black/5 sm:right-5"
         >
-          <Navigation className="h-4 w-4" /> Follow cart
+          {follow ? <LocateFixed className="h-6 w-6 text-[#1a73e8]" /> : <Locate className="h-6 w-6 text-gray-600" />}
         </button>
       )}
     </div>

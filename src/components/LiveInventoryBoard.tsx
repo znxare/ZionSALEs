@@ -13,8 +13,6 @@ import { SentQuotesPanel } from './QuoteActivity';
 import { WelcomeIntro } from './BuyerWelcome';
 import { VideoModal, TestimonialButton } from './ShowcaseMedia';
 import { loadShowcase, renderFor, viewFor, type Showcase } from '@/lib/showcase';
-import { DirectionsControls, type DirectionsView } from './Directions';
-import { loadCalibration, fitTransform } from '@/lib/tour';
 
 const STAT_TINT: Record<PlotStatus, { border: string; from: string; iconBg: string; iconText: string; ring: string }> = {
   Available: { border: 'border-emerald-200/60 hover:border-emerald-300/60', from: 'from-emerald-50/60', iconBg: 'bg-emerald-100', iconText: 'text-emerald-600', ring: 'ring-emerald-400' },
@@ -808,18 +806,25 @@ export function MasterPlanBoard({
               {marker && (() => {
                 const [mx, my] = toScreen(marker.pt);
                 const halo = marker.accuracyPct ? Math.max(14, (marker.accuracyPct / 100) * size.width * zoom) : 0;
+                // Google Maps-style "you are here": soft accuracy circle, a light
+                // beam showing which way you're heading, and the blue dot.
                 return (
                   <div className="absolute z-30" style={{ left: mx, top: my }}>
                     {halo > 0 && (
-                      <div className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-500/15 ring-1 ring-blue-500/30" style={{ width: halo * 2, height: halo * 2 }} />
+                      <div className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#1a73e8]/25 bg-[#1a73e8]/10" style={{ width: halo * 2, height: halo * 2 }} />
                     )}
                     {marker.heading != null && (
-                      <div className="absolute -translate-x-1/2 -translate-y-full" style={{ transform: `translate(-50%, -100%) rotate(${marker.heading}deg)`, transformOrigin: '50% 100%' }}>
-                        <div className="h-0 w-0 border-x-[9px] border-b-[22px] border-x-transparent border-b-blue-500/70" />
-                      </div>
+                      <svg width="72" height="72" viewBox="-36 -36 72 72" className="absolute -translate-x-1/2 -translate-y-1/2 overflow-visible" style={{ transform: `translate(-50%, -50%) rotate(${marker.heading}deg)` }}>
+                        <defs>
+                          <radialGradient id="gm-beam" cx="0" cy="0" r="36" gradientUnits="userSpaceOnUse">
+                            <stop offset="0.2" stopColor="#1a73e8" stopOpacity="0.45" />
+                            <stop offset="1" stopColor="#1a73e8" stopOpacity="0" />
+                          </radialGradient>
+                        </defs>
+                        <path d="M0 0 L-17 -32 A36 36 0 0 1 17 -32 Z" fill="url(#gm-beam)" />
+                      </svg>
                     )}
-                    <div className="absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-600 shadow-lg ring-4 ring-white" />
-                    <div className="absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 animate-ping rounded-full bg-blue-500/60" />
+                    <div className="absolute h-[22px] w-[22px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#1a73e8] shadow-[0_1px_4px_rgba(0,0,0,0.35)] ring-[3px] ring-white" />
                   </div>
                 );
               })()}
@@ -1104,14 +1109,8 @@ function BuyerPresentation({ plots, onClose }: { plots: Plot[]; onClose: () => v
   const [showCurated, setShowCurated] = useState(true);
   const [focus, setFocus] = useState<MapFocus | null>(null);
   const [video, setVideo] = useState(false);
-  const [dirView, setDirView] = useState<DirectionsView>({ route: null, destination: null, places: [] });
-  const [toGps, setToGps] = useState<((pt: [number, number]) => { lat: number; lng: number }) | null>(null);
 
   useEffect(() => { void loadShowcase().then(setShowcase); }, []);
-  // Calibration only to show distances in metres on the directions.
-  useEffect(() => {
-    void loadCalibration().then((c) => { const tf = fitTransform(c); if (tf) setToGps(() => (pt: [number, number]) => tf.toGps(pt)); }).catch(() => {});
-  }, []);
 
   useEffect(() => {
     // Real full screen where the browser allows it; the overlay works either way.
@@ -1157,7 +1156,6 @@ function BuyerPresentation({ plots, onClose }: { plots: Plot[]; onClose: () => v
       <div className="absolute inset-0">
         <MasterPlanBoard
           plots={plots} highlight={highlight} onSelect={setSelected} large bare cover tooltip="buyer" selectedId={selected?.id} focus={focus}
-          route={dirView.route} destination={dirView.destination} places={dirView.places}
         />
       </div>
 
@@ -1201,7 +1199,6 @@ function BuyerPresentation({ plots, onClose }: { plots: Plot[]; onClose: () => v
             <X className="h-4 w-4" /> Exit
           </button>
         </div>
-        <DirectionsControls className="mt-1.5" toGps={toGps} onView={setDirView} />
         {filtering && (
           <div className="mt-1.5 inline-block rounded-full bg-white/85 px-3 py-1 text-[13px] font-semibold text-[#1f3a2b] shadow-md backdrop-blur">
             {matches.length === 0 ? 'No homes match — try another budget' : `${matches.length} home${matches.length === 1 ? '' : 's'} match`}
