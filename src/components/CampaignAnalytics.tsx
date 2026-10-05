@@ -12,6 +12,7 @@ import {
 } from '@/lib/crm';
 import { LineChart, DonutChart } from './charts';
 import Private from './Private';
+import LeadStatusOverview from './LeadStatusOverview';
 
 interface Props {
   leads: Lead[];
@@ -305,12 +306,7 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
       )}
 
       {/* Lead Status across all campaigns */}
-      {dateFilteredLeads.length > 0 && (
-        <div className="mb-6 rounded-2xl border border-black/5 bg-white p-5 card-shadow">
-          <h3 className="mb-4 font-display text-base font-bold tracking-tight text-gray-900">Lead Status</h3>
-          <InteractiveStatusGrid leads={dateFilteredLeads} />
-        </div>
-      )}
+      {dateFilteredLeads.length > 0 && <LeadStatusOverview leads={dateFilteredLeads} campaigns={campaigns} />}
 
       {/* Lead Trend - fixed to the current calendar year, Jan–Dec */}
       {dateFilteredLeads.length > 0 && (
@@ -596,67 +592,6 @@ function CampaignDetailModal({ campaign, funnel, onClose, leadsByCampaign }: {
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-function InteractiveStatusGrid({ leads }: { leads: Lead[] }) {
-  const [active, setActive] = useState<string | null>(null);
-  const total = leads.length;
-  const segData = useMemo(() => [
-    { label: 'Hot', leads: leads.filter((l) => l.status === 'Hot'), color: '#ef4444' },
-    { label: 'Warm', leads: leads.filter((l) => l.status === 'Warm'), color: '#f97316' },
-    { label: 'Cold', leads: leads.filter((l) => l.status === 'Cold'), color: '#0ea5e9' },
-    { label: 'Calling', leads: leads.filter((l) => l.status === 'Calling'), color: '#06b6d4' },
-    { label: 'Dead', leads: leads.filter((l) => l.status === 'Dead'), color: '#6b7280' },
-    { label: 'Junk', leads: leads.filter((l) => l.status === 'Junk'), color: '#9ca3af' },
-  ], [leads]);
-  const activeLeads = active ? segData.find((s) => s.label === active)?.leads ?? [] : [];
-
-  return (
-    <div>
-      <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-        {segData.map((s) => {
-          const pct = total > 0 ? Math.round((s.leads.length / total) * 100) : 0;
-          return (
-            <button
-              key={s.label}
-              onClick={() => setActive(active === s.label ? null : s.label)}
-              className={`rounded-xl border p-3 text-center transition ${active === s.label ? 'border-emerald-300 bg-emerald-50 ring-1 ring-emerald-200' : 'border-black/5 bg-gray-50/50 hover:bg-gray-100'}`}
-            >
-              <div className="font-display text-2xl font-bold" style={{ color: s.color }}>{s.leads.length}</div>
-              <div className="text-[11px] font-medium text-gray-400">{s.label}</div>
-              <div className="text-[10px] font-bold text-gray-500">{pct}%</div>
-            </button>
-          );
-        })}
-      </div>
-      <div className="mt-4">
-        <DonutChart data={segData.filter((s) => s.leads.length > 0).map((s) => ({ label: s.label, value: s.leads.length, color: s.color }))} size={160} />
-      </div>
-      {active && (
-        <div className="mt-4 animate-fade-up">
-          <div className="mb-2 flex items-center justify-between">
-            <h4 className="text-sm font-bold text-gray-900">{active} Leads ({activeLeads.length})</h4>
-            <button onClick={() => setActive(null)} className="text-[12px] font-semibold text-gray-400 hover:text-gray-600">Clear</button>
-          </div>
-          {activeLeads.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-gray-200 bg-white p-4 text-center text-[13px] text-gray-400">No {active} leads.</p>
-          ) : (
-            <div className="max-h-64 space-y-2 overflow-y-auto">
-              {activeLeads.map((l) => (
-                <div key={l.id} className="flex items-center justify-between rounded-xl border border-black/5 bg-white px-3.5 py-2.5">
-                  <div className="min-w-0">
-                    <p className="truncate text-[13px] font-semibold text-gray-900">{l.name}</p>
-                    <p className="text-[11px] text-gray-400"><Private>{l.phone}</Private>{l.city ? ` · ${l.city}` : ''}</p>
-                  </div>
-                  <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ color: segData.find((s) => s.label === active)?.color, backgroundColor: (segData.find((s) => s.label === active)?.color ?? '#999') + '15' }}>{l.status}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
