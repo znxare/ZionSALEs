@@ -19,9 +19,20 @@ export interface GpsFix {
 export interface CalPoint {
   lat: number;
   lng: number;
-  x: number; // map %
-  y: number;
+  /** Position on the plan (map %). Null = recorded on site but not placed on the plan yet. */
+  x: number | null;
+  y: number | null;
+  /** The spot's name, e.g. "Entry gate". */
   label?: string;
+  /** Average GPS accuracy (m) of the readings that made this spot, how many, and when. */
+  accuracy?: number;
+  readings?: number;
+  recordedAt?: string;
+}
+
+/** Spots that are placed on the plan (only these can line the plan up with GPS). */
+export function placedPoints(points: CalPoint[]): (CalPoint & { x: number; y: number })[] {
+  return points.filter((p): p is CalPoint & { x: number; y: number } => typeof p.x === 'number' && typeof p.y === 'number');
 }
 
 export interface Calibration {
@@ -122,7 +133,7 @@ function barycentric(p: [number, number], a: [number, number], b: [number, numbe
  * only 3 spots) a least-squares affine fit is used.
  */
 export function fitTransform(cal: Calibration | null, opts: { rubberSheet?: boolean } = {}): GpsTransform | null {
-  const pts = cal?.points ?? [];
+  const pts = placedPoints(cal?.points ?? []);
   if (pts.length < 3) return null;
   const lat0 = pts.reduce((s, p) => s + p.lat, 0) / pts.length;
   const lng0 = pts.reduce((s, p) => s + p.lng, 0) / pts.length;

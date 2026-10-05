@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { X, Navigation, Radio, Smartphone, Tablet, Crosshair, Trash2, Save, Locate, MapPin, Loader2, Download } from 'lucide-react';
+import { X, Navigation, Radio, Smartphone, Tablet, Crosshair, Trash2, Save, Locate, Loader2, Download } from 'lucide-react';
 import { SAMPLE_PLOTS } from '@/lib/inventory';
 import { centroidOf } from '@/lib/plotMap';
 import { usePermissions } from '@/lib/access';
 import {
   fitTransform, loadCalibration, saveCalibration, joinTour, newPairCode, smoothFix, keepScreenOn, bearing, distanceM,
-  type Calibration, type CalPoint, type GpsFix, type MapPt, type TourMessage,
+  placedPoints, type Calibration, type CalPoint, type GpsFix, type MapPt, type TourMessage,
 } from '@/lib/tour';
 import { MasterPlanBoard, type TourMarker } from './LiveInventoryBoard';
 
@@ -52,8 +52,18 @@ function saveLocalCalibration(cal: Calibration) {
 }
 
 function downloadSpots(points: CalPoint[]) {
-  const rows = [['Spot', 'Latitude', 'Longitude', 'Map X %', 'Map Y %']];
-  points.forEach((p, i) => rows.push([p.label ?? `Spot ${i + 1}`, p.lat.toFixed(7), p.lng.toFixed(7), p.x.toFixed(3), p.y.toFixed(3)]));
+  const rows = [['Spot name', 'Latitude', 'Longitude', 'GPS accuracy (m)', 'GPS readings', 'Recorded at', 'Map X %', 'Map Y %', 'On plan?']];
+  points.forEach((p, i) => rows.push([
+    p.label ?? `Spot ${i + 1}`,
+    p.lat.toFixed(7),
+    p.lng.toFixed(7),
+    p.accuracy != null ? p.accuracy.toFixed(1) : '',
+    p.readings != null ? String(p.readings) : '',
+    p.recordedAt ? new Date(p.recordedAt).toLocaleString('en-IN') : '',
+    p.x != null ? p.x.toFixed(3) : '',
+    p.y != null ? p.y.toFixed(3) : '',
+    p.x != null ? 'Yes' : 'No — place from name',
+  ]));
   const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
   const a = document.createElement('a');
@@ -292,11 +302,24 @@ function Calibrate({ fix, gpsError, cal, onChange, onSaved, onClose }: {
   const can = usePermissions();
   const [points, setPoints] = useState<CalPoint[]>(cal?.points ?? []);
   const [picked, setPicked] = useState<MapPt | null>(null);
+  const [name, setName] = useState('');
+  const [placing, setPlacing] = useState<number | null>(null); // index of a spot being placed on the plan later
   const [sampling, setSampling] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const samples = useRef<GpsFix[]>([]);
   const tf = useMemo(() => fitTransform({ points }), [points]);
+
+  // Errors are per placed spot; look them up by the spot's position in the full list.
+  const errorOf = useMemo(() => {
+    const m = new Map<number, number>();
+    if (!tf) return m;
+    let k = 0;
+    points.forEach((p, i) => { if (p.x != null && p.y != null) m.set(i, tf.errors[k++]); });
+    return m;
+  }, [points, tf]);
+  const placedCount = placedPoints(points).length;
+  const showErrors = placedCount >= 4;
 
   // Every change is kept on this phone straight away and used for tours, so
   // nothing recorded on site is ever lost — even if saving for the team fails.
@@ -309,16 +332,28 @@ function Calibrate({ fix, gpsError, cal, onChange, onSaved, onClose }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [points]);
 
-  // While sampling, collect fixes for ~6 s and average the good ones.
   useEffect(() => {
     if (sampling && fix) samples.current.push(fix);
   }, [fix, sampling]);
 
+  function onMapPoint(pt: MapPt) {
+    setMsg(null);
+    if (placing != null) {
+      setPoints((ps) => ps.map((p, i) => (i === placing ? { ...p, x: pt[0], y: pt[1] } : p)));
+      setMsg({ ok: true, text: `“${points[placing]?.label ?? 'Spot'}” placed on the plan.` });
+      setPlacing(null);
+      return;
+    }
+    setPicked(pt);
+  }
+
+  // Average ~6 s of GPS readings at this spot.
   function recordHere() {
-    if (!picked) return;
     samples.current = [];
     setSampling(true);
     setMsg(null);
+    const where = picked;
+    const label = name.trim();
     window.setTimeout(() => {
       setSampling(false);
       const good = samples.current.filter((f) => f.accuracy <= 20);
@@ -326,11 +361,20 @@ function Calibrate({ fix, gpsError, cal, onChange, onSaved, onClose }: {
         setMsg({ ok: false, text: 'GPS not precise enough here yet (needs ±20 m or better). Wait a moment in the open and try again.' });
         return;
       }
-      const lat = good.reduce((s, f) => s + f.lat, 0) / good.length;
-      const lng = good.reduce((s, f) => s + f.lng, 0) / good.length;
-      setPoints((ps) => [...ps, { lat, lng, x: picked[0], y: picked[1], label: `Spot ${ps.length + 1}` }]);
+      const avg = (k: 'lat' | 'lng' | 'accuracy') => good.reduce((s2, f) => s2 + f[k], 0) / good.length;
+      setPoints((ps) => [...ps, {
+        lat: avg('lat'),
+        lng: avg('lng'),
+        x: where ? where[0] : null,
+        y: where ? where[1] : null,
+        label: label || `Spot ${ps.length + 1}`,
+        accuracy: avg('accuracy'),
+        readings: good.length,
+        recordedAt: new Date().toISOString(),
+      }]);
       setPicked(null);
-      setMsg({ ok: true, text: `Spot recorded from ${good.length} GPS readings.` });
+      setName('');
+      setMsg({ ok: true, text: `“${label || 'Spot'}” recorded from ${good.length} GPS readings (±${Math.round(avg('accuracy'))} m)${where ? '' : ' — not placed on the plan yet; you or Claude can place it from its name'}.` });
     }, 6000);
   }
 
@@ -343,24 +387,25 @@ function Calibrate({ fix, gpsError, cal, onChange, onSaved, onClose }: {
       setMsg({ ok: true, text: 'Calibration saved for the whole team.' });
     } catch (e) {
       const why = e instanceof Error ? e.message : String(e);
-      setMsg({ ok: false, text: `Couldn't save for the team (${why}). Your spots are still kept on this phone and work for tours — or tap Download and send me the file.` });
+      setMsg({ ok: false, text: `Couldn't save for the team (${why}). Your spots are still kept on this phone and work for tours — or tap Download and send the file.` });
     } finally {
       setSaving(false);
     }
   }
 
-  const avgErr = tf ? tf.errors.reduce((s, e) => s + e, 0) / tf.errors.length : null;
+  const errs = [...errorOf.values()];
+  const avgErr = errs.length ? errs.reduce((a, b) => a + b, 0) / errs.length : null;
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-[#f7f5f2]">
+    <div className="flex min-h-[100dvh] flex-col bg-[#f7f5f2] pb-4">
       <div className="flex items-center justify-between px-4 pb-2 pt-4">
         <div className="flex items-center gap-2 font-display text-lg font-bold text-gray-900"><Crosshair className="h-5 w-5 text-orange-600" /> Calibrate</div>
         <button onClick={onClose} className="rounded-full p-2 text-gray-500 hover:bg-gray-100"><X className="h-5 w-5" /></button>
       </div>
       <ol className="mx-4 list-decimal space-y-0.5 rounded-xl bg-white px-8 py-3 text-[13px] text-gray-600 card-shadow">
-        <li>Stand at a spot you can find on the plan (gate, junction, clubhouse corner).</li>
-        <li>Zoom in and tap that exact spot on the plan below.</li>
+        <li>At each place, type its <b>name</b> (e.g. “Entry gate”).</li>
+        <li>Zoom in and tap where you're standing on the plan (skip if you can't find it).</li>
         <li>Tap <b>Record this spot</b> and stay still for 6 seconds.</li>
-        <li>Repeat at 5–6 spots spread across the whole site, then <b>Save</b>.</li>
+        <li>Cover 8–12 places across the whole site, then <b>Download</b> and send the file.</li>
       </ol>
 
       <div className="mx-4 mt-3">
@@ -368,71 +413,99 @@ function Calibrate({ fix, gpsError, cal, onChange, onSaved, onClose }: {
           plots={SAMPLE_PLOTS}
           onSelect={() => {}}
           bare
-          onMapPoint={(pt) => { setPicked(pt); setMsg(null); }}
+          onMapPoint={onMapPoint}
           pins={[
-            ...points.map((p, i) => ({ pt: [p.x, p.y] as MapPt, label: String(i + 1), tone: (tf && tf.errors[i] > 25 ? 'warn' : 'ok') as 'warn' | 'ok' })),
+            ...points.flatMap((p, i) => (p.x != null && p.y != null
+              ? [{ pt: [p.x, p.y] as MapPt, label: String(i + 1), tone: (showErrors && (errorOf.get(i) ?? 0) > 25 ? 'warn' : 'ok') as 'warn' | 'ok' }]
+              : [])),
             ...(picked ? [{ pt: picked, label: '+', tone: 'new' as const }] : []),
           ]}
           marker={markerFor(fix, { points })}
         />
       </div>
+      {placing != null && (
+        <div className="mx-4 mt-2 flex items-center justify-between rounded-xl bg-orange-50 px-4 py-2 text-[13px] font-medium text-orange-800">
+          Tap the plan to place “{points[placing]?.label}”
+          <button onClick={() => setPlacing(null)} className="text-orange-600 underline">Cancel</button>
+        </div>
+      )}
 
       <div className="mx-4 mt-3 flex flex-wrap items-center gap-2 text-[12px]">
         <Status ok={!!fix && fix.accuracy <= 15} label={fix ? `GPS ±${Math.round(fix.accuracy)} m` : 'Finding GPS…'} />
-        {avgErr != null && points.length >= 4 && <Status ok={avgErr <= 15} label={`Drawing match ≈ ${Math.round(avgErr)} m`} />}
-        {points.length === 3 && <span className="text-gray-500">3 spots always fit exactly — add 2–3 more to measure real accuracy</span>}
-        {points.length > 0 && points.length < 3 && <span className="text-gray-500">{3 - points.length} more spot(s) needed</span>}
+        {avgErr != null && showErrors && <Status ok={avgErr <= 15} label={`Drawing match ≈ ${Math.round(avgErr)} m`} />}
+        <span className="text-gray-500">{points.length} spot{points.length === 1 ? '' : 's'} · {placedCount} on the plan</span>
       </div>
       {tf?.mirrored && (
         <div className="mx-4 mt-2 rounded-xl bg-red-50 px-4 py-2 text-[13px] font-medium text-red-700">
-          These spots make the map come out mirror-image, so the dot would move the wrong way. One spot is probably tapped in the wrong place — remove the most recent one (or any marked orange) and record it again.
+          These spots make the map come out mirror-image, so the dot would move the wrong way. One spot is probably tapped in the wrong place — check the newest one or any marked orange.
         </div>
       )}
       {gpsError && <div className="mx-4 mt-2 rounded-xl bg-red-50 px-4 py-2 text-[13px] text-red-700">{gpsError}</div>}
       {msg && <div className={`mx-4 mt-2 rounded-xl px-4 py-2 text-[13px] ${msg.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'}`}>{msg.text}</div>}
 
+      {/* Record a spot */}
+      <div className="mx-4 mt-3 space-y-2 rounded-2xl bg-white p-3 card-shadow">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Name this spot — e.g. Entry gate, Clubhouse front, Hole 9 tee"
+          className="w-full rounded-xl border border-gray-200 px-3.5 py-3 text-[14px] outline-none focus:border-orange-300"
+        />
+        <button
+          onClick={recordHere}
+          disabled={sampling}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl brand-gradient py-3.5 text-[15px] font-bold text-white disabled:opacity-60"
+        >
+          {sampling ? <><Loader2 className="h-5 w-5 animate-spin" /> Hold still — reading GPS…</> : <><Locate className="h-5 w-5" /> Record this spot</>}
+        </button>
+        <p className="text-center text-[11.5px] text-gray-400">
+          {picked ? 'Plan position selected ✓' : 'Tip: tap your spot on the plan first for best accuracy — or record anyway and place it later.'}
+        </p>
+      </div>
+
       {points.length > 0 && (
         <ul className="mx-4 mt-3 divide-y divide-gray-100 rounded-xl bg-white text-[13px] card-shadow">
-          {points.map((p, i) => (
-            <li key={i} className="flex items-center justify-between px-4 py-2">
-              <span className="flex items-center gap-2"><MapPin className="h-4 w-4 text-emerald-600" /> Spot {i + 1}</span>
-              <span className="flex items-center gap-3">
-                {tf && points.length >= 4 && <span className={tf.errors[i] > 25 ? 'font-semibold text-amber-600' : 'text-gray-500'}>off by {Math.round(tf.errors[i])} m</span>}
-                <button onClick={() => setPoints((ps) => ps.filter((_, j) => j !== i))} className="text-gray-400 hover:text-red-600" aria-label="Remove spot"><Trash2 className="h-4 w-4" /></button>
-              </span>
-            </li>
-          ))}
+          {points.map((p, i) => {
+            const err = errorOf.get(i);
+            return (
+              <li key={i} className="flex items-center gap-2 px-3 py-2">
+                <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white ${p.x == null ? 'bg-gray-300' : showErrors && (err ?? 0) > 25 ? 'bg-amber-500' : 'bg-emerald-600'}`}>{i + 1}</span>
+                <input
+                  value={p.label ?? ''}
+                  onChange={(e) => { const v = e.target.value; setPoints((ps) => ps.map((q, j) => (j === i ? { ...q, label: v } : q))); }}
+                  className="min-w-0 flex-1 rounded-lg border border-transparent px-1.5 py-1 font-medium text-gray-800 outline-none hover:border-gray-200 focus:border-orange-300"
+                  aria-label={`Name of spot ${i + 1}`}
+                />
+                {p.x == null ? (
+                  <button onClick={() => { setPlacing(i); setMsg(null); }} className="shrink-0 rounded-full bg-orange-50 px-2.5 py-1 text-[11.5px] font-semibold text-orange-700">Place on plan</button>
+                ) : showErrors && err != null ? (
+                  <span className={`shrink-0 text-[11.5px] ${err > 25 ? 'font-semibold text-amber-600' : 'text-gray-400'}`}>off {Math.round(err)} m</span>
+                ) : null}
+                <button onClick={() => setPoints((ps) => ps.filter((_, j) => j !== i))} className="shrink-0 text-gray-300 hover:text-red-600" aria-label={`Remove ${p.label}`}><Trash2 className="h-4 w-4" /></button>
+              </li>
+            );
+          })}
         </ul>
       )}
 
-      <div className="mt-auto grid grid-cols-2 gap-2 p-4">
-        <button
-          onClick={recordHere}
-          disabled={!picked || sampling}
-          className="flex items-center justify-center gap-2 rounded-2xl bg-white py-3.5 text-sm font-semibold text-gray-800 card-shadow disabled:opacity-50"
-        >
-          {sampling ? <><Loader2 className="h-4 w-4 animate-spin" /> Hold still…</> : <><Locate className="h-4 w-4" /> Record this spot</>}
-        </button>
-        <button
-          onClick={save}
-          disabled={points.length < 3 || saving || !can.isAdmin}
-          className="flex items-center justify-center gap-2 rounded-2xl brand-gradient py-3.5 text-sm font-bold text-white disabled:opacity-50"
-        >
-          <Save className="h-4 w-4" /> {saving ? 'Saving…' : 'Save'}
-        </button>
+      <div className="mx-4 mt-3 grid grid-cols-2 gap-2">
         <button
           onClick={() => downloadSpots(points)}
           disabled={points.length === 0}
-          className="col-span-2 flex items-center justify-center gap-2 rounded-2xl bg-white py-3 text-sm font-semibold text-gray-700 card-shadow disabled:opacity-50"
+          className="flex items-center justify-center gap-2 rounded-2xl bg-white py-3.5 text-sm font-semibold text-gray-800 card-shadow disabled:opacity-50"
         >
-          <Download className="h-4 w-4" /> Download spots (Excel / CSV)
+          <Download className="h-4 w-4" /> Download spots
         </button>
-        {!can.isAdmin && (
-          <p className="col-span-2 text-center text-[12px] text-gray-500">
-            Saving for the whole team needs the Admin login. Spots are kept on this phone and work for your tours anyway.
-          </p>
-        )}
-        {!picked && !sampling && <p className="col-span-2 text-center text-[12px] text-gray-400">Tap your current spot on the plan first.</p>}
+        <button
+          onClick={save}
+          disabled={placedCount < 3 || saving || !can.isAdmin}
+          className="flex items-center justify-center gap-2 rounded-2xl bg-gray-900 py-3.5 text-sm font-bold text-white disabled:opacity-50"
+        >
+          <Save className="h-4 w-4" /> {saving ? 'Saving…' : 'Save for team'}
+        </button>
+        <p className="col-span-2 text-center text-[11.5px] text-gray-500">
+          {can.isAdmin ? 'Spots are kept on this phone as you go.' : 'Saving for the team needs the Admin login — spots are kept on this phone and work for your tours anyway.'}
+        </p>
       </div>
     </div>
   );
