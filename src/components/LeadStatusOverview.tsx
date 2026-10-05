@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Flame, Sun, Snowflake, Phone, Skull, Ban, Users, ChevronDown } from 'lucide-react';
+import { Flame, Sun, Snowflake, Phone, XCircle, Ban, Users, ChevronDown } from 'lucide-react';
 import type { Lead, Campaign } from '@/lib/supabase';
 import { UNASSIGNED_CAMPAIGN_LABEL } from '@/lib/crm';
 import Private from './Private';
@@ -9,7 +9,7 @@ const STATUS_META = [
   { label: 'Warm', color: '#f97316', tint: 'from-orange-50', icon: Sun },
   { label: 'Cold', color: '#0ea5e9', tint: 'from-sky-50', icon: Snowflake },
   { label: 'Calling', color: '#14b8a6', tint: 'from-teal-50', icon: Phone },
-  { label: 'Dead', color: '#6b7280', tint: 'from-gray-100', icon: Skull },
+  { label: 'Dead', color: '#6b7280', tint: 'from-gray-100', icon: XCircle },
   { label: 'Junk', color: '#9ca3af', tint: 'from-gray-50', icon: Ban },
 ] as const;
 
