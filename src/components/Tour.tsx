@@ -522,6 +522,9 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
   const [live, setLive] = useState(false);
   const { cal, setCal } = useCalibration();
   const [now, setNow] = useState(Date.now());
+  // Heading-up (like a car sat-nav): the map turns so the road ahead is at the top.
+  const [headingUp, setHeadingUp] = useState(true);
+  const turn = useRef(0);
 
   useEffect(() => { const t = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(t); }, []);
 
@@ -579,6 +582,13 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
   }
 
   const marker = markerFor(fix, cal);
+  // Keep the turn "unwrapped" (e.g. 350° → 370°, not back to 10°) so passing
+  // north animates the short way, and ignore tiny wobbles in the heading.
+  if (marker?.heading != null) {
+    const delta = ((marker.heading - turn.current) % 360 + 540) % 360 - 180;
+    if (Math.abs(delta) >= 4) turn.current += delta;
+  }
+  const rotation = headingUp ? turn.current : 0;
   const age = fix ? Math.round((now - fix.t) / 1000) : null;
   const state = !live ? 'Connecting…' : !fix ? 'Waiting for the phone to start…' : age != null && age > 15 ? `Signal lost · last seen ${age}s ago` : 'Live';
 
@@ -593,10 +603,28 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
           cover
           tooltip="buyer"
           marker={marker}
-          focus={marker && follow ? { pt: marker.pt, zoom: FOLLOW_ZOOM } : null}
+          rotation={rotation}
+          // Heading-up shows more of the road ahead: cart sits below the centre.
+          focus={marker && follow ? { pt: marker.pt, zoom: FOLLOW_ZOOM, offsetY: headingUp ? window.innerHeight * 0.18 : 0 } : null}
           onUserMove={() => setFollow(false)}
         />
       </div>
+
+      {/* Compass: the needle points to north on screen. Tap to switch between
+          "turn with the cart" and "north up" (matches the plan's drawn compass). */}
+      <button
+        onClick={() => setHeadingUp((v) => !v)}
+        aria-label={headingUp ? 'Show north up' : 'Turn map with the cart'}
+        className="absolute right-3 top-16 z-40 flex flex-col items-center gap-0.5 rounded-2xl bg-white/90 px-2 py-1.5 shadow-md backdrop-blur sm:right-5"
+      >
+        <svg viewBox="0 0 40 40" className="h-9 w-9" style={{ transform: `rotate(${-rotation}deg)`, transition: 'transform 0.8s ease-out' }}>
+          <circle cx="20" cy="20" r="18" fill="white" stroke="#e5e7eb" strokeWidth="2" />
+          <path d="M20 5 L25 20 L15 20 Z" fill="#dc2626" />
+          <path d="M20 35 L25 20 L15 20 Z" fill="#9ca3af" />
+          <text x="20" y="15.5" textAnchor="middle" fontSize="7" fontWeight="700" fill="white">N</text>
+        </svg>
+        <span className="text-[10px] font-semibold text-gray-600">{headingUp ? 'Cart up' : 'North up'}</span>
+      </button>
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-40 flex items-start justify-between gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5">
         <span className={`pointer-events-auto flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-semibold shadow-md backdrop-blur ${state === 'Live' ? 'bg-white/90 text-emerald-700' : 'bg-white/90 text-gray-600'}`}>

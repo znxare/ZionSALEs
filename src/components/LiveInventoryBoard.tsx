@@ -292,13 +292,19 @@ function ZoomPanMap({
   cover = false,
   focus = null,
   onUserMove,
+  rotation = 0,
 }: {
   mapLayer: (state: ViewState) => ReactNode;
   overlay: (state: OverlayState) => ReactNode;
   /** Fill the whole viewport (cropping, draggable) instead of fitting inside it. */
   cover?: boolean;
-  /** Keep this map point (in %) centred — e.g. the cart during a live tour. */
-  focus?: { pt: [number, number]; zoom: number } | null;
+  /** Keep this map point (in %) centred — e.g. the cart during a live tour.
+   *  `offsetY` (px) puts it that far below the centre instead (more road ahead). */
+  focus?: { pt: [number, number]; zoom: number; offsetY?: number } | null;
+  /** Turn the map this many degrees anticlockwise about the screen centre
+   *  (heading-up: the direction of travel points to the top of the screen).
+   *  May run past ±360 so a turn through north animates the short way. */
+  rotation?: number;
   /** The user dragged or pinched the map (so a follow mode can pause). */
   onUserMove?: () => void;
   /** A tap/click that wasn't a drag, at a point on the map in % of its width/height. */
@@ -328,6 +334,11 @@ function ZoomPanMap({
     return () => ro.disconnect();
   }, []);
 
+  // Screen ↔ map-frame directions while the map is turned.
+  const rad = (rotation * Math.PI) / 180;
+  const cos = Math.cos(rad), sin = Math.sin(rad);
+  const unturn = (dx: number, dy: number) => ({ x: dx * cos - dy * sin, y: dx * sin + dy * cos });
+
   function clampZoom(z: number) {
     return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
   }
@@ -346,9 +357,9 @@ function ZoomPanMap({
     const el = viewportRef.current;
     if (!el || size.width === 0) return null;
     const r = el.getBoundingClientRect();
-    const sx = clientX - r.left, sy = clientY - r.top;
-    const x = layer.width / 2 + (sx - size.width / 2 - pan.x) / zoom;
-    const y = layer.height / 2 + (sy - size.height / 2 - pan.y) / zoom;
+    const d = unturn(clientX - r.left - size.width / 2, clientY - r.top - size.height / 2);
+    const x = layer.width / 2 + (d.x - pan.x) / zoom;
+    const y = layer.height / 2 + (d.y - pan.y) / zoom;
     return [(x / layer.width) * 100, (y / layer.height) * 100];
   }
 
@@ -361,15 +372,16 @@ function ZoomPanMap({
   const canPan = layer.width * zoom > size.width + 0.5 || layer.height * zoom > size.height + 0.5;
 
   // Follow mode: glide the view so the focus point sits in the centre.
-  const fx = focus?.pt[0], fy = focus?.pt[1], fz = focus?.zoom;
+  const fx = focus?.pt[0], fy = focus?.pt[1], fz = focus?.zoom, fo = focus?.offsetY ?? 0;
   useEffect(() => {
     if (fx === undefined || fy === undefined || fz === undefined || layer.width === 0) return;
     if (pointers.current.size > 0) return; // never fight a finger on the map
     const z = clampZoom(Math.max(zoom, fz));
+    const o = unturn(0, fo);
     setZoom(z);
-    setPan(clampPan({ x: -((fx / 100) * layer.width - layer.width / 2) * z, y: -((fy / 100) * layer.height - layer.height / 2) * z }, z));
+    setPan(clampPan({ x: -((fx / 100) * layer.width - layer.width / 2) * z + o.x, y: -((fy / 100) * layer.height - layer.height / 2) * z + o.y }, z));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fx, fy, fz, layer.width, layer.height]);
+  }, [fx, fy, fz, fo, rotation, layer.width, layer.height]);
 
   /**
    * Accepts either an absolute zoom or an updater — always resolves against the
@@ -410,8 +422,8 @@ function ZoomPanMap({
         setZoomClamped(pinch.current.startZoom * (dist / pinch.current.startDist));
       }
     } else if (pts.length === 1 && canPan) {
-      const dx = e.movementX;
-      const dy = e.movementY;
+      // A drag moves the map under the finger, whichever way the map is turned.
+      const { x: dx, y: dy } = unturn(e.movementX, e.movementY);
       if (dx || dy) {
         setPan((p) => clampPan({ x: p.x + dx, y: p.y + dy }, zoom));
         if (dragStart.current) {
@@ -475,6 +487,12 @@ function ZoomPanMap({
       {/* will-change only while a finger/mouse is moving the map: kept on, it makes
           the browser freeze the map at its first (zoomed-out) sharpness and just
           stretch that bitmap — the cause of the blurry zoom. */}
+      {/* Turned frame (heading-up). Rotating about the screen centre keeps the
+          cart — which follow mode puts there — in place while the map turns. */}
+      <div
+        className="absolute inset-0"
+        style={rotation ? { transform: `rotate(${-rotation}deg)`, transformOrigin: 'center center', transition: 'transform 0.8s ease-out' } : { transition: 'transform 0.8s ease-out' }}
+      >
       <div
         className={`absolute ${interacting ? 'will-change-transform' : ''}`}
         style={{
@@ -487,7 +505,9 @@ function ZoomPanMap({
           transition,
         }}
       >
-        {mapLayer({ zoom, pan, size: layer, viewport: size, interacting })}
+        {/* While turned, the screen's corners reach further out than the screen
+            itself, so load tiles for a square as wide as its diagonal. */}
+        {mapLayer({ zoom, pan, size: layer, viewport: rotation ? { width: Math.hypot(size.width, size.height), height: Math.hypot(size.width, size.height) } : size, interacting })}
       </div>
 
       {size.width > 0 && (
@@ -495,6 +515,7 @@ function ZoomPanMap({
           {overlay({ zoom, pan, size: layer, viewport: size })}
         </div>
       )}
+      </div>
 
       {/* Zoom controls */}
       <div className={`absolute bottom-3 left-3 z-30 flex flex-col overflow-hidden rounded-xl border border-black/5 bg-white/95 shadow backdrop-blur ${controlsClassName}`}>
@@ -634,7 +655,7 @@ export type TourMarker = { pt: [number, number]; accuracyPct?: number; heading?:
 
 export function MasterPlanBoard({
   plots, highlight = null, onSelect, onExpand, large, selectedId, tooltip = 'internal', bare, cover,
-  marker = null, focus = null, onUserMove, onMapPoint, pins = [],
+  marker = null, focus = null, onUserMove, onMapPoint, pins = [], rotation = 0,
 }: {
   plots: Plot[];
   /** Plots matching the active filters; null = no filter (everything at full colour). */
@@ -652,8 +673,10 @@ export function MasterPlanBoard({
   cover?: boolean;
   /** Live tour: the cart's position ("You are here"). */
   marker?: TourMarker | null;
-  focus?: { pt: [number, number]; zoom: number } | null;
+  focus?: { pt: [number, number]; zoom: number; offsetY?: number } | null;
   onUserMove?: () => void;
+  /** Heading-up: degrees to turn the map anticlockwise (see ZoomPanMap). */
+  rotation?: number;
   /** Calibration: taps report the raw map point instead of selecting a plot. */
   onMapPoint?: (pt: [number, number]) => void;
   /** Numbered pins (calibration points). */
@@ -675,6 +698,7 @@ export function MasterPlanBoard({
         controlsClassName={large ? 'scale-125 origin-bottom-left' : ''}
         focus={focus}
         onUserMove={onUserMove}
+        rotation={rotation}
         onTap={(pt) => {
           if (onMapPoint) { onMapPoint(pt); return; }
           const hit = plotAt(plots, pt);
