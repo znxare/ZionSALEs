@@ -280,7 +280,7 @@ export default function LiveInventoryBoard() {
 
 const MAP_RATIO = 3369.9 / 2383.8;
 const ZOOM_MIN = 1;
-const ZOOM_MAX = 5;
+const ZOOM_MAX = 8;
 
 type Size = { width: number; height: number };
 
@@ -339,7 +339,8 @@ function ZoomPanMap({
   const [interacting, setInteracting] = useState(false);
   const viewportRef = useRef<HTMLDivElement>(null);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
-  const pinch = useRef<{ startDist: number; startZoom: number } | null>(null);
+  // Pinch: the map point under the fingers' midpoint stays under them while zooming.
+  const pinch = useRef<{ startDist: number; startZoom: number; d0: { x: number; y: number }; m: { x: number; y: number } } | null>(null);
   const dragStart = useRef<{ x: number; y: number } | null>(null);
   const dragged = useRef(false);
   const DRAG_THRESHOLD = 6;
@@ -441,11 +442,18 @@ function ZoomPanMap({
     if (pts.length === 2) {
       const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
       if (!pinch.current) {
-        pinch.current = { startDist: dist, startZoom: zoom };
+        const r = viewportRef.current?.getBoundingClientRect();
+        const cx = (pts[0].x + pts[1].x) / 2 - (r?.left ?? 0) - size.width / 2;
+        const cy = (pts[0].y + pts[1].y) / 2 - (r?.top ?? 0) - size.height / 2;
+        const d0 = unturn(cx, cy);
+        pinch.current = { startDist: dist, startZoom: zoom, d0, m: { x: layer.width / 2 + (d0.x - pan.x) / zoom, y: layer.height / 2 + (d0.y - pan.y) / zoom } };
       } else {
         dragged.current = true;
         onUserMove?.();
-        setZoomClamped(pinch.current.startZoom * (dist / pinch.current.startDist));
+        const { d0, m, startZoom, startDist } = pinch.current;
+        const z = clampZoom(startZoom * (dist / startDist));
+        setZoom(z);
+        setPan(clampPan({ x: d0.x - z * (m.x - layer.width / 2), y: d0.y - z * (m.y - layer.height / 2) }, z));
       }
     } else if (pts.length === 1 && canPan) {
       // A drag moves the map under the finger, whichever way the map is turned.
@@ -506,6 +514,7 @@ function ZoomPanMap({
       onPointerMove={onPointerMove}
       onPointerUp={endPointer}
       onPointerCancel={endPointer}
+      onLostPointerCapture={endPointer}
       onPointerLeave={(e) => { endPointer(e); onHover?.(null); }}
       onWheel={onWheel}
       onClickCapture={onClickCapture}

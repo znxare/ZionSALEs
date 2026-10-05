@@ -7,7 +7,7 @@ import {
   fitTransform, loadCalibration, saveCalibration, joinTour, newPairCode, smoothFix, keepScreenOn, bearing, distanceM,
   placedPoints, type Calibration, type CalPoint, type GpsFix, type MapPt, type TourMessage,
 } from '@/lib/tour';
-import { MasterPlanBoard, type TourMarker } from './LiveInventoryBoard';
+import { MasterPlanBoard, type TourMarker, type MapFocus } from './LiveInventoryBoard';
 import { WelcomeIntro } from './BuyerWelcome';
 import { VideoModal, TestimonialButton } from './ShowcaseMedia';
 import { loadShowcase, type Showcase, type TourStop } from '@/lib/showcase';
@@ -344,6 +344,8 @@ function Calibrate({ fix, gpsError, cal, onChange, onSaved, onClose }: {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const samples = useRef<GpsFix[]>([]);
   const tf = useMemo(() => fitTransform({ points }), [points]);
+  const [calFocus, setCalFocus] = useState<MapFocus | null>(null);
+  const calMarker = markerFor(fix, { points });
 
   // Errors are per placed spot; look them up by the spot's position in the full list.
   const errorOf = useMemo(() => {
@@ -443,11 +445,15 @@ function Calibrate({ fix, gpsError, cal, onChange, onSaved, onClose }: {
         <li>Cover 8–12 places across the whole site, then <b>Download</b> and send the file.</li>
       </ol>
 
-      <div className="mx-4 mt-3">
+      {/* Big map for calibrating: pinch or use + / − to zoom in where you're standing. */}
+      <div className="relative mx-4 mt-3 h-[58dvh] min-h-[320px] overflow-hidden rounded-2xl bg-[#d7dac7]">
         <MasterPlanBoard
           plots={SAMPLE_PLOTS}
           onSelect={() => {}}
           bare
+          cover
+          large
+          focus={calFocus}
           onMapPoint={onMapPoint}
           pins={[
             ...points.flatMap((p, i) => (p.x != null && p.y != null
@@ -455,8 +461,16 @@ function Calibrate({ fix, gpsError, cal, onChange, onSaved, onClose }: {
               : [])),
             ...(picked ? [{ pt: picked, label: '+', tone: 'new' as const }] : []),
           ]}
-          marker={markerFor(fix, { points })}
+          marker={calMarker}
         />
+        {calMarker && (
+          <button
+            onClick={() => setCalFocus({ pt: calMarker.pt, zoom: 5, exact: true, durationMs: 600, nonce: Date.now() })}
+            className="absolute right-3 top-3 z-30 flex items-center gap-1.5 rounded-full bg-white/95 px-3.5 py-2 text-[13px] font-semibold text-blue-700 shadow-md"
+          >
+            <Locate className="h-4 w-4" /> Zoom to me
+          </button>
+        )}
       </div>
       {placing != null && (
         <div className="mx-4 mt-2 flex items-center justify-between rounded-xl bg-orange-50 px-4 py-2 text-[13px] font-medium text-orange-800">
