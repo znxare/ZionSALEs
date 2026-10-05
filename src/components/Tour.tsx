@@ -446,7 +446,7 @@ function Calibrate({ fix, gpsError, cal, onChange, onSaved, onClose }: {
       </ol>
 
       {/* Big map for calibrating: pinch or use + / − to zoom in where you're standing. */}
-      <div className="relative mx-4 mt-3 h-[58dvh] min-h-[320px] overflow-hidden rounded-2xl bg-[#d7dac7]">
+      <div className="relative mx-4 mt-3 h-[58dvh] min-h-[320px] overflow-hidden rounded-2xl bg-[#d4d5c6]">
         <MasterPlanBoard
           plots={SAMPLE_PLOTS}
           onSelect={() => {}}
@@ -643,7 +643,7 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
 
   if (mode === 'pair' && !joined) {
     return (
-      <div className="flex min-h-[100dvh] items-center justify-center bg-[#d7dac7] p-6">
+      <div className="flex min-h-[100dvh] items-center justify-center bg-[#d4d5c6] p-6">
         <div className="w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-xl">
           <Tablet className="mx-auto h-8 w-8 text-orange-600" />
           <h1 className="mt-2 font-display text-xl font-bold text-gray-900">Tour screen</h1>
@@ -686,7 +686,7 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
   const rough = mode === 'self' && !!fix && !sim && fix.accuracy > 35;
 
   return (
-    <div className="fixed inset-0 z-[60] overflow-hidden bg-[#d7dac7]" style={{ height: '100dvh' }}>
+    <div className="fixed inset-0 z-[60] overflow-hidden bg-[#d4d5c6]" style={{ height: '100dvh' }}>
       <div className="absolute inset-0">
         <MasterPlanBoard
           plots={SAMPLE_PLOTS}
@@ -697,6 +697,7 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
           tooltip="buyer"
           marker={marker}
           rotation={rotation}
+          turnable
           // Heading-up shows more of the road ahead: cart sits below the centre.
           focus={marker && follow ? { pt: marker.pt, zoom: FOLLOW_ZOOM, offsetY: headingUp ? window.innerHeight * 0.18 : 0 } : null}
           onUserMove={() => setFollow(false)}

@@ -316,6 +316,7 @@ function ZoomPanMap({
   focus = null,
   onUserMove,
   rotation = 0,
+  turnable = false,
 }: {
   mapLayer: (state: ViewState) => ReactNode;
   overlay: (state: OverlayState) => ReactNode;
@@ -328,6 +329,9 @@ function ZoomPanMap({
    *  (heading-up: the direction of travel points to the top of the screen).
    *  May run past ±360 so a turn through north animates the short way. */
   rotation?: number;
+  /** The map may be turned (heading-up): make it big enough that its edges
+   *  never show in the screen's corners, whatever the angle. */
+  turnable?: boolean;
   /** The user dragged or pinched the map (so a follow mode can pause). */
   onUserMove?: () => void;
   /** A tap/click that wasn't a drag, at a point on the map in % of its width/height. */
@@ -369,10 +373,14 @@ function ZoomPanMap({
 
   // Un-zoomed map layer: the viewport itself, or — with `cover` — the smallest
   // map-shaped box that fills it, centred.
+  // When the map can turn, the area it must cover is a square as wide as the
+  // screen's diagonal (the screen's corners sweep that circle as it turns).
+  const diag = Math.hypot(size.width, size.height);
+  const reach: Size = turnable ? { width: diag, height: diag } : size;
   const layer: Size = !cover || size.width === 0
     ? size
     : (() => {
-        const w = Math.max(size.width, size.height * MAP_RATIO);
+        const w = Math.max(reach.width, reach.height * MAP_RATIO);
         return { width: w, height: w / MAP_RATIO };
       })();
 
@@ -389,8 +397,8 @@ function ZoomPanMap({
 
   /** Keeps the scaled image from being panned past its own edge, so it never leaves empty space in view. */
   function clampPan(p: { x: number; y: number }, z: number) {
-    const maxX = Math.max(0, (layer.width * z - size.width) / 2);
-    const maxY = Math.max(0, (layer.height * z - size.height) / 2);
+    const maxX = Math.max(0, (layer.width * z - reach.width) / 2);
+    const maxY = Math.max(0, (layer.height * z - reach.height) / 2);
     return { x: Math.min(maxX, Math.max(-maxX, p.x)), y: Math.min(maxY, Math.max(-maxY, p.y)) };
   }
   const canPan = layer.width * zoom > size.width + 0.5 || layer.height * zoom > size.height + 0.5;
@@ -399,19 +407,31 @@ function ZoomPanMap({
   const fx = focus?.pt[0], fy = focus?.pt[1], fz = focus?.zoom, fo = focus?.offsetY ?? 0;
   const fd = focus?.durationMs, fn = focus?.nonce, fe = focus?.exact;
   const [glideMs, setGlideMs] = useState(0);
+  // Following: zoom in to the focus zoom when following starts, then keep
+  // whatever zoom the user picks (+ / − / pinch) while it keeps following.
+  const following = useRef(false);
+  // A one-off fly-to (`exact`) happens once per nonce, never again on zoom changes.
+  const flown = useRef<number | undefined>(undefined);
+  const focusOn = focus != null;
+  useEffect(() => { if (!focusOn) following.current = false; }, [focusOn]);
   useEffect(() => {
     if (fx === undefined || fy === undefined || fz === undefined || layer.width === 0) return;
     if (pointers.current.size > 0) return; // never fight a finger on the map
+    if (fe) {
+      if (flown.current === fn) return;
+      flown.current = fn;
+    }
     if (fd) {
       setGlideMs(fd);
       window.setTimeout(() => setGlideMs(0), fd + 50);
     }
-    const z = clampZoom(fe ? fz : Math.max(zoom, fz));
+    const z = clampZoom(fe ? fz : following.current ? zoom : Math.max(zoom, fz));
+    following.current = true;
     const o = unturn(0, fo);
     setZoom(z);
     setPan(clampPan({ x: -((fx / 100) * layer.width - layer.width / 2) * z + o.x, y: -((fy / 100) * layer.height - layer.height / 2) * z + o.y }, z));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fx, fy, fz, fo, fn, rotation, layer.width, layer.height]);
+  }, [fx, fy, fz, fo, fn, rotation, layer.width, layer.height, zoom]);
 
   /**
    * Accepts either an absolute zoom or an updater — always resolves against the
@@ -545,7 +565,7 @@ function ZoomPanMap({
       >
         {/* While turned, the screen's corners reach further out than the screen
             itself, so load tiles for a square as wide as its diagonal. */}
-        {mapLayer({ zoom, pan, size: layer, viewport: rotation ? { width: Math.hypot(size.width, size.height), height: Math.hypot(size.width, size.height) } : size, interacting })}
+        {mapLayer({ zoom, pan, size: layer, viewport: rotation || turnable ? { width: diag, height: diag } : size, interacting })}
       </div>
 
       {size.width > 0 && (
@@ -693,7 +713,7 @@ export type TourMarker = { pt: [number, number]; accuracyPct?: number; heading?:
 
 export function MasterPlanBoard({
   plots, highlight = null, onSelect, onExpand, large, selectedId, tooltip = 'internal', bare, cover,
-  marker = null, focus = null, onUserMove, onMapPoint, pins = [], rotation = 0, route = null, places = [], destination = null,
+  marker = null, focus = null, onUserMove, onMapPoint, pins = [], rotation = 0, turnable = false, route = null, places = [], destination = null,
 }: {
   plots: Plot[];
   /** Plots matching the active filters; null = no filter (everything at full colour). */
@@ -715,6 +735,7 @@ export function MasterPlanBoard({
   onUserMove?: () => void;
   /** Heading-up: degrees to turn the map anticlockwise (see ZoomPanMap). */
   rotation?: number;
+  turnable?: boolean;
   /** Calibration: taps report the raw map point instead of selecting a plot. */
   onMapPoint?: (pt: [number, number]) => void;
   /** Numbered pins (calibration points). */
@@ -743,6 +764,7 @@ export function MasterPlanBoard({
         focus={focus}
         onUserMove={onUserMove}
         rotation={rotation}
+        turnable={turnable}
         onTap={(pt) => {
           if (onMapPoint) { onMapPoint(pt); return; }
           const hit = plotAt(plots, pt);
@@ -1151,7 +1173,7 @@ function BuyerPresentation({ plots, onClose }: { plots: Plot[]; onClose: () => v
   const selectedView = selected ? viewFor(showcase, selected.id) : undefined;
 
   return (
-    <div data-buyer-facing className="fixed inset-0 z-[60] overflow-hidden bg-[#d7dac7]" style={{ height: '100dvh' }}>
+    <div data-buyer-facing className="fixed inset-0 z-[60] overflow-hidden bg-[#d4d5c6]" style={{ height: '100dvh' }}>
       {/* The map, edge to edge */}
       <div className="absolute inset-0">
         <MasterPlanBoard
