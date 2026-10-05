@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
-  Plus, X, Save, Megaphone, TrendingUp, TrendingDown, Users, Flame, MapPin,
-  CheckCircle2, Trash2, Pencil, ChevronDown, BarChart3, Target, Award, AlertCircle,
-  Archive, ArchiveRestore, Calendar, Phone, Info,
+  Plus, X, Save, Megaphone, Trash2, Pencil, AlertCircle,
+  Archive, ArchiveRestore, Calendar, Info,
 } from 'lucide-react';
 import type { Lead, Campaign, CampaignInsert, CampaignType, CampaignPlatform } from '@/lib/supabase';
 import {
@@ -11,7 +10,7 @@ import {
   CAMPAIGN_TYPES, CAMPAIGN_PLATFORMS, formatDate,
   leadQualityScore, UNASSIGNED_CAMPAIGN_LABEL,
 } from '@/lib/crm';
-import { BarChart, LineChart, DonutChart } from './charts';
+import { LineChart, DonutChart } from './charts';
 import Private from './Private';
 
 interface Props {
@@ -141,37 +140,6 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
 
     return fromCampaigns;
   }, [campaigns, leadsByCampaign, organicLeads]);
-
-  // Auto insights
-  const insights = useMemo(() => {
-    if (campaignMetrics.length === 0) return [];
-    const result: { type: 'best' | 'conversion' | 'visits' | 'lowest' | 'attention'; text: string; icon: typeof Award }[] = [];
-
-    const best = [...campaignMetrics].sort((a, b) => b.qualityScore - a.qualityScore)[0];
-    if (best && best.total > 0) result.push({ type: 'best', text: `Best performing: ${best.campaign.name} (${best.qualityScore}% quality score)`, icon: Award });
-
-    const highestConv = [...campaignMetrics].sort((a, b) => b.conversionRate - a.conversionRate)[0];
-    if (highestConv && highestConv.bookings > 0) result.push({ type: 'conversion', text: `Highest conversion: ${highestConv.campaign.name} (${highestConv.conversionRate}% booking rate)`, icon: TrendingUp });
-
-    const mostVisits = [...campaignMetrics].sort((a, b) => b.siteVisitDone - a.siteVisitDone)[0];
-    if (mostVisits && mostVisits.siteVisitDone > 0) result.push({ type: 'visits', text: `Most site visits: ${mostVisits.campaign.name} (${mostVisits.siteVisitDone} visits)`, icon: MapPin });
-
-    const lowest = [...campaignMetrics].filter((m) => m.total >= 3).sort((a, b) => a.qualityScore - b.qualityScore)[0];
-    if (lowest && lowest.qualityScore < 20) result.push({ type: 'lowest', text: `Lowest quality: ${lowest.campaign.name} (${lowest.qualityScore}% — consider reducing budget)`, icon: TrendingDown });
-
-    const attention = [...campaignMetrics].filter((m) => m.total >= 5 && m.contacted / m.total < 0.5)[0];
-    if (attention) result.push({ type: 'attention', text: `Needs attention: ${attention.campaign.name} (${Math.round((attention.contacted / attention.total) * 100)}% contacted)`, icon: AlertCircle });
-
-    return result;
-  }, [campaignMetrics]);
-
-  // Comparison chart data
-  const comparisonData = useMemo(() => {
-    return campaignMetrics.filter((m) => m.total > 0).map((m) => ({
-      label: m.campaign.name.length > 12 ? m.campaign.name.slice(0, 10) + '…' : m.campaign.name,
-      value: m.total,
-    }));
-  }, [campaignMetrics]);
 
   // Overall lead trend across ALL campaigns (for main view) — fixed to the
   // current calendar year, January through December.
@@ -463,34 +431,6 @@ export default function CampaignAnalytics({ leads, onLeadsChanged }: Props) {
           </div>
         ))}
       </div>
-
-      {/* Comparison chart */}
-      {comparisonData.length > 0 && (
-        <div className="mb-6 rounded-2xl border border-black/5 bg-white p-5 card-shadow">
-          <h3 className="mb-4 font-display text-base font-bold tracking-tight text-gray-900">Leads by Campaign</h3>
-          <BarChart data={comparisonData} />
-        </div>
-      )}
-
-      {/* Auto Insights */}
-      {insights.length > 0 && (
-        <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {insights.map((ins, i) => (
-            <div key={i} className="flex items-center gap-3 rounded-2xl border border-black/5 bg-white p-4 card-shadow">
-              <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${
-                ins.type === 'best' ? 'bg-emerald-50 text-emerald-600' :
-                ins.type === 'conversion' ? 'bg-amber-50 text-amber-600' :
-                ins.type === 'visits' ? 'bg-violet-50 text-violet-600' :
-                ins.type === 'lowest' ? 'bg-red-50 text-red-500' :
-                'bg-orange-50 text-orange-600'
-              }`}>
-                <ins.icon className="h-4.5 w-4.5" />
-              </div>
-              <p className="text-[13px] font-medium text-gray-700">{ins.text}</p>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Campaign detail modal with funnel + timeline */}
       {selectedCampaign && funnel && (
