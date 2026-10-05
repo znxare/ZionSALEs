@@ -22,6 +22,7 @@ import LeadImport from '@/components/LeadImport';
 import ActivityLog from '@/components/ActivityLog';
 import Settings from '@/components/Settings';
 import PublicPlotPage from '@/components/PublicPlotPage';
+import { TourRemote, TourScreen } from '@/components/Tour';
 import Reports from '@/components/Reports';
 import { usePermissions, useModuleAccess, setModuleVisibility } from '@/lib/access';
 import { fetchModuleVisibility } from '@/lib/appSettings';
@@ -44,6 +45,8 @@ type Route =
   | { name: 'activitylog' }
   | { name: 'settings' }
   | { name: 'publicPlot'; id: string; to?: string; by?: string }
+  | { name: 'tour-remote' }
+  | { name: 'tour-screen' }
   | { name: 'reports' }
   | { name: 'inventory' }
   | { name: 'hospitality-leads' }
@@ -76,6 +79,9 @@ function parseHash(): Route {
   if (h === 'settings') return { name: 'settings' };
   if (h === 'reports') return { name: 'reports' };
   if (h === 'inventory') return { name: 'inventory' };
+  // Live cart tour: phone = tracker/remote, iPad = buyer's screen (?sim=1 simulates a drive)
+  if (h.startsWith('tour/remote')) return { name: 'tour-remote' };
+  if (h.startsWith('tour/screen')) return { name: 'tour-screen' };
   if (h === 'hospitality-leads') return { name: 'hospitality-leads' };
   if (h === 'hospitality-leadbank') return { name: 'hospitality-leadbank' };
   return { name: 'notfound' };
@@ -105,6 +111,7 @@ function navigate(route: Route) {
 function moduleOf(route: Route): string {
   if (route.name === 'lead') return 'leads';
   if (route.name === 'hospitality-lead') return 'hospitality-leads';
+  if (route.name === 'tour-remote' || route.name === 'tour-screen') return 'inventory';
   return route.name;
 }
 
@@ -328,6 +335,12 @@ export default function App() {
 
   if (!authed) {
     return <Login onSuccess={() => setJustSignedIn(true)} />;
+  }
+
+  // Live tour screens are full-screen, outside the CRM layout.
+  if ((route.name === 'tour-remote' || route.name === 'tour-screen') && canSee('inventory')) {
+    const exit = () => go({ name: 'inventory' });
+    return route.name === 'tour-remote' ? <TourRemote onExit={exit} /> : <TourScreen onExit={exit} />;
   }
 
   return (

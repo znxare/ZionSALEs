@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEven
 import {
   LayoutGrid, Search, X, Maximize2, List as ListIcon, Map as MapIcon, ChevronDown,
   BedDouble, CheckCircle2, Trash2, Receipt, Tag, Clock3, Plus, Minus, RotateCcw,
-  Presentation, Share2, FileText, Ruler, Home, MessageCircle,
+  Presentation, Share2, FileText, Ruler, Home, MessageCircle, Smartphone, Tablet,
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { SAMPLE_PLOTS, PHASES, PLOT_STATUSES, BEDROOM_OPTIONS, STATUS_COLORS, type Plot, type PlotStatus } from '@/lib/inventory';
@@ -85,6 +85,20 @@ export default function LiveInventoryBoard() {
           <div className="flex-1">
             <h1 className="font-display text-2xl font-bold tracking-tight text-gray-900">Live Inventory Board</h1>
           </div>
+          <a
+            href="#/tour/remote"
+            title="On your phone: share the cart's live GPS with the iPad"
+            className="flex items-center gap-1.5 rounded-full border border-black/5 bg-white px-3 py-2.5 text-sm font-semibold text-gray-700 card-shadow hover:bg-gray-50 sm:px-3.5"
+          >
+            <Smartphone className="h-4 w-4" /> <span className="hidden sm:inline">Tour (phone)</span>
+          </a>
+          <a
+            href="#/tour/screen"
+            title="On the iPad: show the cart's live position to the buyer"
+            className="flex items-center gap-1.5 rounded-full border border-black/5 bg-white px-3 py-2.5 text-sm font-semibold text-gray-700 card-shadow hover:bg-gray-50 sm:px-3.5"
+          >
+            <Tablet className="h-4 w-4" /> <span className="hidden sm:inline">Tour (iPad)</span>
+          </a>
           <button
             onClick={() => {
               // Lock the page behind before the map measures the screen, so the
@@ -94,7 +108,7 @@ export default function LiveInventoryBoard() {
             }}
             className="flex items-center gap-2 rounded-full brand-gradient px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
           >
-            <Presentation className="h-4 w-4" /> Present to buyer
+            <Presentation className="h-4 w-4" /> <span className="hidden sm:inline">Present to buyer</span><span className="sm:hidden">Present</span>
           </button>
         </div>
       </div>
@@ -276,11 +290,17 @@ function ZoomPanMap({
   onHover,
   controlsClassName = '',
   cover = false,
+  focus = null,
+  onUserMove,
 }: {
   mapLayer: (state: ViewState) => ReactNode;
   overlay: (state: OverlayState) => ReactNode;
   /** Fill the whole viewport (cropping, draggable) instead of fitting inside it. */
   cover?: boolean;
+  /** Keep this map point (in %) centred — e.g. the cart during a live tour. */
+  focus?: { pt: [number, number]; zoom: number } | null;
+  /** The user dragged or pinched the map (so a follow mode can pause). */
+  onUserMove?: () => void;
   /** A tap/click that wasn't a drag, at a point on the map in % of its width/height. */
   onTap?: (pt: [number, number]) => void;
   /** Mouse hovering over the map (null when it leaves) — desktop tooltips. */
@@ -340,6 +360,17 @@ function ZoomPanMap({
   }
   const canPan = layer.width * zoom > size.width + 0.5 || layer.height * zoom > size.height + 0.5;
 
+  // Follow mode: glide the view so the focus point sits in the centre.
+  const fx = focus?.pt[0], fy = focus?.pt[1], fz = focus?.zoom;
+  useEffect(() => {
+    if (fx === undefined || fy === undefined || fz === undefined || layer.width === 0) return;
+    if (pointers.current.size > 0) return; // never fight a finger on the map
+    const z = clampZoom(Math.max(zoom, fz));
+    setZoom(z);
+    setPan(clampPan({ x: -((fx / 100) * layer.width - layer.width / 2) * z, y: -((fy / 100) * layer.height - layer.height / 2) * z }, z));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fx, fy, fz, layer.width, layer.height]);
+
   /**
    * Accepts either an absolute zoom or an updater — always resolves against the
    * latest React state (never a closure-captured `zoom`), so rapid events fired
@@ -375,6 +406,7 @@ function ZoomPanMap({
         pinch.current = { startDist: dist, startZoom: zoom };
       } else {
         dragged.current = true;
+        onUserMove?.();
         setZoomClamped(pinch.current.startZoom * (dist / pinch.current.startDist));
       }
     } else if (pts.length === 1 && canPan) {
@@ -384,7 +416,7 @@ function ZoomPanMap({
         setPan((p) => clampPan({ x: p.x + dx, y: p.y + dy }, zoom));
         if (dragStart.current) {
           const traveled = Math.hypot(e.clientX - dragStart.current.x, e.clientY - dragStart.current.y);
-          if (traveled > DRAG_THRESHOLD) dragged.current = true;
+          if (traveled > DRAG_THRESHOLD) { dragged.current = true; onUserMove?.(); }
         }
       }
     }
@@ -598,7 +630,12 @@ function PlotShapes({ plots, highlight, hoverId, selectedId, large }: {
   );
 }
 
-function MasterPlanBoard({ plots, highlight = null, onSelect, onExpand, large, selectedId, tooltip = 'internal', bare, cover }: {
+export type TourMarker = { pt: [number, number]; accuracyPct?: number; heading?: number | null };
+
+export function MasterPlanBoard({
+  plots, highlight = null, onSelect, onExpand, large, selectedId, tooltip = 'internal', bare, cover,
+  marker = null, focus = null, onUserMove, onMapPoint, pins = [],
+}: {
   plots: Plot[];
   /** Plots matching the active filters; null = no filter (everything at full colour). */
   highlight?: Set<string> | null;
@@ -613,6 +650,14 @@ function MasterPlanBoard({ plots, highlight = null, onSelect, onExpand, large, s
   bare?: boolean;
   /** Fill the parent edge to edge (presentation mode) instead of a map-shaped box. */
   cover?: boolean;
+  /** Live tour: the cart's position ("You are here"). */
+  marker?: TourMarker | null;
+  focus?: { pt: [number, number]; zoom: number } | null;
+  onUserMove?: () => void;
+  /** Calibration: taps report the raw map point instead of selecting a plot. */
+  onMapPoint?: (pt: [number, number]) => void;
+  /** Numbered pins (calibration points). */
+  pins?: { pt: [number, number]; label: string; tone?: 'ok' | 'warn' | 'new' }[];
 }) {
   const [loaded, setLoaded] = useState(false);
   const [hoverId, setHoverId] = useState<string | null>(null);
@@ -628,7 +673,13 @@ function MasterPlanBoard({ plots, highlight = null, onSelect, onExpand, large, s
       <ZoomPanMap
         cover={cover}
         controlsClassName={large ? 'scale-125 origin-bottom-left' : ''}
-        onTap={(pt) => { const hit = plotAt(plots, pt); if (hit) onSelect(hit); }}
+        focus={focus}
+        onUserMove={onUserMove}
+        onTap={(pt) => {
+          if (onMapPoint) { onMapPoint(pt); return; }
+          const hit = plotAt(plots, pt);
+          if (hit) onSelect(hit);
+        }}
         onHover={(pt) => setHoverId(pt ? plotAt(plots, pt)?.id ?? null : null)}
         mapLayer={(view) => (
           <>
@@ -637,11 +688,47 @@ function MasterPlanBoard({ plots, highlight = null, onSelect, onExpand, large, s
           </>
         )}
         overlay={({ zoom, pan, size, viewport }) => {
-          if (!loaded || !hovered) return null;
-          const [cx, cy] = centroidOf(hovered);
-          const x = viewport.width / 2 + pan.x + zoom * ((cx / 100) * size.width - size.width / 2);
-          const y = viewport.height / 2 + pan.y + zoom * ((cy / 100) * size.height - size.height / 2);
+          if (!loaded) return null;
+          const toScreen = ([px, py]: [number, number]) => [
+            viewport.width / 2 + pan.x + zoom * ((px / 100) * size.width - size.width / 2),
+            viewport.height / 2 + pan.y + zoom * ((py / 100) * size.height - size.height / 2),
+          ];
+          const extras = (
+            <>
+              {pins.map((pin, i) => {
+                const [px, py] = toScreen(pin.pt);
+                const tone = pin.tone === 'warn' ? 'bg-amber-500' : pin.tone === 'new' ? 'bg-orange-600 animate-pulse' : 'bg-emerald-600';
+                return (
+                  <div key={i} className={`absolute z-20 grid h-6 w-6 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-[11px] font-bold text-white shadow ring-2 ring-white ${tone}`} style={{ left: px, top: py }}>
+                    {pin.label}
+                  </div>
+                );
+              })}
+              {marker && (() => {
+                const [mx, my] = toScreen(marker.pt);
+                const halo = marker.accuracyPct ? Math.max(14, (marker.accuracyPct / 100) * size.width * zoom) : 0;
+                return (
+                  <div className="absolute z-30" style={{ left: mx, top: my }}>
+                    {halo > 0 && (
+                      <div className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-500/15 ring-1 ring-blue-500/30" style={{ width: halo * 2, height: halo * 2 }} />
+                    )}
+                    {marker.heading != null && (
+                      <div className="absolute -translate-x-1/2 -translate-y-full" style={{ transform: `translate(-50%, -100%) rotate(${marker.heading}deg)`, transformOrigin: '50% 100%' }}>
+                        <div className="h-0 w-0 border-x-[9px] border-b-[22px] border-x-transparent border-b-blue-500/70" />
+                      </div>
+                    )}
+                    <div className="absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-600 shadow-lg ring-4 ring-white" />
+                    <div className="absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 animate-ping rounded-full bg-blue-500/60" />
+                  </div>
+                );
+              })()}
+            </>
+          );
+          if (!hovered) return extras;
+          const [x, y] = toScreen(centroidOf(hovered));
           return (
+            <>
+            {extras}
             <div
               className="pointer-events-none absolute z-20 hidden w-max max-w-[240px] -translate-x-1/2 -translate-y-full rounded-lg bg-gray-900/95 px-2.5 py-1.5 text-left text-white shadow-xl sm:block"
               style={{ left: x, top: y - 10 }}
@@ -651,6 +738,7 @@ function MasterPlanBoard({ plots, highlight = null, onSelect, onExpand, large, s
               </div>
               <div className="text-[11px] text-white/70">{hovered.bedrooms}BHK · {hovered.phase} · {formatCr(hovered.cost.totalCostLacs)}</div>
             </div>
+            </>
           );
         }}
       />
