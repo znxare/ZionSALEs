@@ -22,6 +22,7 @@ import LeadImport from '@/components/LeadImport';
 import ActivityLog from '@/components/ActivityLog';
 import Settings from '@/components/Settings';
 import PublicPlotPage from '@/components/PublicPlotPage';
+import { QuoteAlerts } from '@/components/QuoteActivity';
 import { TourRemote, TourScreen } from '@/components/Tour';
 import Reports from '@/components/Reports';
 import { usePermissions, useModuleAccess, setModuleVisibility } from '@/lib/access';
@@ -45,6 +46,7 @@ type Route =
   | { name: 'activitylog' }
   | { name: 'settings' }
   | { name: 'publicPlot'; id: string; to?: string; by?: string }
+  | { name: 'quote'; id: string }
   | { name: 'tour-remote' }
   | { name: 'tour-screen' }
   | { name: 'reports' }
@@ -65,6 +67,8 @@ function parseHash(): Route {
     const q = new URLSearchParams(query);
     return { name: 'publicPlot', id: decodeURIComponent(path), to: q.get('to') ?? undefined, by: q.get('by') ?? undefined };
   }
+  // Tracked quote sent to a buyer: #/q/<link id>
+  if (h.startsWith('q/')) return { name: 'quote', id: h.slice(2).split('?')[0] };
   if (h.startsWith('lead/')) return { name: 'lead', id: h.slice(5) };
   if (h.startsWith('hospitality-lead/')) return { name: 'hospitality-lead', id: h.slice(17) };
   if (h === 'search') return { name: 'search' };
@@ -324,6 +328,9 @@ export default function App() {
   if (route.name === 'publicPlot') {
     return <PublicPlotPage plotId={route.id} buyerName={route.to} senderName={route.by} />;
   }
+  if (route.name === 'quote') {
+    return <PublicPlotPage linkId={route.id} />;
+  }
 
   if (!authChecked) {
     return (
@@ -345,6 +352,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-warm-bg">
+      {currentUser && <QuoteAlerts user={currentUser} />}
       {justSignedIn && currentUser && (
         <WelcomeScreen user={currentUser} onDone={() => setJustSignedIn(false)} />
       )}

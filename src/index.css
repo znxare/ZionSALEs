@@ -75,6 +75,8 @@ body {
 
 @layer utilities {
   .font-display { font-family: 'Plus Jakarta Sans', 'Inter', ui-sans-serif, system-ui, sans-serif; }
+  /* Buyer-facing luxury headings (quote page, personal welcome). */
+  .font-lux { font-family: 'Cormorant Garamond', Georgia, 'Times New Roman', serif; }
 
   .glass {
     background: rgba(254, 252, 251, 0.80);
@@ -138,6 +140,22 @@ body {
   .animate-slide-up {
     animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) backwards;
   }
+  /* Buyer-facing: a slow drift into the hero picture, and a slow, soft rise for titles. */
+  .animate-hero-zoom {
+    animation: heroZoom 14s ease-out both;
+  }
+  .animate-lux-rise {
+    animation: luxRise 1.6s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+}
+
+@keyframes heroZoom {
+  from { transform: scale(1.12); }
+  to { transform: scale(1); }
+}
+@keyframes luxRise {
+  from { opacity: 0; transform: translateY(18px); letter-spacing: 0.02em; }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes fadeUp {

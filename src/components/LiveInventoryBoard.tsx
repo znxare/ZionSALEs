@@ -2,12 +2,17 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEven
 import {
   LayoutGrid, Search, X, Maximize2, List as ListIcon, Map as MapIcon, ChevronDown,
   BedDouble, CheckCircle2, Trash2, Receipt, Tag, Clock3, Plus, Minus, RotateCcw,
-  Presentation, Share2, FileText, Ruler, Home, MessageCircle, Smartphone, Tablet,
+  Presentation, Share2, FileText, Ruler, Home, MessageCircle, Smartphone, Tablet, Eye, Sparkles,
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { SAMPLE_PLOTS, PHASES, PLOT_STATUSES, BEDROOM_OPTIONS, STATUS_COLORS, type Plot, type PlotStatus } from '@/lib/inventory';
-import { BUDGETS, inBudget, outlineOf, centroidOf, plotAt, SHAPE_COLORS, plotShareLink, whatsappLink, type BudgetId } from '@/lib/plotMap';
+import { BUDGETS, inBudget, outlineOf, centroidOf, plotAt, SHAPE_COLORS, plotShareLink, type BudgetId } from '@/lib/plotMap';
 import { getCurrentUser } from '@/lib/auth';
+import { createQuoteLink, quoteUrl, quoteMessage, whatsappTo } from '@/lib/quoteLinks';
+import { SentQuotesPanel } from './QuoteActivity';
+import { WelcomeIntro } from './BuyerWelcome';
+import { VideoModal, TestimonialButton } from './ShowcaseMedia';
+import { loadShowcase, renderFor, viewFor, type Showcase } from '@/lib/showcase';
 
 const STAT_TINT: Record<PlotStatus, { border: string; from: string; iconBg: string; iconText: string; ring: string }> = {
   Available: { border: 'border-emerald-200/60 hover:border-emerald-300/60', from: 'from-emerald-50/60', iconBg: 'bg-emerald-100', iconText: 'text-emerald-600', ring: 'ring-emerald-400' },
@@ -37,6 +42,7 @@ export default function LiveInventoryBoard() {
   const [bedroomFilter, setBedroomFilter] = useState<3 | 4 | 'All'>('All');
   const [budget, setBudget] = useState<BudgetId | 'All'>('All');
   const [presenting, setPresenting] = useState(false);
+  const [sentQuotes, setSentQuotes] = useState(false);
   const [selected, setSelected] = useState<Plot | null>(null);
   const [view, setView] = useState<'map' | 'list'>('map');
   const [fullscreen, setFullscreen] = useState(false);
@@ -85,6 +91,13 @@ export default function LiveInventoryBoard() {
           <div className="flex-1">
             <h1 className="font-display text-2xl font-bold tracking-tight text-gray-900">Live Inventory Board</h1>
           </div>
+          <button
+            onClick={() => setSentQuotes(true)}
+            title="Quotes sent to buyers — who opened them and when"
+            className="flex items-center gap-1.5 rounded-full border border-black/5 bg-white px-3 py-2.5 text-sm font-semibold text-gray-700 card-shadow hover:bg-gray-50 sm:px-3.5"
+          >
+            <Eye className="h-4 w-4" /> <span className="hidden sm:inline">Sent quotes</span>
+          </button>
           <a
             href="#/tour/remote"
             title="On your phone: share the cart's live GPS with the iPad"
@@ -240,6 +253,8 @@ export default function LiveInventoryBoard() {
         <PlotDetailModal plot={selected} onClose={() => setSelected(null)} onSave={updatePlot} onDelete={deletePlot} />
       )}
 
+      {sentQuotes && <SentQuotesPanel onClose={() => setSentQuotes(false)} />}
+
       {/* Portalled to <body> so no animated/transformed ancestor can offset or clip it. */}
       {presenting && createPortal(
         <BuyerPresentation plots={plots} onClose={() => { document.documentElement.style.overflow = ''; setPresenting(false); }} />,
@@ -283,6 +298,11 @@ type Size = { width: number; height: number };
 type ViewState = { zoom: number; pan: { x: number; y: number }; size: Size; viewport: Size; interacting: boolean };
 type OverlayState = { zoom: number; pan: { x: number; y: number }; size: Size; viewport: Size };
 
+/** Where the map should look. `durationMs` glides there slowly (the welcome
+ *  fly-in); change `nonce` to fly to the same place again. With `exact`, the
+ *  zoom is set as given (it may zoom out); otherwise it only ever zooms in. */
+export type MapFocus = { pt: [number, number]; zoom: number; offsetY?: number; durationMs?: number; nonce?: number; exact?: boolean };
+
 function ZoomPanMap({
   mapLayer,
   overlay,
@@ -300,7 +320,7 @@ function ZoomPanMap({
   cover?: boolean;
   /** Keep this map point (in %) centred — e.g. the cart during a live tour.
    *  `offsetY` (px) puts it that far below the centre instead (more road ahead). */
-  focus?: { pt: [number, number]; zoom: number; offsetY?: number } | null;
+  focus?: MapFocus | null;
   /** Turn the map this many degrees anticlockwise about the screen centre
    *  (heading-up: the direction of travel points to the top of the screen).
    *  May run past ±360 so a turn through north animates the short way. */
@@ -373,15 +393,21 @@ function ZoomPanMap({
 
   // Follow mode: glide the view so the focus point sits in the centre.
   const fx = focus?.pt[0], fy = focus?.pt[1], fz = focus?.zoom, fo = focus?.offsetY ?? 0;
+  const fd = focus?.durationMs, fn = focus?.nonce, fe = focus?.exact;
+  const [glideMs, setGlideMs] = useState(0);
   useEffect(() => {
     if (fx === undefined || fy === undefined || fz === undefined || layer.width === 0) return;
     if (pointers.current.size > 0) return; // never fight a finger on the map
-    const z = clampZoom(Math.max(zoom, fz));
+    if (fd) {
+      setGlideMs(fd);
+      window.setTimeout(() => setGlideMs(0), fd + 50);
+    }
+    const z = clampZoom(fe ? fz : Math.max(zoom, fz));
     const o = unturn(0, fo);
     setZoom(z);
     setPan(clampPan({ x: -((fx / 100) * layer.width - layer.width / 2) * z + o.x, y: -((fy / 100) * layer.height - layer.height / 2) * z + o.y }, z));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fx, fy, fz, fo, rotation, layer.width, layer.height]);
+  }, [fx, fy, fz, fo, fn, rotation, layer.width, layer.height]);
 
   /**
    * Accepts either an absolute zoom or an updater — always resolves against the
@@ -470,7 +496,7 @@ function ZoomPanMap({
   }
 
   const isReset = zoom === 1 && pan.x === 0 && pan.y === 0;
-  const transition = interacting ? 'none' : 'transform 0.2s cubic-bezier(0.22, 1, 0.36, 1)';
+  const transition = interacting ? 'none' : glideMs ? `transform ${glideMs}ms cubic-bezier(0.45, 0, 0.15, 1)` : 'transform 0.2s cubic-bezier(0.22, 1, 0.36, 1)';
 
   return (
     <div
@@ -673,7 +699,7 @@ export function MasterPlanBoard({
   cover?: boolean;
   /** Live tour: the cart's position ("You are here"). */
   marker?: TourMarker | null;
-  focus?: { pt: [number, number]; zoom: number; offsetY?: number } | null;
+  focus?: MapFocus | null;
   onUserMove?: () => void;
   /** Heading-up: degrees to turn the map anticlockwise (see ZoomPanMap). */
   rotation?: number;
@@ -951,11 +977,25 @@ function PlotDetailModal({ plot, onClose, onSave, onDelete }: { plot: Plot; onCl
 }
 
 /** Share one plot with a buyer: WhatsApp message with a public link, or open the quote. */
-function SendToBuyer({ plot, dark }: { plot: Plot; dark?: boolean }) {
+function SendToBuyer({ plot, dark, defaultName = '' }: { plot: Plot; dark?: boolean; defaultName?: string }) {
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState('');
+  const [name, setName] = useState(defaultName);
   const [phone, setPhone] = useState('');
   const sender = getCurrentUser()?.full_name;
+  const [busy, setBusy] = useState(false);
+  // Each send creates a tracked link (#/q/…) so the team sees when the buyer
+  // opens it. The window is opened straight away (before the save) so phones
+  // don't treat it as an unwanted pop-up.
+  async function send(kind: 'whatsapp' | 'preview') {
+    const w = window.open('about:blank', '_blank');
+    setBusy(true);
+    const id = await createQuoteLink(plot, name, phone, sender);
+    setBusy(false);
+    const link = id ? quoteUrl(id) : plotShareLink(plot, name, sender);
+    const target = kind === 'whatsapp' ? whatsappTo(phone, quoteMessage(plot, name, link)) : link;
+    if (w) w.location.href = target;
+    else window.location.href = target;
+  }
   const input = `w-full rounded-xl border px-3 py-2 text-[13px] outline-none ${dark ? 'border-white/15 bg-white/10 text-white placeholder:text-white/40 focus:border-white/40' : 'border-gray-200 bg-white text-gray-800 focus:border-emerald-300'}`;
 
   if (!open) {
@@ -973,24 +1013,22 @@ function SendToBuyer({ plot, dark }: { plot: Plot; dark?: boolean }) {
       <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Buyer's name" className={input} />
       <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" placeholder="WhatsApp number (optional)" className={input} />
       <div className="flex gap-2">
-        <a
-          href={whatsappLink(plot, name, phone, sender)}
-          target="_blank"
-          rel="noreferrer"
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#25D366] px-3 py-2 text-[13px] font-semibold text-white hover:opacity-95"
+        <button
+          onClick={() => void send('whatsapp')}
+          disabled={busy}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#25D366] px-3 py-2 text-[13px] font-semibold text-white hover:opacity-95 disabled:opacity-60"
         >
           <MessageCircle className="h-4 w-4" /> WhatsApp
-        </a>
-        <a
-          href={plotShareLink(plot, name, sender)}
-          target="_blank"
-          rel="noreferrer"
-          className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-semibold ${dark ? 'bg-white/10 text-white hover:bg-white/15' : 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
+        </button>
+        <button
+          onClick={() => void send('preview')}
+          disabled={busy}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-semibold disabled:opacity-60 ${dark ? 'bg-white/10 text-white hover:bg-white/15' : 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
         >
           <FileText className="h-4 w-4" /> Quote / PDF
-        </a>
+        </button>
       </div>
-      <p className={`text-[11px] ${dark ? 'text-white/50' : 'text-gray-400'}`}>The link shows only this plot's details and price — nothing internal.</p>
+      <p className={`text-[11px] ${dark ? 'text-white/50' : 'text-gray-400'}`}>A personal invitation page for this buyer — only this plot, nothing internal. You'll see when they open it.</p>
     </div>
   );
 }
@@ -1006,6 +1044,17 @@ function BuyerPresentation({ plots, onClose }: { plots: Plot[]; onClose: () => v
   const [budget, setBudget] = useState<BudgetId | 'All'>('All');
   const [availableOnly, setAvailableOnly] = useState(false);
   const [selected, setSelected] = useState<Plot | null>(null);
+  const [showcase, setShowcase] = useState<Showcase>({});
+  // Personal welcome: set up by the host, then the intro, then the map flies
+  // to the homes picked for this buyer.
+  const [stage, setStage] = useState<'setup' | 'intro' | 'live'>('setup');
+  const [guest, setGuest] = useState('');
+  const [curated, setCurated] = useState<Set<string>>(new Set());
+  const [showCurated, setShowCurated] = useState(true);
+  const [focus, setFocus] = useState<MapFocus | null>(null);
+  const [video, setVideo] = useState(false);
+
+  useEffect(() => { void loadShowcase().then(setShowcase); }, []);
 
   useEffect(() => {
     // Real full screen where the browser allows it; the overlay works either way.
@@ -1018,24 +1067,53 @@ function BuyerPresentation({ plots, onClose }: { plots: Plot[]; onClose: () => v
     };
   }, [onClose]);
 
+  const curatedPlots = plots.filter((p) => curated.has(p.id));
+
+  /** Glide to frame the chosen homes (or the whole estate if none). */
+  function flyTo(ids: Set<string>, durationMs: number) {
+    const chosen = plots.filter((p) => ids.has(p.id));
+    if (chosen.length === 0) { setFocus({ pt: [50, 50], zoom: 1, exact: true, durationMs, nonce: Date.now() }); return; }
+    const pts = chosen.map(centroidOf);
+    const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+    const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+    // Zoom so the group fills ~60% of the screen (cover-mode map size).
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const lw = Math.max(vw, vh * MAP_RATIO), lh = lw / MAP_RATIO;
+    const spanX = (Math.max(4, Math.max(...xs) - Math.min(...xs)) / 100) * lw;
+    const spanY = (Math.max(4, Math.max(...ys) - Math.min(...ys)) / 100) * lh;
+    const z = Math.min(3.2, Math.max(1, Math.min((vw * 0.6) / spanX, (vh * 0.55) / spanY)));
+    setFocus({ pt: [cx, cy], zoom: z, exact: true, durationMs, nonce: Date.now() });
+  }
+
   const matches = plots.filter((p) =>
     (bhk === 'All' || p.bedrooms === bhk) && (phase === 'All' || p.phase === phase) && inBudget(p, budget) && (!availableOnly || p.status === 'Available'));
   const filtering = bhk !== 'All' || phase !== 'All' || budget !== 'All' || availableOnly;
-  const highlight = filtering ? new Set(matches.map((p) => p.id)) : null;
+  const curatedOn = !filtering && showCurated && curated.size > 0;
+  const highlight = filtering ? new Set(matches.map((p) => p.id)) : curatedOn ? curated : null;
   const chip = (on: boolean) => `shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-semibold shadow-md backdrop-blur transition sm:px-4 sm:text-sm ${on ? 'bg-[#1f3a2b] text-white' : 'bg-white/85 text-gray-800 hover:bg-white'}`;
+  const selectedRender = selected ? renderFor(showcase, selected.id, selected.bedrooms) : undefined;
+  const selectedView = selected ? viewFor(showcase, selected.id) : undefined;
 
   return (
-    <div className="fixed inset-0 z-[60] overflow-hidden bg-[#d7dac7]" style={{ height: '100dvh' }}>
+    <div data-buyer-facing className="fixed inset-0 z-[60] overflow-hidden bg-[#d7dac7]" style={{ height: '100dvh' }}>
       {/* The map, edge to edge */}
       <div className="absolute inset-0">
-        <MasterPlanBoard plots={plots} highlight={highlight} onSelect={setSelected} large bare cover tooltip="buyer" selectedId={selected?.id} />
+        <MasterPlanBoard plots={plots} highlight={highlight} onSelect={setSelected} large bare cover tooltip="buyer" selectedId={selected?.id} focus={focus} />
       </div>
 
       {/* Floating controls */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-40 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5">
         <div className="flex items-start gap-2">
           <div className="pointer-events-auto flex min-w-0 flex-1 items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] lg:flex-wrap lg:overflow-visible">
-            <button onClick={() => setBhk('All')} className={chip(bhk === 'All')}>All homes</button>
+            {curated.size > 0 && (
+              <button
+                onClick={() => { setBhk('All'); setPhase('All'); setBudget('All'); setAvailableOnly(false); setShowCurated(true); flyTo(curated, 1600); }}
+                className={`${chip(curatedOn)} flex items-center gap-1.5`}
+              >
+                <Sparkles className="h-4 w-4" /> Selected for you
+              </button>
+            )}
+            <button onClick={() => { setBhk('All'); setShowCurated(false); }} className={chip(bhk === 'All' && !curatedOn)}>All homes</button>
             {BEDROOM_OPTIONS.map((b) => <button key={b} onClick={() => setBhk(b)} className={chip(bhk === b)}>{b}BHK</button>)}
             {BUDGETS.map((b) => (
               <button key={b.id} onClick={() => setBudget(budget === b.id ? 'All' : b.id)} className={chip(budget === b.id)}>{b.label}</button>
@@ -1056,6 +1134,30 @@ function BuyerPresentation({ plots, onClose }: { plots: Plot[]; onClose: () => v
         )}
       </div>
 
+      {/* Homes picked for this buyer */}
+      {stage === 'live' && curatedOn && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-14 z-40 flex justify-center px-3 animate-fade-up">
+          <div className="pointer-events-auto max-w-full rounded-3xl bg-[#13261c]/90 px-4 pb-3 pt-2.5 text-white shadow-2xl backdrop-blur">
+            <div className="px-1 pb-2 font-lux text-xl italic text-[#e9dcc0]">Selected for you{guest ? `, ${guest}` : ''}</div>
+            <div className="flex gap-2 overflow-x-auto [scrollbar-width:none]">
+              {curatedPlots.map((p) => (
+                <button key={p.id} onClick={() => setSelected(p)} className="shrink-0 rounded-2xl bg-white/10 px-4 py-2 text-left ring-1 ring-white/10 transition hover:bg-white/20">
+                  <div className="text-[15px] font-semibold">Plot {p.plotNo}</div>
+                  <div className="text-[12px] text-white/70">{p.bedrooms}BHK · {formatCr(p.cost.totalCostLacs)}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Owner stories */}
+      {stage === 'live' && showcase.testimonial?.url && (
+        <div className={`absolute right-3 z-40 sm:right-5 ${curatedOn ? 'top-20' : 'bottom-14'}`}>
+          <TestimonialButton onClick={() => setVideo(true)} />
+        </div>
+      )}
+
       {/* Legend */}
       <div className="pointer-events-none absolute bottom-3 right-3 z-40 flex gap-3 rounded-full bg-white/85 px-3.5 py-1.5 text-[11px] font-medium text-gray-700 shadow-md backdrop-blur sm:text-[12px]">
         {(Object.keys(SHAPE_COLORS) as PlotStatus[]).map((st) => (
@@ -1067,8 +1169,14 @@ function BuyerPresentation({ plots, onClose }: { plots: Plot[]; onClose: () => v
 
       {/* Buyer plot card */}
       {selected && (
-        <div className="absolute inset-0 z-10 flex items-end justify-center bg-black/40 p-3 sm:items-center" onClick={() => setSelected(null)}>
+        <div className="absolute inset-0 z-50 flex items-end justify-center bg-black/40 p-3 sm:items-center" onClick={() => setSelected(null)}>
           <div className="animate-scale-in max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-3xl bg-[#13261c] text-white shadow-2xl ring-1 ring-white/10" onClick={(e) => e.stopPropagation()}>
+            {selectedRender && (
+              <div className="relative">
+                <img src={selectedRender} alt={`Villa at plot ${selected.plotNo}`} className="aspect-[16/10] w-full object-cover" />
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#13261c] to-transparent px-6 pb-2 pt-10 text-[11px] uppercase tracking-[0.2em] text-[#e9dcc0]">How it will look</div>
+              </div>
+            )}
             <div className="flex items-start justify-between px-6 pt-5">
               <div>
                 <div className="text-sm text-white/60">{selected.phase}</div>
@@ -1083,6 +1191,12 @@ function BuyerPresentation({ plots, onClose }: { plots: Plot[]; onClose: () => v
               <BuyerFact icon={Ruler} label="Plot" value={`${Math.round(selected.landAreaSft).toLocaleString('en-IN')} sq ft`} />
               <BuyerFact icon={BedDouble} label="Built-up" value={`${selected.builtUpSft.toLocaleString('en-IN')} sq ft`} />
             </div>
+            {selectedView && (
+              <div className="px-6 pb-4">
+                <div className="mb-2 text-[11px] uppercase tracking-[0.2em] text-white/50">The view from this plot</div>
+                <img src={selectedView} alt={`View from plot ${selected.plotNo}`} className="aspect-[16/9] w-full rounded-2xl object-cover" />
+              </div>
+            )}
             <div className="mx-6 rounded-2xl bg-white/5 px-5 py-4 ring-1 ring-white/10">
               <div className="text-sm text-white/60">Price (all-inclusive, with GST)</div>
               <div className="font-display text-3xl font-bold">{formatCr(selected.cost.totalCostLacs)}</div>
@@ -1092,11 +1206,124 @@ function BuyerPresentation({ plots, onClose }: { plots: Plot[]; onClose: () => v
               </div>
             </div>
             <div className="px-6 py-5">
-              <SendToBuyer plot={selected} dark />
+              <SendToBuyer plot={selected} dark defaultName={guest} />
             </div>
           </div>
         </div>
       )}
+
+      {stage === 'setup' && (
+        <WelcomeSetup
+          plots={plots}
+          onStart={(name, picked) => {
+            const ids = new Set(picked);
+            setGuest(name);
+            setCurated(ids);
+            setShowCurated(true);
+            if (name) setStage('intro');
+            else { setStage('live'); window.setTimeout(() => flyTo(ids, 2600), 100); }
+          }}
+          onClose={onClose}
+        />
+      )}
+      {stage === 'intro' && (
+        <WelcomeIntro
+          guest={guest}
+          image={showcase.welcomeImage}
+          onDone={() => { setStage('live'); window.setTimeout(() => flyTo(curated, 3200), 50); }}
+        />
+      )}
+      {video && showcase.testimonial?.url && <VideoModal url={showcase.testimonial.url} caption={showcase.testimonial.caption} onClose={() => setVideo(false)} />}
+    </div>
+  );
+}
+
+/** Host-side setup before the buyer sees anything: their name and the homes to show. */
+function WelcomeSetup({ plots, onStart, onClose }: { plots: Plot[]; onStart: (guest: string, plotIds: string[]) => void; onClose: () => void }) {
+  const [name, setName] = useState('');
+  const [budget, setBudget] = useState<BudgetId | 'All'>('All');
+  const [bhk, setBhk] = useState<3 | 4 | 'All'>('All');
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [touched, setTouched] = useState(false);
+
+  const options = plots
+    .filter((p) => p.status === 'Available' && (bhk === 'All' || p.bedrooms === bhk) && inBudget(p, budget))
+    .sort((a, b) => a.cost.totalCostLacs - b.cost.totalCostLacs);
+
+  // Until the host ticks homes by hand, pre-pick the best few matches.
+  useEffect(() => {
+    if (touched) return;
+    setPicked(new Set(budget === 'All' && bhk === 'All' ? [] : options.slice(0, 5).map((p) => p.id)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [budget, bhk, touched]);
+
+  function toggle(id: string) {
+    setTouched(true);
+    setPicked((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }
+  const pill = (on: boolean) => `rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition ${on ? 'bg-[#13261c] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`;
+
+  return (
+    <div className="absolute inset-0 z-[65] flex items-center justify-center bg-[#0d1c14]/70 p-3 backdrop-blur-sm">
+      <div className="animate-scale-in flex max-h-[94dvh] w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+        <div className="flex items-start justify-between px-6 pb-2 pt-5">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#a8884f]">Before your guest arrives</div>
+            <h2 className="font-display text-xl font-bold text-gray-900">Personal welcome</h2>
+          </div>
+          <button onClick={onClose} className="rounded-full p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
+        </div>
+        <div className="flex-1 space-y-5 overflow-y-auto px-6 pb-4">
+          <label className="block">
+            <span className="text-[13px] font-semibold text-gray-700">Guest's name, as it should appear</span>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Mr & Mrs Rao"
+              className="mt-1.5 w-full rounded-xl border border-gray-200 px-3.5 py-2.5 font-lux text-xl outline-none focus:border-[#c9a96e]"
+            />
+          </label>
+          <div>
+            <div className="text-[13px] font-semibold text-gray-700">Budget</div>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              <button onClick={() => { setBudget('All'); setTouched(false); }} className={pill(budget === 'All')}>Any</button>
+              {BUDGETS.map((b) => <button key={b.id} onClick={() => { setBudget(b.id); setTouched(false); }} className={pill(budget === b.id)}>{b.label}</button>)}
+            </div>
+          </div>
+          <div>
+            <div className="text-[13px] font-semibold text-gray-700">Home</div>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              <button onClick={() => { setBhk('All'); setTouched(false); }} className={pill(bhk === 'All')}>Any</button>
+              {BEDROOM_OPTIONS.map((b) => <button key={b} onClick={() => { setBhk(b); setTouched(false); }} className={pill(bhk === b)}>{b}BHK</button>)}
+            </div>
+          </div>
+          <div>
+            <div className="flex items-baseline justify-between">
+              <div className="text-[13px] font-semibold text-gray-700">Homes to show ({picked.size} chosen)</div>
+              <div className="text-[12px] text-gray-400">{options.length} available</div>
+            </div>
+            <div className="mt-1.5 max-h-56 divide-y divide-gray-100 overflow-y-auto rounded-xl border border-gray-100">
+              {options.length === 0 && <div className="px-3 py-6 text-center text-[13px] text-gray-400">No available homes in this budget.</div>}
+              {options.map((p) => (
+                <label key={p.id} className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-gray-50">
+                  <input type="checkbox" checked={picked.has(p.id)} onChange={() => toggle(p.id)} className="h-4 w-4 accent-[#13261c]" />
+                  <span className="flex-1 text-[14px] font-medium text-gray-800">Plot {p.plotNo} <span className="font-normal text-gray-400">· {p.bedrooms}BHK · {p.phase}</span></span>
+                  <span className="text-[13px] font-semibold text-gray-700">{formatCr(p.cost.totalCostLacs)}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-2 border-t border-gray-100 px-6 py-4">
+          <button onClick={() => onStart('', [])} className="rounded-xl px-4 py-3 text-sm font-semibold text-gray-500 hover:bg-gray-50">Skip</button>
+          <button
+            onClick={() => onStart(name.trim(), [...picked])}
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#13261c] px-4 py-3 text-sm font-semibold text-white hover:bg-[#1d3a2a]"
+          >
+            <Sparkles className="h-4 w-4" /> {name.trim() ? 'Begin the welcome' : 'Show the map'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

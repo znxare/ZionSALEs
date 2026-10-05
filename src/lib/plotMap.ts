@@ -71,15 +71,3 @@ export function plotShareLink(p: Plot, buyerName?: string, senderName?: string):
   const qs = q.toString();
   return `${window.location.origin}/#/p/${encodeURIComponent(p.id)}${qs ? `?${qs}` : ''}`;
 }
-
-export function whatsappLink(p: Plot, buyerName: string, phone: string, senderName?: string): string {
-  const name = buyerName.trim();
-  const text = [
-    `Hello${name ? ` ${name}` : ''},`,
-    `Here are the details of Plot ${p.plotNo} at Zion Hills Golf County — a ${p.bedrooms}BHK villa on a ${Math.round(p.landAreaSft).toLocaleString('en-IN')} sq ft plot (${p.phase}), ${formatCrore(p.cost.totalCostLacs)} all-inclusive.`,
-    `View the plot and your quote: ${plotShareLink(p, name, senderName)}`,
-  ].join('\n\n');
-  let digits = phone.replace(/\D/g, '');
-  if (digits.length === 10) digits = `91${digits}`;
-  return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
-}

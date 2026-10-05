@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { X, Navigation, Radio, Smartphone, Tablet, Crosshair, Trash2, Save, Locate, Loader2, Download } from 'lucide-react';
+import { X, Navigation, Radio, Smartphone, Tablet, Crosshair, Trash2, Save, Locate, Loader2, Download, Sparkles } from 'lucide-react';
 import { SAMPLE_PLOTS } from '@/lib/inventory';
 import { centroidOf } from '@/lib/plotMap';
 import { usePermissions } from '@/lib/access';
@@ -8,6 +8,9 @@ import {
   placedPoints, type Calibration, type CalPoint, type GpsFix, type MapPt, type TourMessage,
 } from '@/lib/tour';
 import { MasterPlanBoard, type TourMarker } from './LiveInventoryBoard';
+import { WelcomeIntro } from './BuyerWelcome';
+import { VideoModal, TestimonialButton } from './ShowcaseMedia';
+import { loadShowcase, type Showcase, type TourStop } from '@/lib/showcase';
 
 const FOLLOW_ZOOM = 2.5;
 const SEND_EVERY_MS = 700;
@@ -157,6 +160,8 @@ export function TourRemote({ onExit }: { onExit: () => void }) {
   const [screenSeen, setScreenSeen] = useState(0);
   const [live, setLive] = useState(false);
   const [calibrating, setCalibrating] = useState(false);
+  const [guest, setGuest] = useState('');
+  const [welcomed, setWelcomed] = useState(false);
   const { cal: savedCal, setCal, loading } = useCalibration();
   const [localCal, setLocalCal] = useState<Calibration | null>(() => loadLocalCalibration());
   // Team calibration first, else the one recorded on this phone (works even if
@@ -254,6 +259,23 @@ export function TourRemote({ onExit }: { onExit: () => void }) {
 
       <div className="mx-4 mt-3">
         <MasterPlanBoard plots={SAMPLE_PLOTS} onSelect={() => {}} bare marker={marker} focus={marker && follow ? { pt: marker.pt, zoom: FOLLOW_ZOOM } : null} />
+      </div>
+
+      {/* Personal welcome on the iPad */}
+      <div className="mx-4 mt-3 flex gap-2">
+        <input
+          value={guest}
+          onChange={(e) => { setGuest(e.target.value); setWelcomed(false); }}
+          placeholder="Guest's name, e.g. Mr & Mrs Rao"
+          className="min-w-0 flex-1 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-orange-300"
+        />
+        <button
+          onClick={() => { link.current?.send({ kind: 'welcome', guest: guest.trim() }); setWelcomed(true); }}
+          disabled={!ipadConnected || !guest.trim()}
+          className="flex shrink-0 items-center gap-1.5 rounded-2xl bg-[#13261c] px-4 text-sm font-semibold text-white disabled:opacity-40"
+        >
+          <Sparkles className="h-4 w-4" /> {welcomed ? 'Shown' : 'Welcome'}
+        </button>
       </div>
 
       <div className="mt-auto space-y-2 p-4">
@@ -525,6 +547,13 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
   // Heading-up (like a car sat-nav): the map turns so the road ahead is at the top.
   const [headingUp, setHeadingUp] = useState(true);
   const turn = useRef(0);
+  const [welcome, setWelcome] = useState<string | null>(null);
+  const [showcase, setShowcase] = useState<Showcase>({});
+  const [stop, setStop] = useState<TourStop | null>(null);
+  const stopShownAt = useRef(new Map<string, number>());
+  const [video, setVideo] = useState(false);
+
+  useEffect(() => { void loadShowcase().then(setShowcase); }, []);
 
   useEffect(() => { const t = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(t); }, []);
 
@@ -539,6 +568,7 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
       if (m.kind === 'fix') setFix(m.fix);
       else if (m.kind === 'follow') setFollow(m.on);
       else if (m.kind === 'calibration') setCal(m.cal);
+      else if (m.kind === 'welcome') setWelcome(m.guest);
     }, (isLive) => {
       setLive(isLive);
       if (isLive) sayHello(); // only once the channel is open, so replies aren't lost
@@ -548,6 +578,22 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
     void keepScreenOn().then((r) => { release = r; });
     return () => { window.clearInterval(hello); l.leave(); release?.(); };
   }, [joined, setCal]);
+
+  // Reaching a tour stop pops its picture up (once per 10 minutes per stop).
+  useEffect(() => {
+    if (!fix || !showcase.stops?.length) return;
+    const near = showcase.stops.find((st) => st.image && distanceM(fix, st) <= st.radiusM);
+    if (!near) return;
+    const last = stopShownAt.current.get(near.id) ?? 0;
+    if (Date.now() - last < 10 * 60 * 1000) return;
+    stopShownAt.current.set(near.id, Date.now());
+    setStop(near);
+  }, [fix, showcase.stops]);
+  useEffect(() => {
+    if (!stop) return;
+    const t = window.setTimeout(() => setStop(null), 15000);
+    return () => window.clearTimeout(t);
+  }, [stop]);
 
   useEffect(() => {
     document.documentElement.style.overflow = 'hidden';
@@ -640,6 +686,29 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
           The map isn't calibrated yet — calibrate from the phone's Tour remote.
         </div>
       )}
+
+      {showcase.testimonial?.url && (
+        <div className="absolute bottom-3 left-1/2 z-40 -translate-x-1/2">
+          <TestimonialButton onClick={() => setVideo(true)} />
+        </div>
+      )}
+
+      {/* Tour stop picture */}
+      {stop && (
+        <div className="absolute inset-0 z-50 flex items-end justify-center bg-black/30 p-4 animate-fade-in sm:items-center" onClick={() => setStop(null)}>
+          <div className="animate-scale-in w-full max-w-3xl overflow-hidden rounded-3xl bg-[#13261c] text-white shadow-2xl">
+            <img src={stop.image} alt={stop.label} className="max-h-[65dvh] w-full object-cover" />
+            <div className="px-6 py-4">
+              <div className="text-[11px] uppercase tracking-[0.25em] text-[#e9dcc0]">You are at</div>
+              <div className="font-lux text-3xl">{stop.label}</div>
+              {stop.caption && <div className="mt-1 text-[15px] text-white/75">{stop.caption}</div>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {welcome !== null && <WelcomeIntro guest={welcome} image={showcase.welcomeImage} onDone={() => setWelcome(null)} />}
+      {video && showcase.testimonial?.url && <VideoModal url={showcase.testimonial.url} caption={showcase.testimonial.caption} onClose={() => setVideo(false)} />}
 
       {marker && !follow && (
         <button

@@ -9,6 +9,7 @@ import {
 import { saveModuleVisibility } from '@/lib/appSettings';
 import { addMember, setMemberAccess } from '@/lib/users';
 import { usePresentationMode, setPresentationMode } from '@/lib/presentationMode';
+import { MyHostCard, BuyerShowcaseSettings } from './ShowcaseSettings';
 
 interface Props {
   user: CurrentUser;
@@ -67,6 +68,10 @@ export default function Settings({ user, profiles, onSignOut, onTeamChanged }: P
           </button>
         </label>
       </Section>
+
+      {can.canWrite && <MyHostCard userId={user.id} />}
+
+      {can.canManageUsers && <BuyerShowcaseSettings profiles={profiles} />}
 
       {can.canManageUsers && <ModuleAccess />}
 

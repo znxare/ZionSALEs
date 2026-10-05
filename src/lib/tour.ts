@@ -216,7 +216,9 @@ export type TourMessage =
   | { kind: 'fix'; fix: GpsFix }
   | { kind: 'follow'; on: boolean }
   | { kind: 'hello'; role: 'screen' | 'remote'; needCal?: boolean }
-  | { kind: 'calibration'; cal: Calibration };
+  | { kind: 'calibration'; cal: Calibration }
+  /** Show the personal welcome on the iPad. */
+  | { kind: 'welcome'; guest: string };
 
 export function newPairCode(): string {
   return String(Math.floor(1000 + Math.random() * 9000));
