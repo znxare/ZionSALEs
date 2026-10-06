@@ -22,6 +22,7 @@ import LeadImport from '@/components/LeadImport';
 import ActivityLog from '@/components/ActivityLog';
 import Settings from '@/components/Settings';
 import PublicPlotPage from '@/components/PublicPlotPage';
+import PublicMap from '@/components/PublicMap';
 import { QuoteAlerts } from '@/components/QuoteActivity';
 import { TourRemote, TourScreen } from '@/components/Tour';
 import Reports from '@/components/Reports';
@@ -47,6 +48,7 @@ type Route =
   | { name: 'settings' }
   | { name: 'publicPlot'; id: string; to?: string; by?: string }
   | { name: 'quote'; id: string }
+  | { name: 'publicMap'; to?: string }
   | { name: 'tour-remote' }
   | { name: 'tour-screen' }
   | { name: 'reports' }
@@ -69,6 +71,8 @@ function parseHash(): Route {
   }
   // Tracked quote sent to a buyer: #/q/<link id>
   if (h.startsWith('q/')) return { name: 'quote', id: h.slice(2).split('?')[0] };
+  // The estate map for anyone with the link: #/map, or #/map?to=villa-202 for directions to a place
+  if (h === 'map' || h.startsWith('map?')) return { name: 'publicMap', to: new URLSearchParams(h.slice(4)).get('to') ?? undefined };
   if (h.startsWith('lead/')) return { name: 'lead', id: h.slice(5) };
   if (h.startsWith('hospitality-lead/')) return { name: 'hospitality-lead', id: h.slice(17) };
   if (h === 'search') return { name: 'search' };
@@ -330,6 +334,10 @@ export default function App() {
   }
   if (route.name === 'quote') {
     return <PublicPlotPage linkId={route.id} />;
+  }
+  // The estate map and directions for anyone with the link: no login, no CRM data.
+  if (route.name === 'publicMap') {
+    return <PublicMap key={route.to ?? ''} toId={route.to} />;
   }
 
   if (!authChecked) {

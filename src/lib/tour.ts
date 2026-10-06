@@ -205,6 +205,23 @@ export async function loadCalibration(): Promise<Calibration | null> {
   return v && Array.isArray(v.points) ? v : null;
 }
 
+/**
+ * The same calibration for someone who isn't logged in (the public map). It comes
+ * through a database function, so it only works once public_tour_calibration has
+ * been added (see supabase/migrations); without it this is just null and the
+ * public map hides "Show my location". A GET, so a viewer's write block never applies.
+ */
+export async function loadPublicCalibration(): Promise<Calibration | null> {
+  try {
+    const { data, error } = await supabase.rpc('public_tour_calibration', {}, { get: true });
+    if (error || !data) return null;
+    const v = data as Calibration;
+    return Array.isArray(v.points) ? v : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function saveCalibration(cal: Calibration): Promise<void> {
   const { error } = await supabase.from('app_settings').upsert({ key: CAL_KEY, value: cal, updated_at: new Date().toISOString() });
   if (error) throw error;

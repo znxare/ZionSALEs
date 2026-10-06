@@ -13,19 +13,21 @@ export interface DirectionsView {
   places: { pt: MapPt; label: string; kind?: 'villa' }[];
 }
 
-export function DirectionsControls({ from, toGps, offRoad = false, onView, className = '', dark = false }: {
+export function DirectionsControls({ from, toGps, offRoad = false, initialDestination, onView, className = '', dark = false }: {
   /** Live position (tour). Leave undefined to let the user pick a starting place. */
   from?: MapPt | null;
   toGps?: ((pt: MapPt) => { lat: number; lng: number }) | null;
   /** Live tour: the cart has left the road (the banner says so). */
   offRoad?: boolean;
+  /** Start with directions to this place already chosen (a shared link). */
+  initialDestination?: Place;
   onView: (v: DirectionsView) => void;
   className?: string;
   dark?: boolean;
 }) {
   const live = from !== undefined;
   const [picking, setPicking] = useState(false);
-  const [dest, setDest] = useState<Place | null>(null);
+  const [dest, setDest] = useState<Place | null>(initialDestination ?? null);
   const [start, setStart] = useState<Place>(AMENITIES[0]);
   const [showPlaces, setShowPlaces] = useState(false);
   const [arrived, setArrived] = useState(false);

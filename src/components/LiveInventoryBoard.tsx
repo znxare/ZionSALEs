@@ -44,6 +44,7 @@ export default function LiveInventoryBoard() {
   const [budget, setBudget] = useState<BudgetId | 'All'>('All');
   const [presenting, setPresenting] = useState(false);
   const [sentQuotes, setSentQuotes] = useState(false);
+  const [mapLinkCopied, setMapLinkCopied] = useState(false);
   const [selected, setSelected] = useState<Plot | null>(null);
   const [view, setView] = useState<'map' | 'list'>('map');
 
@@ -92,6 +93,19 @@ export default function LiveInventoryBoard() {
             className="flex items-center gap-1.5 rounded-full border border-black/5 bg-white px-3 py-2.5 text-sm font-semibold text-gray-700 card-shadow hover:bg-gray-50 sm:px-3.5"
           >
             <Eye className="h-4 w-4" /> <span className="hidden sm:inline">Sent quotes</span>
+          </button>
+          <button
+            onClick={() => {
+              // A public page: anyone with the link sees the estate map and directions, no login, no CRM data.
+              void navigator.clipboard?.writeText(`${window.location.origin}/#/map`).then(() => {
+                setMapLinkCopied(true);
+                window.setTimeout(() => setMapLinkCopied(false), 2000);
+              });
+            }}
+            title="Copy a link anyone can open — the estate map with directions, no login needed"
+            className="flex items-center gap-1.5 rounded-full border border-black/5 bg-white px-3 py-2.5 text-sm font-semibold text-gray-700 card-shadow hover:bg-gray-50 sm:px-3.5"
+          >
+            <Share2 className="h-4 w-4" /> <span className="hidden sm:inline">{mapLinkCopied ? 'Link copied' : 'Share map'}</span>
           </button>
           <a
             href="#/tour/remote"

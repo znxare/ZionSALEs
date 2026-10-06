@@ -43,6 +43,11 @@ export const VILLAS: Place[] = Object.entries(VILLA_PTS)
 
 export const PLOT_PLACES: Place[] = SAMPLE_PLOTS.map((p) => ({ id: `plot-${p.id}`, label: `Plot ${p.plotNo}`, kind: 'plot', pt: centroidOf(p) }));
 
+/** A place by its id (e.g. 'villa-202', 'clubhouse'), for links that open straight onto directions. */
+export function findPlace(id: string): Place | undefined {
+  return [...AMENITIES, ...VILLAS, ...PLOT_PLACES, ...HOLES].find((p) => p.id === id);
+}
+
 // ---------- road graph (built once, on first use) ----------
 
 /**
