@@ -52,6 +52,27 @@ const EXTRA_PATHS: MapPt[][] = [
   ],
 ];
 
+/**
+ * Roads on the plan that are closed or not built (% of the plan), marked by the
+ * sales team on 6 Oct 2026; road pixels near these lines are left out. Everything
+ * goes in from the main road for now. That leaves the north side (camp site,
+ * holes 10–14, plots 7xx/8xx) with no open road, so routes there come back null.
+ */
+const CLOSED_ROADS: MapPt[][] = [
+  // Hanchala / Shoolagunta village roads and the west boundary road up to the plots loop
+  [[12.3, 54.8], [13.1, 55.5], [13.3, 53.5], [13.7, 51.3], [14.0, 50.7]],
+  [[13.1, 55.6], [13.0, 56.4]],
+  [[13.1, 55.6], [14.2, 56.0], [15.0, 56.8], [15.9, 57.6]],
+  // West boundary road over the north-west to the north side, and the existing road off it
+  [[14.45, 46.7], [14.4, 45.0], [17.0, 41.5], [19.9, 36.3], [21.5, 33.5], [23.8, 28.6], [24.2, 28.0], [24.7, 28.4], [26.9, 28.6]],
+  [[27.45, 28.25], [28.1, 27.0]],
+  // West entry gate (1) into the plots loop
+  [[15.95, 54.8], [15.95, 57.6]],
+  // Boundary road from the west gate to the main gate
+  [[15.9, 57.2], [17, 58.84], [18, 59.82], [20, 61.55], [25, 66.03], [30, 69.87], [35, 73.37], [40, 76.9], [43, 79.03], [45.2, 80.55]],
+];
+const CLOSED_WITHIN = 7; // grid px either side of a closed line
+
 type Graph = { xs: Int16Array; ys: Int16Array; index: Map<number, number>; n: number };
 let graph: Graph | null = null;
 
@@ -65,8 +86,15 @@ function getGraph(): Graph {
     if (index.has(k)) return;
     index.set(k, xs.length); xs.push(x); ys.push(y);
   };
+  const closed = CLOSED_ROADS.flatMap((line) => line.slice(1).map((b, i) => [toGrid(line[i]), toGrid(b)] as const));
+  const isClosed = (x: number, y: number) => closed.some(([[ax, ay], [bx, by]]) => {
+    const dx = bx - ax, dy = by - ay;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy)));
+    return Math.hypot(x - ax - t * dx, y - ay - t * dy) <= CLOSED_WITHIN;
+  });
   for (let i = 0; i < bin.length / 4; i++) {
-    add(bin.charCodeAt(i * 4) | (bin.charCodeAt(i * 4 + 1) << 8), bin.charCodeAt(i * 4 + 2) | (bin.charCodeAt(i * 4 + 3) << 8));
+    const x = bin.charCodeAt(i * 4) | (bin.charCodeAt(i * 4 + 1) << 8), y = bin.charCodeAt(i * 4 + 2) | (bin.charCodeAt(i * 4 + 3) << 8);
+    if (!isClosed(x, y)) add(x, y);
   }
   const roadCount = xs.length;
   // Lay each extra path into the grid as an 8-connected line of pixels.
@@ -84,7 +112,27 @@ function getGraph(): Graph {
     line(xs[best], ys[best], grid[0][0], grid[0][1]);
     for (let i = 1; i < grid.length; i++) line(grid[i - 1][0], grid[i - 1][1], grid[i][0], grid[i][1]);
   }
-  graph = { xs: Int16Array.from(xs), ys: Int16Array.from(ys), index, n: xs.length };
+  // Drop scraps of closed roads (small pieces cut off from everything else), so
+  // a point near one doesn't snap to a road that leads nowhere.
+  const W = ROAD_GRID.width;
+  const seen = new Uint8Array(xs.length);
+  const keep: number[] = [];
+  for (let s = 0; s < xs.length; s++) {
+    if (seen[s]) continue;
+    const part = [s]; seen[s] = 1;
+    for (let j = 0; j < part.length; j++) {
+      const v = part[j];
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const u = index.get((ys[v] + dy) * W + xs[v] + dx);
+        if (u !== undefined && !seen[u]) { seen[u] = 1; part.push(u); }
+      }
+    }
+    if (part.length >= 150) keep.push(...part);
+  }
+  const kx = Int16Array.from(keep, (i) => xs[i]), ky = Int16Array.from(keep, (i) => ys[i]);
+  const kIndex = new Map<number, number>();
+  for (let i = 0; i < keep.length; i++) kIndex.set(ky[i] * W + kx[i], i);
+  graph = { xs: kx, ys: ky, index: kIndex, n: keep.length };
   return graph;
 }
 
