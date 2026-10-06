@@ -13,6 +13,10 @@ import { NightLayer } from './NightLayer';
 import { DaylightLayer } from './DaylightLayer';
 import { CartsLayer } from './CartsLayer';
 import { AmbientLayer } from './AmbientLayer';
+import { TerrainLayer } from './TerrainLayer';
+import { SkyLayer } from './SkyLayer';
+import { Cartouche } from './Cartouche';
+import type { Atmosphere } from '@/lib/mapInfo';
 import type { Daylight } from '@/lib/daylight';
 import { BUDGETS, inBudget, outlineOf, centroidOf, plotAt, SHAPE_COLORS, plotShareLink, type BudgetId } from '@/lib/plotMap';
 import { getCurrentUser } from '@/lib/auth';
@@ -860,7 +864,7 @@ export type HoleTrail = { n: number; tee: [number, number]; mid: [number, number
 export type TourMarker = { pt: [number, number]; accuracyPct?: number; heading?: number | null };
 
 export function MasterPlanBoard({
-  plots, highlight = null, onSelect, large, selectedId, tooltip = 'internal', bare, cover, publicView, waterAlert = null, wildlife = false, night = 0, daylight = null, ambient = false, adPins = [], selectedAdId = null, onAdTap, holePins = [], holeTrail = null, onHoleTap,
+  plots, highlight = null, onSelect, large, selectedId, tooltip = 'internal', bare, cover, publicView, waterAlert = null, wildlife = false, night = 0, daylight = null, ambient = false, scenery = false, atmosphere = null, rain = 0, adPins = [], selectedAdId = null, onAdTap, holePins = [], holeTrail = null, onHoleTap,
   marker = null, focus = null, onUserMove, onMapPoint, pins = [], rotation = 0, turnable = false, route = null, places = [], destination = null, offRoad = false,
 }: {
   plots: Plot[];
@@ -882,6 +886,11 @@ export function MasterPlanBoard({
   night?: number;
   /** The light of the day: golden hour, dawn mist, sparkle on the water. */
   daylight?: Daylight | null;
+  /** The ground and sky around the estate: contours, cloud shadows, sun / moon, stars, birds, kites. */
+  scenery?: boolean;
+  atmosphere?: Atmosphere | null;
+  /** 0..1 how hard it is raining (ripples on the lakes). */
+  rain?: number;
   /** Golf carts on the roads, flags on the greens, a glint on the clubhouse. */
   ambient?: boolean;
   /** Public map: swaying groves, peacocks, birds and parrots drawn on the map. */
@@ -954,8 +963,10 @@ export function MasterPlanBoard({
         mapLayer={(view) => (
           <>
             <MasterPlanImage view={view} loaded={loaded} onLoad={() => setLoaded(true)} />
+            {loaded && scenery && <TerrainLayer cloud={(atmosphere?.cloud ?? 30) / 100} night={night} />}
             {loaded && night > 0.001 && <NightLayer level={night} />}
-            {loaded && daylight && <DaylightLayer light={daylight} night={night} />}
+            {loaded && scenery && <SkyLayer night={night} cloud={(atmosphere?.cloud ?? 30) / 100} sunrise={atmosphere?.sunrise ?? null} sunset={atmosphere?.sunset ?? null} />}
+            {loaded && daylight && <DaylightLayer light={daylight} night={night} rain={rain} />}
             {loaded && ambient && view.zoom >= 1.25 && <CartsLayer night={night} />}
             {loaded && <PlotShapes plots={plots} highlight={highlight} hoverId={hoverId} selectedId={selectedId} large={large} waterAlert={waterAlert} />}
           </>
@@ -979,6 +990,7 @@ export function MasterPlanBoard({
                   <polyline points={routePts.map((q) => toScreen(q).join(',')).join(' ')} fill="none" stroke="white" strokeOpacity={0.7} strokeWidth={2} strokeDasharray="2 10" strokeLinecap="round" className="animate-route-flow" />
                 </svg>
               )}
+              {ambient && scenery && <Cartouche toScreen={toScreen} zoom={zoom} layerWidth={size.width} upright={upright} turned={turned} atmosphere={atmosphere} night={night} />}
               {ambient && <AmbientLayer toScreen={toScreen} zoom={zoom} upright={upright} sun={1 - night} safe={safe} viewport={viewport} />}
               {wildlife && <WildlifeLayer toScreen={toScreen} zoom={zoom} upright={upright} night={night} safe={safe} viewport={viewport} />}
               {holeTrail && (() => {

@@ -12,6 +12,9 @@ import { EmergencyButton } from './EmergencyButton';
 import { MapInfoCard } from './MapInfoCard';
 import { useNightControl } from '@/lib/night';
 import { useDaylight } from '@/lib/daylight';
+import { useAtmosphere } from '@/lib/mapInfo';
+import { rainLevel } from '@/lib/sky';
+import { RainOverlay } from './RainOverlay';
 import { WelcomeGreeting, greetingFor, guestFromLink } from './WelcomeGreeting';
 import { useWaterCaution, WaterCautionBanner } from './WaterCaution';
 import { findPlace, planMetres } from '@/lib/directions';
@@ -61,6 +64,8 @@ export default function PublicMap({ toId }: { toId?: string }) {
   const [holeSel, setHoleSel] = useState<number | null>(null);
   const { level: night, isNight, toggle: toggleNight } = useNightControl();
   const daylight = useDaylight(night);
+  const atmosphere = useAtmosphere();
+  const rain = rainLevel(atmosphere?.code);
   const [greet, setGreet] = useState<{ eyebrow: string; title: string } | null>(null);
   const arrivedShown = useRef(false);
   // Height of whichever full-width panel (route preview / navigation bar) is sitting at the bottom, so the buttons stand just above it.
@@ -286,6 +291,9 @@ export default function PublicMap({ toId }: { toId?: string }) {
           wildlife={phase === 'idle'}
           night={night}
           daylight={daylight}
+          scenery
+          atmosphere={atmosphere}
+          rain={rain}
           ambient={phase === 'idle'}
           adPins={phase === 'idle' ? adPins : []}
           holePins={holePins}
@@ -433,6 +441,8 @@ export default function PublicMap({ toId }: { toId?: string }) {
           onShowPlace={(id) => setExitDest(findPlace(id))}
         />
       )}
+
+      <RainOverlay level={rain} />
 
       {greet && <WelcomeGreeting eyebrow={greet.eyebrow} title={greet.title} onDone={() => setGreet(null)} />}
 

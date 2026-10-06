@@ -44,7 +44,7 @@ function lakeSparkles(): { x: number; y: number; g: number; s: number }[] {
   return out;
 }
 
-export function DaylightLayer({ light, night }: { light: Daylight; night: number }) {
+export function DaylightLayer({ light, night, rain = 0 }: { light: Daylight; night: number; rain?: number }) {
   const sparkles = useMemo(lakeSparkles, []);
   const silver = night > 0.5;
   return (
@@ -63,6 +63,14 @@ export function DaylightLayer({ light, night }: { light: Daylight; night: number
               <polygon key={i} points={poly.map(([x, y]) => `${x},${y}`).join(' ')} fill="#eef5f4" fillOpacity={0.78} />
             ))}
           </g>
+        </svg>
+      )}
+
+      {rain > 0.05 && (
+        <svg className="zh-anim pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ opacity: Math.min(1, rain + 0.2) }}>
+          {sparkles.filter((s, i) => i % 2 === 0).map((s, i) => (
+            <ellipse key={i} cx={s.x} cy={s.y} rx={0.6 * s.s} ry={0.6 * s.s * ASPECT} fill="none" stroke="#ffffff" strokeWidth={0.07} style={{ transformBox: 'fill-box', transformOrigin: 'center', animation: `zh-ripple ${1.6 + (i % 5) * 0.35}s ease-out ${-(i % 7) * 0.3}s infinite` }} />
+          ))}
         </svg>
       )}
 
