@@ -11,6 +11,7 @@ import { MasterPlanBoard, type TourMarker, type MapFocus } from './LiveInventory
 import { WelcomeIntro } from './BuyerWelcome';
 import { VideoModal, TestimonialButton } from './ShowcaseMedia';
 import { loadShowcase, type Showcase, type TourStop } from '@/lib/showcase';
+import { DirectionsControls, type DirectionsView } from './Directions';
 
 const FOLLOW_ZOOM = 2.5;
 const SEND_EVERY_MS = 700;
@@ -583,6 +584,7 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
   const [stop, setStop] = useState<TourStop | null>(null);
   const stopShownAt = useRef(new Map<string, number>());
   const [video, setVideo] = useState(false);
+  const [dirView, setDirView] = useState<DirectionsView>({ route: null, destination: null, places: [] });
 
   useEffect(() => { void loadShowcase().then(setShowcase); }, []);
 
@@ -677,6 +679,7 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
     if (Math.abs(delta) >= 4) turn.current += delta;
   }
   const rotation = headingUp ? turn.current : 0;
+  const tfScreen = fitTransform(cal);
   const age = fix ? Math.round((now - fix.t) / 1000) : null;
   const state = mode === 'self'
     ? (!fix ? 'Finding GPS…' : age != null && age > 15 ? `GPS signal lost · ${age}s` : 'Live')
@@ -698,11 +701,23 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
           marker={marker}
           rotation={rotation}
           turnable
+          route={dirView.route}
+          destination={dirView.destination}
+          places={dirView.places}
           // Heading-up shows more of the road ahead: cart sits below the centre.
           focus={marker && follow ? { pt: marker.pt, zoom: FOLLOW_ZOOM, offsetY: headingUp ? window.innerHeight * 0.18 : 0 } : null}
           onUserMove={() => setFollow(false)}
         />
       </div>
+
+      {/* Directions + places layer */}
+      <DirectionsControls
+        className="absolute left-3 top-16 z-40 sm:left-5"
+        from={marker?.pt ?? null}
+        toGps={tfScreen ? (pt) => tfScreen.toGps(pt) : null}
+        spots={(cal?.points ?? []).flatMap((q, i) => (q.label && q.x != null && q.y != null ? [{ id: `spot-${i}`, label: q.label, kind: 'spot' as const, pt: [q.x, q.y] as MapPt }] : []))}
+        onView={setDirView}
+      />
 
       {/* Compass: the needle points to north on screen. Tap to switch between
           "turn with the cart" and "north up" (matches the plan's drawn compass). */}

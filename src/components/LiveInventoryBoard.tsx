@@ -12,6 +12,8 @@ import { createQuoteLink, quoteUrl, quoteMessage, whatsappTo } from '@/lib/quote
 import { SentQuotesPanel } from './QuoteActivity';
 import { VideoModal, TestimonialButton } from './ShowcaseMedia';
 import { loadShowcase, renderFor, viewFor, type Showcase } from '@/lib/showcase';
+import { DirectionsControls, type DirectionsView } from './Directions';
+import { loadCalibration, fitTransform } from '@/lib/tour';
 
 const STAT_TINT: Record<PlotStatus, { border: string; from: string; iconBg: string; iconText: string; ring: string }> = {
   Available: { border: 'border-emerald-200/60 hover:border-emerald-300/60', from: 'from-emerald-50/60', iconBg: 'bg-emerald-100', iconText: 'text-emerald-600', ring: 'ring-emerald-400' },
@@ -1085,8 +1087,14 @@ function BuyerPresentation({ plots, onClose }: { plots: Plot[]; onClose: () => v
   const [selected, setSelected] = useState<Plot | null>(null);
   const [showcase, setShowcase] = useState<Showcase>({});
   const [video, setVideo] = useState(false);
+  const [dirView, setDirView] = useState<DirectionsView>({ route: null, destination: null, places: [] });
+  const [toGps, setToGps] = useState<((pt: [number, number]) => { lat: number; lng: number }) | null>(null);
 
   useEffect(() => { void loadShowcase().then(setShowcase); }, []);
+  // Calibration only to show distances in metres on the directions.
+  useEffect(() => {
+    void loadCalibration().then((c) => { const tf = fitTransform(c); if (tf) setToGps(() => (pt: [number, number]) => tf.toGps(pt)); }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     // Real full screen where the browser allows it; the overlay works either way.
@@ -1113,6 +1121,7 @@ function BuyerPresentation({ plots, onClose }: { plots: Plot[]; onClose: () => v
       <div className="absolute inset-0">
         <MasterPlanBoard
           plots={plots} highlight={highlight} onSelect={setSelected} large bare cover tooltip="buyer" selectedId={selected?.id}
+          route={dirView.route} destination={dirView.destination} places={dirView.places}
         />
       </div>
 
@@ -1143,6 +1152,7 @@ function BuyerPresentation({ plots, onClose }: { plots: Plot[]; onClose: () => v
             <X className="h-4 w-4" /> Exit
           </button>
         </div>
+        <DirectionsControls className="mt-1.5" toGps={toGps} onView={setDirView} />
         {filtering && (
           <div className="mt-1.5 inline-block rounded-full bg-white/85 px-3 py-1 text-[13px] font-semibold text-[#1f3a2b] shadow-md backdrop-blur">
             {matches.length === 0 ? 'No homes match — try another budget' : `${matches.length} home${matches.length === 1 ? '' : 's'} match`}
