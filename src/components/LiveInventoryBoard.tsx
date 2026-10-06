@@ -841,10 +841,13 @@ function PlotShapes({ plots, highlight, hoverId, selectedId, large, waterAlert }
   );
 }
 
+/** An advert drawn on the map itself: a vacant plot ("can be yours") or a sponsor's board. */
+export type AdPin = { id: string; pt: [number, number]; label: string; sub?: string; featured?: boolean; kind?: 'plot' | 'sponsor' };
+
 export type TourMarker = { pt: [number, number]; accuracyPct?: number; heading?: number | null };
 
 export function MasterPlanBoard({
-  plots, highlight = null, onSelect, large, selectedId, tooltip = 'internal', bare, cover, publicView, waterAlert = null,
+  plots, highlight = null, onSelect, large, selectedId, tooltip = 'internal', bare, cover, publicView, waterAlert = null, adPins = [], selectedAdId = null, onAdTap,
   marker = null, focus = null, onUserMove, onMapPoint, pins = [], rotation = 0, turnable = false, route = null, places = [], destination = null, offRoad = false,
 }: {
   plots: Plot[];
@@ -862,6 +865,10 @@ export function MasterPlanBoard({
   cover?: boolean;
   /** Public map: hover shows the plot number and status only, never prices. */
   publicView?: boolean;
+  /** Adverts on the map: featured ones always show; the rest appear as dots once zoomed in. */
+  adPins?: AdPin[];
+  selectedAdId?: string | null;
+  onAdTap?: (id: string) => void;
   /** Deep-water caution: index of the lake the position is close to (outlined in red). */
   waterAlert?: number | null;
   /** Live tour: the cart's position ("You are here"). */
@@ -941,6 +948,34 @@ export function MasterPlanBoard({
                   <polyline points={routePts.map((q) => toScreen(q).join(',')).join(' ')} fill="none" stroke="white" strokeOpacity={0.7} strokeWidth={2} strokeDasharray="2 10" strokeLinecap="round" className="animate-route-flow" />
                 </svg>
               )}
+              {adPins.map((ad) => {
+                const picked = ad.id === selectedAdId;
+                if (!ad.featured && !picked && zoom < 1.9) return null;
+                const [ax, ay] = toScreen(ad.pt);
+                const sponsor = ad.kind === 'sponsor';
+                return (
+                  <div key={`ad-${ad.id}`} className={`absolute ${picked ? 'z-30' : 'z-20'}`} style={{ left: ax, top: ay, ...upright, transformOrigin: '0 0' }}>
+                    <button
+                      type="button"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => { e.stopPropagation(); onAdTap?.(ad.id); }}
+                      aria-label={`${ad.label}${ad.sub ? ` — ${ad.sub}` : ''}`}
+                      className="pointer-events-auto absolute flex -translate-x-1/2 -translate-y-full flex-col items-center"
+                    >
+                      {ad.featured || picked ? (
+                        <span className={`relative flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-extrabold text-white shadow-lg ring-2 ring-white ${sponsor ? 'bg-[#1a73e8]' : 'bg-[#f05a22]'} ${picked ? 'scale-110' : ''}`}>
+                          {!sponsor && <span className="absolute -inset-1 -z-10 animate-ping rounded-full bg-[#f05a22]/40" />}
+                          {ad.label}
+                        </span>
+                      ) : (
+                        <span className="h-3.5 w-3.5 rounded-full bg-[#f05a22] shadow ring-2 ring-white" />
+                      )}
+                      {(ad.featured || picked) && <span className={`h-2 w-0.5 ${sponsor ? 'bg-[#1a73e8]' : 'bg-[#f05a22]'}`} />}
+                      {(ad.featured || picked) && <span className={`h-2 w-2 rounded-full ring-2 ring-white ${sponsor ? 'bg-[#1a73e8]' : 'bg-[#f05a22]'}`} />}
+                    </button>
+                  </div>
+                );
+              })}
               {places.map((pl, i) => {
                 const [px, py] = toScreen(pl.pt);
                 return (

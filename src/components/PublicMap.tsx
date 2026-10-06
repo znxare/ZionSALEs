@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Loader2, LocateFixed, Share2 } from 'lucide-react';
-import { MasterPlanBoard, type MapFocus, type TourMarker } from './LiveInventoryBoard';
+import { MasterPlanBoard, type AdPin, type MapFocus, type TourMarker } from './LiveInventoryBoard';
 import { DirectionsControls, type DirectionsPhase, type DirectionsView } from './Directions';
 import { useDeviceHeading, facingBearing } from '@/lib/compass';
 import { fitTransform, loadPublicCalibration, smoothFix, bearing, distanceM, HeadingTracker, MIN_HEADING_SPEED, type Calibration, type GpsFix } from '@/lib/tour';
@@ -10,6 +10,9 @@ import { MapInfoCard } from './MapInfoCard';
 import { useWaterCaution, WaterCautionBanner } from './WaterCaution';
 import { findPlace } from '@/lib/directions';
 import { SAMPLE_PLOTS } from '@/lib/inventory';
+import { centroidOf } from '@/lib/plotMap';
+import { SPONSORS } from '@/lib/mapInfo';
+import { Navigation2, X } from 'lucide-react';
 
 // The estate map for anyone with the link — opens without a login:
 //
@@ -42,6 +45,23 @@ export default function PublicMap({ toId }: { toId?: string }) {
   const [headingUp, setHeadingUp] = useState(false);
   // The camera follows the visitor's dot (until they drag the map); the location button re-centres it.
   const [follow, setFollow] = useState(false);
+  // Adverts drawn on the map: a few vacant plots as "can be yours" flags (more appear as dots once zoomed in).
+  const [adSel, setAdSel] = useState<string | null>(null);
+  const adPins = useMemo<AdPin[]>(() => {
+    const open = SAMPLE_PLOTS.filter((p) => p.status === 'Available').sort(() => Math.random() - 0.5);
+    const spots = open.map((p) => ({ p, pt: centroidOf(p) as [number, number] }));
+    // Featured: a handful spread across the estate, so the flags never crowd each other.
+    const featured: typeof spots = [];
+    for (const c of spots) {
+      if (featured.length >= 5) break;
+      if (featured.every((f) => Math.hypot((f.pt[0] - c.pt[0]) * 1.4, f.pt[1] - c.pt[1]) > 11)) featured.push(c);
+    }
+    const ids = new Set(featured.map((f) => f.p.id));
+    const pins: AdPin[] = spots.map(({ p, pt }) => ({ id: p.id, pt, kind: 'plot', featured: ids.has(p.id), label: `Plot ${p.plotNo} · can be yours`, sub: `${p.bedrooms} BHK villa · vacant` }));
+    SPONSORS.forEach((s, n) => { if (s.pt) pins.push({ id: `sponsor-${n}`, pt: s.pt, kind: 'sponsor', featured: true, label: s.name, sub: s.tagline }); });
+    return pins;
+  }, []);
+  const adPlot = adSel ? SAMPLE_PLOTS.find((p) => p.id === adSel) ?? null : null;
   const [phase, setPhase] = useState<DirectionsPhase>('idle');
   const turn = useRef(0);
   const initialDest = useMemo(() => (toId ? findPlace(toId) : undefined), [toId]);
@@ -181,6 +201,13 @@ export default function PublicMap({ toId }: { toId?: string }) {
           rotation={rotation}
           turnable
           waterAlert={waterAlert?.index ?? null}
+          adPins={phase === 'idle' ? adPins : []}
+          selectedAdId={adSel}
+          onAdTap={(id) => {
+            setAdSel(id);
+            const pin = adPins.find((a) => a.id === id);
+            if (pin) { setFollow(false); setFocus({ pt: pin.pt, zoom: 2.4, exact: true, nonce: Date.now() }); }
+          }}
         />
       </div>
 
@@ -248,7 +275,24 @@ export default function PublicMap({ toId }: { toId?: string }) {
         onPhase={(p) => { setPhase(p); if (p !== 'navigating') setHeadingUp(false); }}
       />
 
-      {phase === 'idle' && (
+      {phase === 'idle' && adPlot && (
+        <div className="pointer-events-auto absolute bottom-4 left-3 right-[5.25rem] z-40 animate-slide-up rounded-2xl bg-white p-3 shadow-2xl ring-1 ring-black/5 sm:left-24 sm:right-auto sm:w-[26rem]">
+          <div className="flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="text-[11px] font-extrabold uppercase tracking-wide text-[#f05a22]">Vacant &middot; available now</div>
+              <div className="text-[17px] font-extrabold leading-tight text-gray-900">Plot {adPlot.plotNo} can be yours</div>
+              <div className="text-[13px] text-gray-600">{adPlot.bedrooms} BHK villa &middot; {Math.round(adPlot.landAreaSft).toLocaleString('en-IN')} sq ft plot &middot; {Math.round(adPlot.builtUpSft).toLocaleString('en-IN')} sq ft built-up &middot; {adPlot.phase}</div>
+            </div>
+            <button onClick={() => setAdSel(null)} aria-label="Close" className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100"><X className="h-4 w-4" /></button>
+          </div>
+          <button
+            onClick={() => { const dest = findPlace(`plot-${adPlot.id}`); setAdSel(null); setExitDest(dest); }}
+            className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-full bg-[#f05a22] py-2.5 text-[14px] font-bold text-white shadow active:scale-[0.98]"
+          ><Navigation2 className="h-4 w-4" /> Show me the way</button>
+        </div>
+      )}
+
+      {phase === 'idle' && !adPlot && (
         <MapInfoCard
           className="absolute bottom-4 left-3 right-[5.25rem] z-40 sm:left-24 sm:right-auto sm:w-[26rem]"
           onShowPlace={(id) => setExitDest(findPlace(id))}

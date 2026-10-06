@@ -7,8 +7,8 @@ import { useEffect, useState } from 'react';
 // The estate (from the GPS calibration ride).
 const LAT = 13.05, LNG = 78.145;
 
-/** Sponsors shown in the map's info card. Add { name, tagline } and optionally a logo URL. */
-export interface Sponsor { name: string; tagline: string; logo?: string }
+/** Sponsors shown in the map's info card. Add { name, tagline }, optionally a logo URL and, to put a board for them on the map itself, a position on the plan (% of the plan). */
+export interface Sponsor { name: string; tagline: string; logo?: string; pt?: [number, number] }
 export const SPONSORS: Sponsor[] = [];
 
 /** Fixed facts about the estate. */
