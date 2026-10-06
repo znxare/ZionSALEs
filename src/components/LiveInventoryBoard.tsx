@@ -95,14 +95,14 @@ export default function LiveInventoryBoard() {
           </button>
           <a
             href="#/tour/remote"
-            title="On your phone: share the cart's live GPS with the iPad"
+            title="On your phone: share the cart's live location with another screen"
             className="flex items-center gap-1.5 rounded-full border border-black/5 bg-white px-3 py-2.5 text-sm font-semibold text-gray-700 card-shadow hover:bg-gray-50 sm:px-3.5"
           >
             <Smartphone className="h-4 w-4" /> <span className="hidden sm:inline">Tour (phone)</span>
           </a>
           <a
             href="#/tour/screen"
-            title="Start the live cart tour on this iPad (uses its own GPS)"
+            title="Start the live cart tour on this device"
             className="flex items-center gap-1.5 rounded-full border border-black/5 bg-white px-3 py-2.5 text-sm font-semibold text-gray-700 card-shadow hover:bg-gray-50 sm:px-3.5"
           >
             <Tablet className="h-4 w-4" /> <span className="hidden sm:inline">Live tour</span>

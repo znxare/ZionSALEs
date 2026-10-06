@@ -675,7 +675,7 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
           >
             Connect
           </button>
-          <button onClick={() => setMode('self')} className="mt-3 block w-full text-sm font-medium text-gray-500">Use this iPad's own GPS instead</button>
+          <button onClick={() => setMode('self')} className="mt-3 block w-full text-sm font-medium text-gray-500">Use this device's GPS instead</button>
           <button onClick={onExit} className="mt-2 text-sm font-medium text-gray-400">Cancel</button>
         </div>
       </div>
@@ -695,9 +695,6 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
   const state = mode === 'self'
     ? (!fix ? 'Finding GPS…' : age != null && age > 15 ? `GPS signal lost · ${age}s` : 'Live')
     : (!live ? 'Connecting…' : !fix ? 'Waiting for the phone to start…' : age != null && age > 15 ? `Signal lost · last seen ${age}s ago` : 'Live');
-  // A Wi-Fi-only iPad has no GPS chip; its location comes from nearby Wi-Fi and
-  // is far too rough for a cart tour — say so, and offer the phone instead.
-  const rough = mode === 'self' && !!fix && !sim && fix.accuracy > 35;
 
   return (
     <div className="fixed inset-0 z-[60] overflow-hidden bg-[#d4d5c6]" style={{ height: '100dvh' }}>
@@ -762,12 +759,10 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
         </div>
       )}
 
-      {mode === 'self' && (own.error || rough) && (
+      {/* The device is assumed to have GPS: only a real location error is shown. */}
+      {mode === 'self' && own.error && (
         <div className="absolute left-1/2 top-16 z-40 w-[min(92vw,460px)] -translate-x-1/2 rounded-2xl bg-white/95 px-4 py-3 text-center text-[13px] text-gray-700 shadow-lg">
-          {own.error ?? `Location is only approximate here (±${Math.round(fix!.accuracy)} m) — this iPad may not have GPS.`}
-          <button onClick={() => { setMode('pair'); setFix(null); }} className="mt-1 block w-full font-semibold text-orange-600">
-            Use a phone's GPS instead
-          </button>
+          {own.error}
         </div>
       )}
 
