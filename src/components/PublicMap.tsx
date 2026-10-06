@@ -280,6 +280,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
         onView={setDirView}
         guided
         hidePill
+        hidePlaces
         openSignal={pickerSignal}
         onStart={onStartNav}
         onPhase={(p) => { setPhase(p); if (p !== 'navigating') setHeadingUp(false); }}
