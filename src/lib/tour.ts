@@ -13,6 +13,8 @@ export interface GpsFix {
   lng: number;
   accuracy: number; // metres
   heading: number | null; // degrees from north, when moving
+  /** Ground speed in m/s, when the device reports it. */
+  speed?: number | null;
   t: number;
 }
 

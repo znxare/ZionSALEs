@@ -7,6 +7,7 @@ import {
 import { createPortal } from 'react-dom';
 import { SAMPLE_PLOTS, PHASES, PLOT_STATUSES, BEDROOM_OPTIONS, STATUS_COLORS, type Plot, type PlotStatus } from '@/lib/inventory';
 import { WATER_BODIES } from '@/lib/waterBodies';
+import { useSmoothedAngle } from '@/lib/smoothAngle';
 import { BUDGETS, inBudget, outlineOf, centroidOf, plotAt, SHAPE_COLORS, plotShareLink, type BudgetId } from '@/lib/plotMap';
 import { getCurrentUser } from '@/lib/auth';
 import { createQuoteLink, quoteUrl, quoteMessage, whatsappTo } from '@/lib/quoteLinks';
@@ -413,9 +414,8 @@ function ZoomPanMap({
   const shownRef = useRef(shown);
   const glide = useRef<GlideSpec>({ ...DEFAULT_GLIDE, at: 0 });
   const panRaf = useRef(0);
-  const [turnShown, setTurnShown] = useState(rotation);
-  const turnRef = useRef(rotation);
-  const turnRaf = useRef(0);
+  // The map's turn (heading-up) follows the heading continuously (see smoothAngle.ts); the compass uses the same.
+  const turnShown = useSmoothedAngle(rotation);
 
   useEffect(() => {
     window.cancelAnimationFrame(panRaf.current);
@@ -439,26 +439,6 @@ function ZoomPanMap({
     return () => window.cancelAnimationFrame(panRaf.current);
   }, [zoom, pan.x, pan.y, interacting]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // The map's turn (heading-up) glides at a steady rate; a big swing (like the compass
-  // button) eases in and out. Labels counter-turn by this same value, so they stay upright.
-  useEffect(() => {
-    window.cancelAnimationFrame(turnRaf.current);
-    const from = turnRef.current;
-    const delta = rotation - from;
-    if (Math.abs(delta) < 0.01) return;
-    const ease: Ease = Math.abs(delta) > 45 ? easeInOut : linear;
-    const ms = Math.abs(delta) > 45 ? Math.min(1500, 450 + Math.abs(delta) * 8) : 900;
-    const start = performance.now();
-    const step = (now: number) => {
-      const k = Math.min(1, (now - start) / ms);
-      const cur = from + delta * ease(k);
-      turnRef.current = cur;
-      setTurnShown(cur);
-      if (k < 1) turnRaf.current = window.requestAnimationFrame(step);
-    };
-    turnRaf.current = window.requestAnimationFrame(step);
-    return () => window.cancelAnimationFrame(turnRaf.current);
-  }, [rotation]);
 
   // Drawn values (the targets themselves while a finger is on the map).
   const vz = interacting ? zoom : shown.zoom;
@@ -915,6 +895,7 @@ export function MasterPlanBoard({
   const shownFocus = focus?.follow && glidePt ? { ...focus, pt: glidePt, instant: true } : focus;
   const routePts = route && route.length > 1 && shownMarker ? [shownMarker.pt, ...route.slice(1)] : route;
   const beam = useUnwrappedAngle(marker?.heading ?? null);
+  const beamShown = useSmoothedAngle(beam ?? 0);
 
   const board = (
     <div
@@ -1007,7 +988,7 @@ export function MasterPlanBoard({
                       <div className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full border" style={{ width: halo * 2, height: halo * 2, borderColor: `${dot}40`, backgroundColor: `${dot}1a` }} />
                     )}
                     {beam != null && (
-                      <svg width="72" height="72" viewBox="-36 -36 72 72" className="absolute -translate-x-1/2 -translate-y-1/2 overflow-visible" style={{ transform: `translate(-50%, -50%) rotate(${beam}deg)`, transition: 'transform 0.9s linear' }}>
+                      <svg width="72" height="72" viewBox="-36 -36 72 72" className="absolute -translate-x-1/2 -translate-y-1/2 overflow-visible" style={{ transform: `translate(-50%, -50%) rotate(${beamShown}deg)` }}>
                         <defs>
                           <radialGradient id="gm-beam" cx="0" cy="0" r="36" gradientUnits="userSpaceOnUse">
                             <stop offset="0.2" stopColor={dot} stopOpacity="0.45" />

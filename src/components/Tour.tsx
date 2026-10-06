@@ -14,6 +14,7 @@ import { VideoModal, TestimonialButton } from './ShowcaseMedia';
 import { loadShowcase, type Showcase, type TourStop } from '@/lib/showcase';
 import { DirectionsControls, type DirectionsView } from './Directions';
 import Compass from './Compass';
+import { useDeviceHeading, facingBearing } from '@/lib/compass';
 import { useWaterCaution, WaterCautionBanner } from './WaterCaution';
 import { metresFromRoad, OFF_ROAD_M, BACK_ON_ROAD_M } from '@/lib/directions';
 
@@ -42,15 +43,16 @@ function useCalibration() {
   return { cal, setCal, loading };
 }
 
-function markerFor(fix: GpsFix | null, cal: Calibration | null): TourMarker | null {
+function markerFor(fix: GpsFix | null, cal: Calibration | null, sensor: number | null = null): TourMarker | null {
   const tf = fitTransform(cal);
   if (!fix || !tf) return null;
+  const facing = facingBearing(fix.heading, sensor, fix.speed ?? null);
   return {
     pt: tf.toMap(fix.lat, fix.lng),
     accuracyPct: fix.accuracy / tf.metresPerPct,
     // GPS headings are compass bearings; the plan isn't drawn north-up, so turn
     // them into a direction on the plan.
-    heading: fix.heading == null ? null : tf.mapHeading(fix.lat, fix.lng, fix.heading),
+    heading: facing == null ? null : tf.mapHeading(fix.lat, fix.lng, facing),
   };
 }
 
@@ -164,7 +166,7 @@ function useGps(active: boolean, sim: boolean, cal: Calibration | null) {
         }
         if (!a || farEnough) anchor.current = { ...here, t: pos.timestamp };
         const heading = tracker.current.update(course, speed ?? 0, accuracy);
-        const raw: GpsFix = { ...here, accuracy, heading, t: pos.timestamp };
+        const raw: GpsFix = { ...here, accuracy, heading, speed, t: pos.timestamp };
         const next = smoothFix(last.current, raw);
         last.current = next;
         setFix(next);
@@ -609,6 +611,13 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
 
   const own = useGps(mode === 'self', sim, cal);
   const fix = mode === 'self' ? own.fix : remoteFix;
+  // The device's own compass: knows which way you face even when standing still (own GPS only).
+  const compass = useDeviceHeading(mode === 'self');
+  useEffect(() => {
+    const ask = () => compass.request();
+    window.addEventListener('pointerdown', ask, { once: true });
+    return () => window.removeEventListener('pointerdown', ask);
+  }, [compass.request]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The cart has left the road: the dot and route line turn red. Two distances
   // (out past one, back inside the other) so a wobbly GPS doesn't flicker.
@@ -699,13 +708,13 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
     );
   }
 
-  const marker = markerFor(fix, cal);
+  const marker = markerFor(fix, cal, mode === 'self' ? compass.heading : null);
   // Keep the turn "unwrapped" (e.g. 350° → 370°, not back to 10°) so passing
   // north animates the short way, and ignore tiny wobbles in the heading.
   if (marker?.heading != null) {
     const delta = ((marker.heading - turn.current) % 360 + 540) % 360 - 180;
     // The heading is already smoothed (see HeadingTracker), so only ignore sub-degree noise.
-    if (Math.abs(delta) >= 1.5) turn.current += delta;
+    if (Math.abs(delta) >= 0.3) turn.current += delta;
   }
   const rotation = headingUp ? turn.current : 0;
   const tfScreen = fitTransform(cal);
@@ -751,7 +760,7 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
           "turn with the cart" and "north up" (matches the plan's drawn compass). */}
       <WaterCautionBanner alert={waterAlert} />
 
-      <Compass rotation={rotation} headingUp={headingUp} onToggle={() => setHeadingUp((v) => !v)} />
+      <Compass rotation={rotation} facing={mode === 'self' ? facingBearing(fix?.heading ?? null, compass.heading, fix?.speed ?? null) : null} headingUp={headingUp} onToggle={() => setHeadingUp((v) => !v)} />
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-40 flex items-start justify-between gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5">
         <span className={`pointer-events-auto flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-semibold shadow-md backdrop-blur ${state === 'Live' ? 'bg-white/90 text-emerald-700' : 'bg-white/90 text-gray-600'}`}>

@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Navigation2, X, Search, MapPin, Home, Layers, CheckCircle2, Waves, ArrowUp, ArrowUpLeft, ArrowUpRight, CornerUpLeft, CornerUpRight, Undo2, Flag, Volume2, VolumeX } from 'lucide-react';
+import { Navigation2, X, Search, MapPin, Home, Layers, CheckCircle2, Waves, ArrowUp, ArrowUpLeft, ArrowUpRight, CornerUpLeft, CornerUpRight, Undo2, Flag } from 'lucide-react';
 import { AMENITIES, VILLAS, PLOT_PLACES, findRoute, planMetres, describeDistance, type Place } from '@/lib/directions';
 import type { MapPt } from '@/lib/tour';
 import { routeWaterContact, WATER_CAUTION_M } from '@/lib/water';
 import { maneuversOf, turnWords, distanceWords, type TurnKind } from '@/lib/turns';
-import { speak, useVoiceEnabled, setVoiceEnabled, voiceAvailable } from '@/lib/voice';
 
 // Directions and map layers, shared by the live tour (from the cart's GPS
 // position) and buyer presentation (from a chosen starting place).
@@ -42,8 +41,6 @@ export function DirectionsControls({ from, toGps, offRoad = false, initialDestin
   const [showPlaces, setShowPlaces] = useState(false);
   const [arrived, setArrived] = useState(false);
   const [navigating, setNavigating] = useState(false);
-  // Guided mode speaks and instructs only once Start has been tapped; otherwise it is always on.
-  const active = !guided || navigating;
 
   const origin: MapPt | null = live ? from ?? null : start.pt;
   const route = useMemo(() => (origin && dest ? findRoute(origin, dest.pt) : null), [origin?.[0], origin?.[1], dest]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -55,44 +52,10 @@ export function DirectionsControls({ from, toGps, offRoad = false, initialDestin
   // every fix, so its first turn is always the next one to make.
   const guide = useMemo(() => (live && route && route.points.length > 1 ? maneuversOf(route.points) : null), [live, route]);
   const next = guide?.steps[0] ?? null;
-  const voiceOn = useVoiceEnabled();
-  const spoken = useRef(new Set<string>());
-  const turnId = useRef<{ kind: TurnKind; at: MapPt; id: string } | null>(null);
-  useEffect(() => { spoken.current = new Set(); turnId.current = null; if (!dest) setNavigating(false); }, [dest]);
+  // Spoken alerts are for hazards only (deep water, see WaterCaution); turns are shown, not spoken.
+  useEffect(() => { if (!dest) setNavigating(false); }, [dest]);
   const phase: DirectionsPhase = !dest ? 'idle' : guided && navigating ? 'navigating' : 'preview';
   useEffect(() => { onPhase?.(phase); }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!dest || !live || !active) return;
-    if (!spoken.current.has('start')) { spoken.current.add('start'); speak(`Directions to ${dest.label} started. Follow the orange line.`); }
-  }, [dest, live, active]);
-
-  useEffect(() => {
-    if (!next || !guide || offRoad || arrived || !active) return;
-    // Say each turn three times: well ahead, then close, then now. If a stage was skipped (fast
-    // driving, a gap in GPS) only the latest is spoken.
-    // The same turn is found a few metres apart as the route is rebuilt each fix, so treat turns of
-    // the same kind within ~35 m as one.
-    const prev = turnId.current;
-    const same = prev && prev.kind === next.kind && Math.hypot((prev.at[0] - next.at[0]) * 23.7, (prev.at[1] - next.at[1]) * 16.9) < 35;
-    if (!same) turnId.current = { kind: next.kind, at: next.at, id: `${next.kind}@${next.at[0].toFixed(2)},${next.at[1].toFixed(2)}` };
-    const id = turnId.current!.id;
-    const stage = next.s <= 40 ? 'now' : next.s <= 150 ? 'near' : next.s <= 400 ? 'far' : null;
-    if (!stage) return;
-    const order = ['far', 'near', 'now'];
-    const mine = order.indexOf(stage);
-    if (order.slice(mine).some((st) => spoken.current.has(`${id}:${st}`))) return;
-    order.slice(0, mine + 1).forEach((st) => spoken.current.add(`${id}:${st}`));
-    const where = next.kind === 'arrive' ? `arrive at ${dest?.label ?? 'your destination'}` : turnWords(next.kind).toLowerCase();
-    speak(stage === 'now' ? (next.kind === 'arrive' ? `You will arrive at ${dest?.label ?? 'your destination'}` : `${turnWords(next.kind)} now`) : `In ${distanceWords(next.s).replace(' m', ' metres').replace(' km', ' kilometres')}, ${where}`);
-  }, [next?.kind, next?.at[0], next?.at[1], next && Math.round(next.s / 10), offRoad, arrived, active]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!live || !dest || !active) return;
-    if (offRoad) { if (!spoken.current.has('off')) { spoken.current.add('off'); speak("You have left the road. Get back on it."); } }
-    else spoken.current.delete('off');
-  }, [offRoad, live, dest, active]);
-  useEffect(() => { if (arrived && dest && active) speak(`You have arrived at ${dest.label}`); }, [arrived]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Arrival (live tour): within ~25 m of the destination.
   useEffect(() => {
@@ -156,7 +119,6 @@ export function DirectionsControls({ from, toGps, offRoad = false, initialDestin
           offRoad={offRoad}
           arrived={arrived}
           passesWater={passesWater}
-          voiceOn={voiceOn}
           onStart={() => { setNavigating(true); setArrived(false); onStart?.(); }}
           onEnd={() => { setDest(null); setArrived(false); setNavigating(false); }}
         />
@@ -200,16 +162,6 @@ export function DirectionsControls({ from, toGps, offRoad = false, initialDestin
                   <div className="mt-0.5 flex items-center gap-1 text-[12px] font-semibold text-red-600"><Waves className="h-3.5 w-3.5 shrink-0" /> Route passes close to deep water — go slowly</div>
                 )}
               </div>
-              {live && voiceAvailable() && (
-                <button
-                  onClick={() => setVoiceEnabled(!voiceOn)}
-                  aria-label={voiceOn ? 'Mute voice directions' : 'Turn on voice directions'}
-                  aria-pressed={voiceOn}
-                  className={`rounded-full p-2 hover:bg-gray-100 ${voiceOn ? 'text-[#f05a22]' : 'text-gray-400'}`}
-                >
-                  {voiceOn ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
-                </button>
-              )}
               <button onClick={() => setDest(null)} aria-label="End directions" className="rounded-full p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
             </div>
           )}
@@ -305,7 +257,7 @@ function TurnIcon({ kind, className }: { kind: TurnKind; className?: string }) {
 // the next turn at the top and time / distance / Exit at the bottom.
 // ---------------------------------------------------------------------------
 
-function GuidedPanels({ phase, dest, live, origin, start, route, guide, next, offRoad, arrived, passesWater, voiceOn, onStart, onEnd }: {
+function GuidedPanels({ phase, dest, live, origin, start, route, guide, next, offRoad, arrived, passesWater, onStart, onEnd }: {
   phase: DirectionsPhase;
   dest: Place;
   live: boolean;
@@ -317,7 +269,6 @@ function GuidedPanels({ phase, dest, live, origin, start, route, guide, next, of
   offRoad: boolean;
   arrived: boolean;
   passesWater: boolean;
-  voiceOn: boolean;
   onStart: () => void;
   onEnd: () => void;
 }) {
@@ -393,16 +344,6 @@ function GuidedPanels({ phase, dest, live, origin, start, route, guide, next, of
           <div className="text-[22px] font-extrabold leading-tight text-emerald-600">{arrived ? 'Arrived' : mins != null ? `${mins} min` : '\u2014'}</div>
           <div className="truncate text-[13px] text-gray-500">{total != null && !arrived ? `${distanceWords(total)} \u00b7 ` : ''}{dest.label}</div>
         </div>
-        {voiceAvailable() && (
-          <button
-            onClick={() => setVoiceEnabled(!voiceOn)}
-            aria-label={voiceOn ? 'Mute voice directions' : 'Turn on voice directions'}
-            aria-pressed={voiceOn}
-            className={`rounded-full p-2.5 hover:bg-gray-100 ${voiceOn ? 'text-[#f05a22]' : 'text-gray-400'}`}
-          >
-            {voiceOn ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
-          </button>
-        )}
         <button onClick={onEnd} className="rounded-full bg-red-600 px-5 py-2.5 text-[15px] font-bold text-white shadow active:scale-95">{arrived ? 'Done' : 'Exit'}</button>
       </div>
     </>

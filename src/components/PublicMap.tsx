@@ -2,9 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Loader2, LocateFixed, Share2 } from 'lucide-react';
 import { MasterPlanBoard, type MapFocus, type TourMarker } from './LiveInventoryBoard';
 import { DirectionsControls, type DirectionsPhase, type DirectionsView } from './Directions';
+import { useDeviceHeading, facingBearing } from '@/lib/compass';
 import { fitTransform, loadPublicCalibration, smoothFix, bearing, distanceM, HeadingTracker, MIN_HEADING_SPEED, type Calibration, type GpsFix } from '@/lib/tour';
 import Compass from './Compass';
 import { EmergencyButton } from './EmergencyButton';
+import { MapInfoCard } from './MapInfoCard';
 import { useWaterCaution, WaterCautionBanner } from './WaterCaution';
 import { findPlace } from '@/lib/directions';
 import { SAMPLE_PLOTS } from '@/lib/inventory';
@@ -79,7 +81,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
         }
         if (!anchor || farEnough) anchor = { ...here, t: pos.timestamp };
         const heading = tracker.update(course, speed ?? 0, accuracy);
-        last = smoothFix(last, { ...here, accuracy, heading, t: pos.timestamp });
+        last = smoothFix(last, { ...here, accuracy, heading, speed, t: pos.timestamp });
         setFix(last);
       },
       (err) => {
@@ -91,8 +93,11 @@ export default function PublicMap({ toId }: { toId?: string }) {
     return () => navigator.geolocation.clearWatch(id);
   }, [locating]);
 
+  // Which way they face: the phone's compass at walking pace (works standing still), the GPS course at cart speed.
+  const compass = useDeviceHeading(locating);
+  const facing = fix ? facingBearing(fix.heading, compass.heading, fix.speed ?? null) : null;
   const marker: TourMarker | null = tf && fix
-    ? { pt: tf.toMap(fix.lat, fix.lng), accuracyPct: fix.accuracy / tf.metresPerPct, heading: fix.heading == null ? null : tf.mapHeading(fix.lat, fix.lng, fix.heading) }
+    ? { pt: tf.toMap(fix.lat, fix.lng), accuracyPct: fix.accuracy / tf.metresPerPct, heading: facing == null ? null : tf.mapHeading(fix.lat, fix.lng, facing) }
     : null;
   const onPlan = !!marker && marker.pt[0] > -5 && marker.pt[0] < 105 && marker.pt[1] > -5 && marker.pt[1] < 105;
   const markerX = marker?.pt[0], markerY = marker?.pt[1];
@@ -101,7 +106,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
   // Keep the turn "unwrapped" (350° → 370°, not back to 10°) so passing north animates the short way.
   if (marker?.heading != null) {
     const delta = ((marker.heading - turn.current) % 360 + 540) % 360 - 180;
-    if (Math.abs(delta) >= 1.5) turn.current += delta;
+    if (Math.abs(delta) >= 0.3) turn.current += delta;
   }
   const rotation = headingUp && onPlan ? turn.current : 0;
 
@@ -125,12 +130,14 @@ export default function PublicMap({ toId }: { toId?: string }) {
   }, [phase, destX, destY]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function onStartNav() {
+    compass.request();
     if (!locating) setLocating(true);
     setFollow(true);
     setHeadingUp(true);
   }
 
   function onLocateTap() {
+    compass.request();
     if (!tf) { setNote("Live location isn't switched on for this map yet."); return; }
     if (!locating) { setLocating(true); setFollow(true); return; }
     setFollow(true); // already locating: bring the camera back to the dot
@@ -227,7 +234,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
 
       <WaterCautionBanner alert={waterAlert} top={navigating ? 'top-[14rem]' : undefined} />
 
-      <Compass rotation={rotation} headingUp={headingUp} onToggle={() => setHeadingUp((v) => !v)} top={navigating ? 'top-[7.75rem]' : undefined} />
+      <Compass rotation={rotation} facing={locating ? facing : null} headingUp={headingUp} onToggle={() => setHeadingUp((v) => !v)} top={navigating ? 'top-[7.75rem]' : undefined} />
 
       <DirectionsControls
         key={exitDest?.id ?? 'dir'}
@@ -241,8 +248,15 @@ export default function PublicMap({ toId }: { toId?: string }) {
         onPhase={(p) => { setPhase(p); if (p !== 'navigating') setHeadingUp(false); }}
       />
 
+      {phase === 'idle' && (
+        <MapInfoCard
+          className="absolute bottom-4 left-3 right-[5.25rem] z-40 sm:left-24 sm:right-auto sm:w-[26rem]"
+          onShowPlace={(id) => setExitDest(findPlace(id))}
+        />
+      )}
+
       {note && (
-        <div className={`pointer-events-none absolute inset-x-3 z-[60] mx-auto max-w-md rounded-2xl ${navigating ? 'bottom-24' : phase === 'preview' ? 'bottom-44' : 'bottom-4'}`}>
+        <div className={`pointer-events-none absolute inset-x-3 z-[60] mx-auto max-w-md rounded-2xl ${navigating ? 'bottom-24' : phase === 'preview' ? 'bottom-44' : 'bottom-28'}`}>
           <div className="rounded-2xl bg-gray-900/90 px-4 py-2.5 text-center text-[13px] font-medium text-white shadow-lg">{note}</div>
         </div>
       )}

@@ -1,13 +1,18 @@
+import { useSmoothedAngle } from '@/lib/smoothAngle';
+import { cardinal } from '@/lib/compass';
+
 // The map's compass: the needle points to north on screen. Tap to switch between
 // "turn with the traveller" (heading up) and "north up". Shared by the tour and the public map.
-export default function Compass({ rotation, headingUp, onToggle, top = 'top-16' }: { rotation: number; headingUp: boolean; onToggle: () => void; top?: string }) {
+export default function Compass({ rotation, headingUp, onToggle, top = 'top-16', facing = null }: { rotation: number; headingUp: boolean; onToggle: () => void; top?: string; /** The way the traveller is facing, in compass degrees (shown as "Facing NE"). */ facing?: number | null }) {
+  // Turns with the same smoothing as the map itself, so the needle and the map never disagree.
+  const shown = useSmoothedAngle(rotation);
   return (
     <button
       onClick={onToggle}
       aria-label={headingUp ? 'Show north up' : 'Turn the map with your direction of travel'}
       className={`absolute right-3 ${top} z-40 flex flex-col items-center gap-1 rounded-2xl bg-white/95 p-1.5 pb-1.5 shadow-lg ring-1 ring-black/5 backdrop-blur active:scale-95 sm:right-5`}
     >
-      <svg viewBox="0 0 48 48" className="h-12 w-12" style={{ transform: `rotate(${-rotation}deg)`, transition: 'transform 0.9s linear' }}>
+      <svg viewBox="0 0 48 48" className="h-12 w-12" style={{ transform: `rotate(${-shown}deg)` }}>
         <defs>
           <radialGradient id="compass-face" cx="50%" cy="40%" r="60%">
             <stop offset="0" stopColor="#ffffff" />
@@ -36,6 +41,7 @@ export default function Compass({ rotation, headingUp, onToggle, top = 'top-16' 
         <circle cx="24" cy="24" r="2.3" fill="white" stroke="#475569" strokeWidth="1.2" />
       </svg>
       <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold leading-tight text-gray-700">{headingUp ? 'Heading up' : 'North up'}</span>
+      {facing != null && <span className="text-[10px] font-bold leading-none text-[#f05a22]">Facing {cardinal(facing)}</span>}
     </button>
   );
 }
