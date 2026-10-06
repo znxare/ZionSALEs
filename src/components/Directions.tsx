@@ -5,6 +5,7 @@ import { AMENITIES, VILLAS, PLOT_PLACES, findRoute, planMetres, describeDistance
 import type { MapPt } from '@/lib/tour';
 import { routeWaterContact, WATER_ROUTE_NOTE_M } from '@/lib/water';
 import { maneuversOf, turnWords, distanceWords, type TurnKind } from '@/lib/turns';
+import { lxEyebrow, lxGlass, lxIvory, lxOrange } from '@/lib/luxury';
 
 // Directions and map layers, shared by the live tour (from the cart's GPS
 // position) and buyer presentation (from a chosen starting place).
@@ -93,7 +94,7 @@ export function DirectionsControls({ from, toGps, offRoad = false, initialDestin
   }, [route, dest, showPlaces, onView]);
 
   const pill = dark
-    ? 'bg-[#13261c]/90 text-white ring-1 ring-white/15 hover:bg-[#13261c]'
+    ? 'bg-[#13261c]/90 text-white ring-1 ring-white/[0.15] hover:bg-[#13261c]'
     : 'bg-white/90 text-gray-800 hover:bg-white';
 
   return (
@@ -212,39 +213,39 @@ function PlacePicker({ live, start, onStart, onPick, onClose }: {
   ].filter((g) => g.items.length > 0);
 
   return createPortal(
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 sm:items-center sm:p-4" onClick={onClose}>
-      <div className="flex max-h-[85dvh] w-full max-w-md animate-slide-up flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-[#07120c]/[0.55] backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
+      <div className={`flex max-h-[85dvh] w-full max-w-md animate-slide-up flex-col overflow-hidden rounded-t-[28px] sm:rounded-[28px] ${lxIvory}`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 pb-2 pt-4">
-          <h2 className="font-display text-lg font-bold text-gray-900">Where to?</h2>
-          <button onClick={onClose} className="rounded-full p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
+          <div><div className={`${lxEyebrow} text-[#9a8450]`}>Zion Hills Golf County</div><h2 className="font-serif text-[30px] font-semibold leading-none text-[#13261c]">Where to?</h2></div>
+          <button onClick={onClose} className="rounded-full p-2 text-[#8a7a52] hover:bg-[#c9a96e]/[0.15]"><X className="h-5 w-5" /></button>
         </div>
         {!live && (
-          <label className="mx-5 mb-2 flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-2 text-[13px] text-gray-600">
+          <label className="mx-5 mb-2 flex items-center gap-2 rounded-xl bg-[#f3ecda] px-3 py-2 text-[13px] text-[#5b5a4c]">
             From
-            <select value={start.id} onChange={(e) => onStart(AMENITIES.find((a) => a.id === e.target.value) ?? AMENITIES[0])} className="flex-1 bg-transparent font-semibold text-gray-900 outline-none">
+            <select value={start.id} onChange={(e) => onStart(AMENITIES.find((a) => a.id === e.target.value) ?? AMENITIES[0])} className="flex-1 bg-transparent font-semibold text-[#13261c] outline-none">
               {AMENITIES.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
             </select>
           </label>
         )}
-        <div className="mx-5 mb-3 flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2">
-          <Search className="h-4 w-4 text-gray-400" />
+        <div className="mx-5 mb-3 flex items-center gap-2 rounded-xl border border-[#c9a96e]/50 bg-white/60 px-3 py-2">
+          <Search className="h-4 w-4 text-[#9a8450]" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search — clubhouse, plot 622, villa 124…" className="w-full bg-transparent text-sm outline-none" />
         </div>
         <div className="flex-1 overflow-y-auto pb-4">
           {groups.length === 0 && <div className="px-5 py-10 text-center text-sm text-gray-400">Nothing matches.</div>}
           {groups.map((g) => (
             <div key={g.title} className="mb-2">
-              <div className="px-5 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{g.title}</div>
+              <div className={`px-5 pb-1 pt-2 ${lxEyebrow} text-[#9a8450]`}>{g.title}</div>
               <div className={GRID_GROUPS.includes(g.title) ? 'grid grid-cols-3 gap-1.5 px-5' : 'px-2'}>
                 {g.items.map((p) =>
                   GRID_GROUPS.includes(g.title) ? (
-                    <button key={p.id} onClick={() => onPick(p)} className="truncate rounded-xl bg-gray-50 px-2 py-2 text-[13px] font-semibold text-gray-800 hover:bg-[#f05a22]/10 hover:text-[#f05a22]">
+                    <button key={p.id} onClick={() => onPick(p)} className="truncate rounded-xl bg-[#f3ecda] px-2 py-2 text-[13px] font-semibold text-[#13261c] ring-1 ring-[#c9a96e]/25 hover:bg-[#f05a22]/10 hover:text-[#d9480f]">
                       {p.label.replace('Plot ', '').replace('Villa ', '')}
                     </button>
                   ) : (
-                    <button key={p.id} onClick={() => onPick(p)} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-gray-50">
-                      <g.icon className="h-4 w-4 shrink-0 text-gray-400" />
-                      <span className="truncate text-[14px] font-medium text-gray-800">{p.label}</span>
+                    <button key={p.id} onClick={() => onPick(p)} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-[#c9a96e]/[0.12]">
+                      <g.icon className="h-4 w-4 shrink-0 text-[#c9a96e]" />
+                      <span className="truncate font-serif text-[18px] font-semibold text-[#13261c]">{p.label}</span>
                     </button>
                   ),
                 )}
@@ -286,32 +287,33 @@ function GuidedPanels({ phase, dest, live, origin, start, route, guide, next, of
   const total = guide?.total ?? (route && route.points.length > 1 ? planMetres(route.points) : null);
   const mins = total != null ? Math.max(1, Math.round(total / 200)) : null;
   const water = passesWater && !!route && (
-    <div className="mt-0.5 flex items-center gap-1 text-[12px] font-semibold text-red-600"><Waves className="h-3.5 w-3.5 shrink-0" /> Route passes close to deep water &mdash; go slowly</div>
+    <div className="mt-1 flex items-center gap-1 text-[12px] font-semibold text-[#a3241c]"><Waves className="h-3.5 w-3.5 shrink-0" /> Route passes close to deep water &mdash; go slowly</div>
   );
 
   if (phase === 'preview') {
     return (
-      <div className="pointer-events-auto fixed inset-x-3 bottom-4 z-[55] mx-auto max-w-md animate-slide-up rounded-3xl bg-white px-4 pb-4 pt-3 shadow-2xl ring-1 ring-black/5">
+      <div className={`pointer-events-auto fixed inset-x-3 bottom-4 z-[55] mx-auto max-w-md animate-slide-up rounded-[26px] px-4 pb-4 pt-3.5 ${lxIvory}`}>
         <div className="flex items-start gap-3">
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#f05a22] text-white"><Navigation2 className="h-5 w-5" /></div>
+          <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-[14px] ${lxOrange}`}><Navigation2 className="h-5 w-5" /></div>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[17px] font-extrabold text-gray-900">{dest.label}</div>
-            <div className="truncate text-[13px] text-gray-500">
-              {!route ? 'No road inside the estate to here' : total != null ? `${mins} min · ${distanceWords(total)}` : ''}
+            <div className={`${lxEyebrow} text-[#9a8450]`}>Your route</div>
+            <div className="truncate font-serif text-[24px] font-semibold leading-tight text-[#13261c]">{dest.label}</div>
+            <div className="truncate text-[13px] text-[#5b5a4c]">
+              {!route ? 'No road inside the estate to here' : total != null ? `${mins} min \u00b7 ${distanceWords(total)}` : ''}
               {route ? ` \u00b7 ${live ? 'from your location' : `from ${start.label}`}` : ''}
             </div>
             {water}
           </div>
-          <button onClick={onEnd} aria-label="Close directions" className="rounded-full p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
+          <button onClick={onEnd} aria-label="Close directions" className="rounded-full p-2 text-[#8a7a52] hover:bg-[#c9a96e]/[0.15]"><X className="h-5 w-5" /></button>
         </div>
         <button
           onClick={onStart}
           disabled={!route}
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-[#f05a22] py-3 text-[16px] font-bold text-white shadow-md active:scale-[0.98] disabled:opacity-50"
+          className={`mt-3.5 flex w-full items-center justify-center gap-2 rounded-full py-3 text-[15px] font-semibold uppercase tracking-[0.2em] active:scale-[0.98] disabled:opacity-50 ${lxOrange}`}
         >
           <Navigation2 className="h-5 w-5" /> Start
         </button>
-        {!live && <p className="mt-2 text-center text-[12px] text-gray-400">Start uses your location to guide you turn by turn.</p>}
+        {!live && <p className="mt-2 text-center text-[12px] text-[#8a7a52]">Start uses your location to guide you turn by turn.</p>}
       </div>
     );
   }
@@ -320,42 +322,42 @@ function GuidedPanels({ phase, dest, live, origin, start, route, guide, next, of
   const bad = live && offRoad;
   return (
     <>
-      <div className={`pointer-events-auto fixed inset-x-3 top-[max(0.75rem,env(safe-area-inset-top))] z-[55] mx-auto max-w-md animate-slide-up rounded-2xl px-4 py-3 text-white shadow-2xl ring-1 ring-white/10 ${bad ? 'bg-red-700' : 'bg-[#13261c]'}`}>
+      <div className={`pointer-events-auto fixed inset-x-3 top-[max(0.75rem,env(safe-area-inset-top))] z-[55] mx-auto max-w-md animate-slide-up rounded-[22px] px-4 py-3 ${bad ? 'bg-gradient-to-br from-[#a3241c] to-[#7a1712] text-white ring-1 ring-[#f1d9a6]/[0.55] shadow-[0_14px_30px_-10px_rgba(122,23,18,0.7)]' : lxGlass}`}>
         {arrived ? (
           <div className="flex items-center gap-3">
-            <CheckCircle2 className="h-9 w-9 shrink-0 text-emerald-400" />
-            <div className="min-w-0 flex-1"><div className="text-[20px] font-extrabold leading-tight">You&rsquo;ve arrived</div><div className="truncate text-[14px] text-white/80">{dest.label}</div></div>
+            <CheckCircle2 className="h-9 w-9 shrink-0 text-[#e3c98d]" />
+            <div className="min-w-0 flex-1"><div className="font-serif text-[26px] font-semibold leading-tight">You&rsquo;ve arrived</div><div className="truncate text-[14px] text-[#f3ead3]/80">{dest.label}</div></div>
           </div>
         ) : bad ? (
           <div className="flex items-center gap-3">
-            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/20"><Navigation2 className="h-7 w-7" /></div>
-            <div className="min-w-0 flex-1"><div className="text-[18px] font-extrabold leading-tight">You&rsquo;ve left the road</div><div className="text-[13px] text-white/85">Get back on it &mdash; the route updates from where you are.</div></div>
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/[0.15]"><Navigation2 className="h-7 w-7" /></div>
+            <div className="min-w-0 flex-1"><div className="font-serif text-[24px] font-semibold leading-tight">You&rsquo;ve left the road</div><div className="text-[13px] text-white/[0.85]">Get back on it &mdash; the route updates from where you are.</div></div>
           </div>
         ) : !live || !origin ? (
           <div className="flex items-center gap-3">
-            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/15"><Navigation2 className="h-7 w-7" /></div>
-            <div className="min-w-0 flex-1"><div className="text-[17px] font-extrabold leading-tight">Waiting for your location&hellip;</div><div className="text-[13px] text-white/75">Stay in the open. Allow location if your phone asks.</div></div>
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[#c9a96e]/[0.15] text-[#e3c98d]"><Navigation2 className="h-7 w-7" /></div>
+            <div className="min-w-0 flex-1"><div className="font-serif text-[22px] font-semibold leading-tight">Finding your location&hellip;</div><div className="text-[13px] text-[#f3ead3]/75">Stay in the open. Allow location if your phone asks.</div></div>
           </div>
         ) : next ? (
           <div className="flex items-center gap-3">
-            <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-[#f05a22]"><TurnIcon kind={next.kind} className="h-10 w-10" /></div>
+            <div className={`grid h-14 w-14 shrink-0 place-items-center rounded-2xl ${lxOrange}`}><TurnIcon kind={next.kind} className="h-10 w-10" /></div>
             <div className="min-w-0 flex-1">
-              <div className="truncate text-[26px] font-extrabold leading-none">{next.s <= 25 ? 'Now' : distanceWords(next.s)}</div>
-              <div className="mt-0.5 truncate text-[16px] font-semibold leading-tight text-white/90">{next.kind === 'arrive' ? `Arrive at ${dest.label}` : turnWords(next.kind)}</div>
+              <div className="truncate font-serif text-[34px] font-semibold leading-none">{next.s <= 25 ? 'Now' : distanceWords(next.s)}</div>
+              <div className="mt-1 truncate text-[15px] font-medium leading-tight text-[#f3ead3]/90">{next.kind === 'arrive' ? `Arrive at ${dest.label}` : turnWords(next.kind)}</div>
             </div>
           </div>
         ) : null}
         {!arrived && !bad && passesWater && live && (
-          <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-red-600/90 px-2.5 py-1 text-[12px] font-semibold"><Waves className="h-3.5 w-3.5 shrink-0" /> Route passes close to deep water &mdash; go slowly</div>
+          <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-[#a3241c]/90 px-2.5 py-1 text-[12px] font-semibold ring-1 ring-[#f1d9a6]/40"><Waves className="h-3.5 w-3.5 shrink-0" /> Route passes close to deep water &mdash; go slowly</div>
         )}
       </div>
 
-      <div className="pointer-events-auto fixed inset-x-3 bottom-4 z-[55] mx-auto flex max-w-md animate-slide-up items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-2xl ring-1 ring-black/5">
+      <div className={`pointer-events-auto fixed inset-x-3 bottom-4 z-[55] mx-auto flex max-w-md animate-slide-up items-center gap-3 rounded-[22px] px-4 py-3 ${lxIvory}`}>
         <div className="min-w-0 flex-1">
-          <div className="text-[22px] font-extrabold leading-tight text-emerald-600">{arrived ? 'Arrived' : mins != null ? `${mins} min` : '\u2014'}</div>
-          <div className="truncate text-[13px] text-gray-500">{total != null && !arrived ? `${distanceWords(total)} \u00b7 ` : ''}{dest.label}</div>
+          <div className="font-serif text-[30px] font-semibold leading-none text-[#13261c]">{arrived ? 'Arrived' : mins != null ? `${mins} min` : '\u2014'}</div>
+          <div className="mt-0.5 truncate text-[13px] text-[#5b5a4c]">{total != null && !arrived ? `${distanceWords(total)} \u00b7 ` : ''}{dest.label}</div>
         </div>
-        <button onClick={onEnd} className="rounded-full bg-red-600 px-5 py-2.5 text-[15px] font-bold text-white shadow active:scale-95">{arrived ? 'Done' : 'Exit'}</button>
+        <button onClick={onEnd} className="rounded-full bg-gradient-to-br from-[#a3241c] to-[#7a1712] px-5 py-2.5 text-[13px] font-semibold uppercase tracking-[0.18em] text-white ring-1 ring-[#f1d9a6]/[0.55] active:scale-95">{arrived ? 'Done' : 'Exit'}</button>
       </div>
     </>
   );

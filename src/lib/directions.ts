@@ -342,3 +342,44 @@ export function yardagesFrom(pt: MapPt): Yardage[] {
   if (nearest) out.splice(1, 0, nearest);
   return out.filter((y) => Number.isFinite(y.metres));
 }
+
+let lampCache: MapPt[] | null = null;
+
+/** Street-lamp positions along the open roads (% of the plan), about `spacingM` metres apart. */
+export function roadLampPoints(spacingM = 40): MapPt[] {
+  if (lampCache) return lampCache;
+  const g = getGraph();
+  const cell = Math.max(8, Math.round(spacingM / 1.32)); // grid px (about 1.32 m each)
+  const buckets = new Map<number, number[]>();
+  const out: MapPt[] = [];
+  // Walk the road pixels outwards from the main gate, so lamps line up along each road.
+  const start = nearestRoad([47.0, 79.63]);
+  const seen = new Uint8Array(g.n);
+  const order: number[] = [start];
+  seen[start] = 1;
+  for (let j = 0; j < order.length; j++) {
+    const v = order[j];
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const u = g.index.get((g.ys[v] + dy) * ROAD_GRID.width + g.xs[v] + dx);
+      if (u !== undefined && !seen[u]) { seen[u] = 1; order.push(u); }
+    }
+  }
+  for (let i = 0; i < g.n; i++) if (!seen[i]) order.push(i); // roads not joined to the gate
+  for (const v of order) {
+    const x = g.xs[v], y = g.ys[v];
+    const cx = Math.floor(x / cell), cy = Math.floor(y / cell);
+    let near = false;
+    for (let by = cy - 1; by <= cy + 1 && !near; by++) for (let bx = cx - 1; bx <= cx + 1 && !near; bx++) {
+      for (const u of buckets.get(by * 4096 + bx) ?? []) {
+        if ((g.xs[u] - x) ** 2 + (g.ys[u] - y) ** 2 < cell * cell) { near = true; break; }
+      }
+    }
+    if (near) continue;
+    const key = cy * 4096 + cx;
+    const list = buckets.get(key) ?? [];
+    list.push(v); buckets.set(key, list);
+    out.push(fromGrid(x, y));
+  }
+  lampCache = out;
+  return out;
+}

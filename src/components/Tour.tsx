@@ -15,6 +15,7 @@ import { loadShowcase, type Showcase, type TourStop } from '@/lib/showcase';
 import { DirectionsControls, type DirectionsView } from './Directions';
 import Compass from './Compass';
 import { useDeviceHeading, facingBearing } from '@/lib/compass';
+import { useNightLevel } from '@/lib/night';
 import { useWaterCaution, WaterCautionBanner } from './WaterCaution';
 import { metresFromRoad, OFF_ROAD_M, BACK_ON_ROAD_M } from '@/lib/directions';
 
@@ -613,6 +614,7 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
   const fix = mode === 'self' ? own.fix : remoteFix;
   // The device's own compass: knows which way you face even when standing still (own GPS only).
   const compass = useDeviceHeading(mode === 'self');
+  const night = useNightLevel();
   useEffect(() => {
     const ask = () => compass.request();
     window.addEventListener('pointerdown', ask, { once: true });
@@ -740,6 +742,7 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
           destination={dirView.destination}
           places={dirView.places}
           offRoad={offRoad}
+          night={night}
           waterAlert={waterAlert?.index ?? null}
           // Heading-up shows more of the road ahead: cart sits below the centre.
           focus={marker && follow ? { pt: marker.pt, zoom: FOLLOW_ZOOM, follow: true, offsetY: headingUp ? window.innerHeight * 0.18 : 0 } : null}

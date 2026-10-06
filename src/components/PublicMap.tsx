@@ -7,11 +7,13 @@ import { fitTransform, loadPublicCalibration, smoothFix, bearing, distanceM, Hea
 import Compass from './Compass';
 import { EmergencyButton } from './EmergencyButton';
 import { MapInfoCard } from './MapInfoCard';
+import { useNightLevel } from '@/lib/night';
 import { useWaterCaution, WaterCautionBanner } from './WaterCaution';
 import { findPlace } from '@/lib/directions';
 import { SAMPLE_PLOTS } from '@/lib/inventory';
 import { centroidOf } from '@/lib/plotMap';
 import { SPONSORS } from '@/lib/mapInfo';
+import { lxEyebrow, lxGlass, lxIvory, lxOrange } from '@/lib/luxury';
 import { Navigation2, X } from 'lucide-react';
 
 // The estate map for anyone with the link — opens without a login:
@@ -30,7 +32,7 @@ const LOGO = '/zion-hills-logo.svg';
 const FOLLOW_ZOOM = 2.2;
 const NAV_ZOOM = 2.6;
 
-const fab = 'pointer-events-auto grid h-14 w-14 place-items-center rounded-[20px] bg-white text-gray-900 shadow-lg ring-1 ring-black/5 transition active:scale-95';
+const fab = `pointer-events-auto grid h-14 w-14 place-items-center rounded-[20px] text-[#e9d8aa] transition active:scale-95 ${lxGlass}`;
 
 
 export default function PublicMap({ toId }: { toId?: string }) {
@@ -49,6 +51,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
   // Adverts drawn on the map: a few vacant plots as "can be yours" flags (more appear as dots once zoomed in).
   const [adSel, setAdSel] = useState<string | null>(null);
   const [pickerSignal, setPickerSignal] = useState(0);
+  const night = useNightLevel();
   const adPins = useMemo<AdPin[]>(() => {
     const open = SAMPLE_PLOTS.filter((p) => p.status === 'Available').sort(() => Math.random() - 0.5);
     const spots = open.map((p) => ({ p, pt: centroidOf(p) as [number, number] }));
@@ -184,7 +187,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
   const from = locating ? (marker ? (onPlan ? marker.pt : undefined) : null) : undefined;
 
   return (
-    <div className="fixed inset-0 overflow-hidden bg-[#d4d5c6]" style={{ height: '100dvh' }}>
+    <div className={`fixed inset-0 overflow-hidden ${night > 0.5 ? 'bg-[#0b1426]' : 'bg-[#d4d5c6]'}`} style={{ height: '100dvh' }}>
       <div className="absolute inset-0">
         <MasterPlanBoard
           plots={SAMPLE_PLOTS}
@@ -203,6 +206,8 @@ export default function PublicMap({ toId }: { toId?: string }) {
           rotation={rotation}
           turnable
           waterAlert={waterAlert?.index ?? null}
+          wildlife={phase === 'idle'}
+          night={night}
           adPins={phase === 'idle' ? adPins : []}
           selectedAdId={adSel}
           onAdTap={(id) => {
@@ -215,9 +220,9 @@ export default function PublicMap({ toId }: { toId?: string }) {
 
       {!navigating && (
       <div className="pointer-events-none absolute inset-x-0 top-0 z-40 flex items-start justify-between gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5">
-        <div className="pointer-events-auto flex items-center gap-2.5 rounded-full bg-white/90 py-1.5 pl-3 pr-4 shadow-md backdrop-blur">
+        <div className={`pointer-events-auto flex items-center gap-2.5 rounded-full py-1.5 pl-3 pr-4 ${lxIvory}`}>
           <img src={LOGO} alt="Zion Hills Golf County" className="h-7 w-auto" />
-          <span className="hidden text-sm font-semibold text-gray-800 sm:inline">Map &amp; directions</span>
+          <span className="hidden font-serif text-[17px] font-semibold italic tracking-wide text-[#13261c] sm:inline">The Estate Map</span>
         </div>
         <div className="flex items-center gap-2">
           <EmergencyButton
@@ -248,21 +253,21 @@ export default function PublicMap({ toId }: { toId?: string }) {
       <div className={`pointer-events-none absolute right-3 z-40 flex flex-col gap-3 sm:right-5 ${navigating ? 'bottom-[6.5rem]' : phase === 'preview' ? 'bottom-[11rem]' : 'bottom-6'}`}>
         {phase === 'idle' && (
           <button onClick={share} aria-label="Share this map" className={fab}>
-            {copied ? <Check className="h-7 w-7 text-emerald-600" /> : <Share2 className="h-7 w-7" />}
+            {copied ? <Check className="h-7 w-7 text-[#e3c98d]" /> : <Share2 className="h-6 w-6" strokeWidth={1.8} />}
           </button>
         )}
         <button onClick={onLocateTap} aria-label={locating ? 'Centre the map on my location' : 'Show my location'} className={fab}>
           {locating && !fix ? (
-            <Loader2 className="h-7 w-7 animate-spin text-[#1a73e8]" />
+            <Loader2 className="h-7 w-7 animate-spin text-[#f26a35]" />
           ) : locating && fix && follow ? (
-            <Navigation className="h-7 w-7 fill-[#1a73e8] text-[#1a73e8]" />
+            <Navigation className="h-7 w-7 fill-[#f26a35] text-[#f26a35]" />
           ) : (
-            <CompassIcon className={`h-7 w-7 ${locating ? 'text-[#1a73e8]' : ''}`} strokeWidth={2.2} />
+            <CompassIcon className={`h-7 w-7 ${locating ? 'text-[#f1d9a6]' : ''}`} strokeWidth={1.8} />
           )}
         </button>
         {phase === 'idle' && (
-          <button onClick={() => setPickerSignal((n) => n + 1)} aria-label="Directions" className={`${fab} !bg-[#f05a22] !text-white`}>
-            <span className="grid h-8 w-8 rotate-45 place-items-center rounded-[8px] bg-white"><CornerUpRight className="h-[18px] w-[18px] -rotate-45 text-[#f05a22]" strokeWidth={3.2} /></span>
+          <button onClick={() => setPickerSignal((n) => n + 1)} aria-label="Directions" className={`${fab} !bg-none ${lxOrange}`}>
+            <span className="grid h-8 w-8 rotate-45 place-items-center rounded-[8px] bg-[#fbf7ee]"><CornerUpRight className="h-[18px] w-[18px] -rotate-45 text-[#f05a22]" strokeWidth={3.2} /></span>
           </button>
         )}
       </div>
@@ -287,18 +292,18 @@ export default function PublicMap({ toId }: { toId?: string }) {
       />
 
       {phase === 'idle' && adPlot && (
-        <div className="pointer-events-auto absolute bottom-4 left-3 right-[5.25rem] z-40 animate-slide-up rounded-2xl bg-white p-3 shadow-2xl ring-1 ring-black/5 sm:left-24 sm:right-auto sm:w-[26rem]">
+        <div className={`pointer-events-auto absolute bottom-4 left-3 right-[5.25rem] z-40 animate-slide-up rounded-[22px] p-3.5 sm:left-24 sm:right-auto sm:w-[26rem] ${lxIvory}`}>
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
-              <div className="text-[11px] font-extrabold uppercase tracking-wide text-[#f05a22]">Vacant &middot; available now</div>
-              <div className="text-[17px] font-extrabold leading-tight text-gray-900">Plot {adPlot.plotNo} can be yours</div>
-              <div className="text-[13px] text-gray-600">{adPlot.bedrooms} BHK villa &middot; {Math.round(adPlot.landAreaSft).toLocaleString('en-IN')} sq ft plot &middot; {Math.round(adPlot.builtUpSft).toLocaleString('en-IN')} sq ft built-up &middot; {adPlot.phase}</div>
+              <div className={`${lxEyebrow} text-[#d9480f]`}>Vacant &middot; available now</div>
+              <div className="font-serif text-[26px] font-semibold leading-tight text-[#13261c]">Plot {adPlot.plotNo} can be yours</div>
+              <div className="text-[13px] leading-snug text-[#5b5a4c]">{adPlot.bedrooms} BHK villa &middot; {Math.round(adPlot.landAreaSft).toLocaleString('en-IN')} sq ft plot &middot; {Math.round(adPlot.builtUpSft).toLocaleString('en-IN')} sq ft built-up &middot; {adPlot.phase}</div>
             </div>
-            <button onClick={() => setAdSel(null)} aria-label="Close" className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100"><X className="h-4 w-4" /></button>
+            <button onClick={() => setAdSel(null)} aria-label="Close" className="rounded-full p-1.5 text-[#8a7a52] hover:bg-[#c9a96e]/[0.15]"><X className="h-4 w-4" /></button>
           </div>
           <button
             onClick={() => { const dest = findPlace(`plot-${adPlot.id}`); setAdSel(null); setExitDest(dest); }}
-            className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-full bg-[#f05a22] py-2.5 text-[14px] font-bold text-white shadow active:scale-[0.98]"
+            className={`mt-3 flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-[13px] font-semibold uppercase tracking-[0.18em] active:scale-[0.98] ${lxOrange}`}
           ><Navigation2 className="h-4 w-4" /> Show me the way</button>
         </div>
       )}
@@ -312,7 +317,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
 
       {note && (
         <div className={`pointer-events-none absolute inset-x-3 z-[60] mx-auto max-w-md rounded-2xl ${navigating ? 'bottom-24' : phase === 'preview' ? 'bottom-44' : 'bottom-28'}`}>
-          <div className="rounded-2xl bg-gray-900/90 px-4 py-2.5 text-center text-[13px] font-medium text-white shadow-lg">{note}</div>
+          <div className={`rounded-2xl px-4 py-2.5 text-center text-[13px] font-medium ${lxGlass}`}>{note}</div>
         </div>
       )}
     </div>

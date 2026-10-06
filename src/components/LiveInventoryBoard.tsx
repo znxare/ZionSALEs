@@ -8,6 +8,8 @@ import { createPortal } from 'react-dom';
 import { SAMPLE_PLOTS, PHASES, PLOT_STATUSES, BEDROOM_OPTIONS, STATUS_COLORS, type Plot, type PlotStatus } from '@/lib/inventory';
 import { WATER_BODIES } from '@/lib/waterBodies';
 import { useSmoothedAngle } from '@/lib/smoothAngle';
+import { WildlifeLayer } from './WildlifeLayer';
+import { NightLayer } from './NightLayer';
 import { BUDGETS, inBudget, outlineOf, centroidOf, plotAt, SHAPE_COLORS, plotShareLink, type BudgetId } from '@/lib/plotMap';
 import { getCurrentUser } from '@/lib/auth';
 import { createQuoteLink, quoteUrl, quoteMessage, whatsappTo } from '@/lib/quoteLinks';
@@ -374,6 +376,7 @@ function ZoomPanMap({
   onTap,
   onHover,
   controlsClassName = '',
+  luxury = false,
   cover = false,
   focus = null,
   onUserMove,
@@ -401,6 +404,8 @@ function ZoomPanMap({
   /** Mouse hovering over the map (null when it leaves) — desktop tooltips. */
   onHover?: (pt: [number, number] | null) => void;
   controlsClassName?: string;
+  /** Public map: the zoom buttons wear the dark green and gold. */
+  luxury?: boolean;
 }) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -693,18 +698,18 @@ function ZoomPanMap({
       </div>
 
       {/* Zoom controls */}
-      <div className={`absolute bottom-3 left-3 z-30 flex flex-col overflow-hidden rounded-xl border border-black/5 bg-white/95 shadow backdrop-blur ${controlsClassName}`}>
-        <button onClick={() => zoomBy(0.6)} aria-label="Zoom in" className="p-2.5 text-gray-600 hover:bg-gray-50 active:bg-gray-100">
+      <div className={`absolute bottom-3 left-3 z-30 flex flex-col overflow-hidden ${luxury ? 'rounded-[16px] bg-[#0f2118]/[0.92] ring-1 ring-[#c9a96e]/[0.45] shadow-[0_12px_28px_-10px_rgba(5,14,9,0.6)] backdrop-blur-xl' : 'rounded-xl border border-black/5 bg-white/95 shadow backdrop-blur'} ${controlsClassName}`}>
+        <button onClick={() => zoomBy(0.6)} aria-label="Zoom in" className={luxury ? 'p-2.5 text-[#e9d8aa] hover:bg-white/10 active:bg-white/[0.15]' : 'p-2.5 text-gray-600 hover:bg-gray-50 active:bg-gray-100'}>
           <Plus className="h-4 w-4" />
         </button>
-        <div className="h-px bg-gray-100" />
-        <button onClick={() => zoomBy(-0.6)} aria-label="Zoom out" className="p-2.5 text-gray-600 hover:bg-gray-50 active:bg-gray-100">
+        <div className={luxury ? 'h-px bg-[#c9a96e]/30' : 'h-px bg-gray-100'} />
+        <button onClick={() => zoomBy(-0.6)} aria-label="Zoom out" className={luxury ? 'p-2.5 text-[#e9d8aa] hover:bg-white/10 active:bg-white/[0.15]' : 'p-2.5 text-gray-600 hover:bg-gray-50 active:bg-gray-100'}>
           <Minus className="h-4 w-4" />
         </button>
         {!isReset && (
           <>
-            <div className="h-px bg-gray-100" />
-            <button onClick={reset} aria-label="Reset zoom" className="p-2.5 text-gray-600 hover:bg-gray-50 active:bg-gray-100">
+            <div className={luxury ? 'h-px bg-[#c9a96e]/30' : 'h-px bg-gray-100'} />
+            <button onClick={reset} aria-label="Reset zoom" className={luxury ? 'p-2.5 text-[#e9d8aa] hover:bg-white/10 active:bg-white/[0.15]' : 'p-2.5 text-gray-600 hover:bg-gray-50 active:bg-gray-100'}>
               <RotateCcw className="h-3.5 w-3.5" />
             </button>
           </>
@@ -847,7 +852,7 @@ export type AdPin = { id: string; pt: [number, number]; label: string; sub?: str
 export type TourMarker = { pt: [number, number]; accuracyPct?: number; heading?: number | null };
 
 export function MasterPlanBoard({
-  plots, highlight = null, onSelect, large, selectedId, tooltip = 'internal', bare, cover, publicView, waterAlert = null, adPins = [], selectedAdId = null, onAdTap,
+  plots, highlight = null, onSelect, large, selectedId, tooltip = 'internal', bare, cover, publicView, waterAlert = null, wildlife = false, night = 0, adPins = [], selectedAdId = null, onAdTap,
   marker = null, focus = null, onUserMove, onMapPoint, pins = [], rotation = 0, turnable = false, route = null, places = [], destination = null, offRoad = false,
 }: {
   plots: Plot[];
@@ -865,6 +870,10 @@ export function MasterPlanBoard({
   cover?: boolean;
   /** Public map: hover shows the plot number and status only, never prices. */
   publicView?: boolean;
+  /** 0 = day … 1 = night: the plan darkens and the roads get lamps. */
+  night?: number;
+  /** Public map: swaying groves, peacocks, birds and parrots drawn on the map. */
+  wildlife?: boolean;
   /** Adverts on the map: featured ones always show; the rest appear as dots once zoomed in. */
   adPins?: AdPin[];
   selectedAdId?: string | null;
@@ -906,7 +915,7 @@ export function MasterPlanBoard({
 
   const board = (
     <div
-      className={`relative w-full ${cover ? 'h-full bg-[#d4d5c6]' : 'bg-gray-100'} ${bare && !cover ? 'overflow-hidden rounded-xl' : ''}`}
+      className={`relative w-full ${cover ? (night > 0.5 ? 'h-full bg-[#0b1426]' : 'h-full bg-[#d4d5c6]') : 'bg-gray-100'} ${bare && !cover ? 'overflow-hidden rounded-xl' : ''}`}
       style={cover ? undefined : { aspectRatio: '3369.9 / 2383.8' }}
     >
       {!loaded && <div className="skeleton absolute inset-0" />}
@@ -915,6 +924,7 @@ export function MasterPlanBoard({
         cover={cover}
         // On phones the zoom buttons sit mid-left, clear of the directions banner and bottom buttons.
         controlsClassName={large ? 'max-sm:bottom-auto max-sm:top-1/2 max-sm:-translate-y-1/2 sm:scale-125 sm:origin-bottom-left' : ''}
+        luxury={publicView}
         focus={shownFocus}
         onUserMove={onUserMove}
         rotation={rotation}
@@ -928,6 +938,7 @@ export function MasterPlanBoard({
         mapLayer={(view) => (
           <>
             <MasterPlanImage view={view} loaded={loaded} onLoad={() => setLoaded(true)} />
+            {loaded && night > 0.001 && <NightLayer level={night} />}
             {loaded && <PlotShapes plots={plots} highlight={highlight} hoverId={hoverId} selectedId={selectedId} large={large} waterAlert={waterAlert} />}
           </>
         )}
@@ -948,6 +959,7 @@ export function MasterPlanBoard({
                   <polyline points={routePts.map((q) => toScreen(q).join(',')).join(' ')} fill="none" stroke="white" strokeOpacity={0.7} strokeWidth={2} strokeDasharray="2 10" strokeLinecap="round" className="animate-route-flow" />
                 </svg>
               )}
+              {wildlife && <WildlifeLayer toScreen={toScreen} zoom={zoom} upright={upright} night={night} />}
               {adPins.map((ad) => {
                 const picked = ad.id === selectedAdId;
                 if (!ad.featured && !picked && zoom < 1.9) return null;
@@ -963,15 +975,15 @@ export function MasterPlanBoard({
                       className="pointer-events-auto absolute flex -translate-x-1/2 -translate-y-full flex-col items-center"
                     >
                       {ad.featured || picked ? (
-                        <span className={`relative flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-extrabold text-white shadow-lg ring-2 ring-white ${sponsor ? 'bg-[#1a73e8]' : 'bg-[#f05a22]'} ${picked ? 'scale-110' : ''}`}>
-                          {!sponsor && <span className="absolute -inset-1 -z-10 animate-ping rounded-full bg-[#f05a22]/40" />}
+                        <span className={`relative flex items-center gap-1 whitespace-nowrap rounded-full px-3 py-1 text-[11px] font-semibold tracking-wide text-white shadow-[0_8px_18px_-6px_rgba(120,40,8,0.7)] ring-[1.5px] ring-[#f1d9a6] ${sponsor ? 'bg-gradient-to-br from-[#1d3a2b] to-[#0f2118]' : 'bg-gradient-to-br from-[#f7733f] to-[#d9480f]'} ${picked ? 'scale-110' : ''}`}>
+                          {!sponsor && <span className="absolute -inset-1 -z-10 animate-ping rounded-full bg-[#f05a22]/[0.35]" />}
                           {ad.label}
                         </span>
                       ) : (
-                        <span className="h-3.5 w-3.5 rounded-full bg-[#f05a22] shadow ring-2 ring-white" />
+                        <span className="h-3.5 w-3.5 rounded-full bg-gradient-to-br from-[#f7733f] to-[#d9480f] shadow ring-[1.5px] ring-[#f1d9a6]" />
                       )}
-                      {(ad.featured || picked) && <span className={`h-2 w-0.5 ${sponsor ? 'bg-[#1a73e8]' : 'bg-[#f05a22]'}`} />}
-                      {(ad.featured || picked) && <span className={`h-2 w-2 rounded-full ring-2 ring-white ${sponsor ? 'bg-[#1a73e8]' : 'bg-[#f05a22]'}`} />}
+                      {(ad.featured || picked) && <span className={`h-2 w-px ${sponsor ? 'bg-[#c9a96e]' : 'bg-[#f1d9a6]'}`} />}
+                      {(ad.featured || picked) && <span className={`h-2 w-2 rounded-full ring-[1.5px] ring-[#f1d9a6] ${sponsor ? 'bg-[#0f2118]' : 'bg-[#e0541c]'}`} />}
                     </button>
                   </div>
                 );

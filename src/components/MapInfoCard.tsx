@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Home, Sun, Wind, ThermometerSun, Sunset, Landmark, Waves, Smile, Sparkles, X, ChevronRight } from 'lucide-react';
 import { SAMPLE_PLOTS } from '@/lib/inventory';
+import { lxEyebrow, lxIvory, lxOrange } from '@/lib/luxury';
 import { aqiWord, clockTime, ESTATE_FACTS, feelsWord, skyWord, SPONSORS, useAtmosphere, uvWord, type Atmosphere } from '@/lib/mapInfo';
 
 // A small rotating card on the public map: vacant plots ("can be yours"), the weather and air
@@ -107,7 +108,7 @@ export function MapInfoCard({ onShowPlace, className = '' }: { onShowPlace: (pla
 
   if (closed || slides.length === 0) return null;
   const s = slides[i % slides.length];
-  const tile = s.tone === 'ad' ? 'bg-[#f05a22] text-white' : s.tone === 'warn' ? 'bg-red-600 text-white' : 'bg-[#13261c] text-[#e9dcc0]';
+  const tile = s.tone === 'ad' ? `${lxOrange}` : s.tone === 'warn' ? 'bg-gradient-to-br from-[#a3241c] to-[#7a1712] text-white ring-1 ring-[#f1d9a6]/50' : 'bg-[#13261c] text-[#e3c98d] ring-1 ring-[#c9a96e]/50';
 
   return (
     <div
@@ -115,23 +116,24 @@ export function MapInfoCard({ onShowPlace, className = '' }: { onShowPlace: (pla
       onPointerEnter={() => setPaused(true)}
       onPointerLeave={() => setPaused(false)}
     >
-      <div className="overflow-hidden rounded-2xl bg-white/95 shadow-xl ring-1 ring-black/5 backdrop-blur">
+      <div className={`overflow-hidden rounded-[20px] ${lxIvory}`}>
         <div key={s.key} className="flex animate-slide-up items-center gap-3 py-2.5 pl-2.5 pr-1.5">
-          <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${tile}`}>{s.icon}</div>
+          <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-[14px] ${tile}`}>{s.icon}</div>
           <button type="button" onClick={() => setI((n) => n + 1)} className="min-w-0 flex-1 text-left" aria-label="Next">
-            <div className={`truncate text-[14px] font-extrabold leading-tight ${s.tone === 'ad' ? 'text-[#f05a22]' : s.tone === 'warn' ? 'text-red-600' : 'text-gray-900'}`}>{s.title}</div>
-            <div className="line-clamp-2 text-[12px] leading-snug text-gray-600">{s.text}</div>
+            <div className={`${lxEyebrow} mb-0.5 ${s.tone === 'ad' ? 'text-[#d9480f]' : s.tone === 'warn' ? 'text-[#a3241c]' : 'text-[#9a8450]'}`}>{s.tone === 'ad' ? 'Available now' : s.tone === 'warn' ? 'For your safety' : 'Zion Hills'}</div>
+            <div className="truncate font-serif text-[18px] font-semibold leading-tight text-[#13261c]">{s.title}</div>
+            <div className="line-clamp-2 text-[12px] leading-snug text-[#5b5a4c]">{s.text}</div>
           </button>
           {s.cta ? (
-            <button onClick={s.cta.run} className="flex shrink-0 items-center gap-0.5 rounded-full bg-[#f05a22] px-3 py-2 text-[13px] font-bold text-white shadow active:scale-95">
+            <button onClick={s.cta.run} className={`flex shrink-0 items-center gap-0.5 rounded-full px-3.5 py-2 text-[13px] font-semibold tracking-wide active:scale-95 ${lxOrange}`}>
               {s.cta.label} <ChevronRight className="h-4 w-4" />
             </button>
           ) : null}
-          <button onClick={() => setClosed(true)} aria-label="Close" className="shrink-0 self-start rounded-full p-1 text-gray-300 hover:bg-gray-100 hover:text-gray-500"><X className="h-4 w-4" /></button>
+          <button onClick={() => setClosed(true)} aria-label="Close" className="shrink-0 self-start rounded-full p-1 text-[#b7a574] hover:bg-[#c9a96e]/[0.15] hover:text-[#8a7a52]"><X className="h-4 w-4" /></button>
         </div>
         <div className="flex justify-center gap-1 pb-1.5">
           {slides.map((sl, n) => (
-            <span key={sl.key} className={`h-1 rounded-full transition-all ${n === i % slides.length ? 'w-4 bg-[#f05a22]' : 'w-1 bg-gray-300'}`} />
+            <span key={sl.key} className={`h-1 rounded-full transition-all ${n === i % slides.length ? 'w-4 bg-[#c9a96e]' : 'w-1 bg-[#c9a96e]/30'}`} />
           ))}
         </div>
       </div>

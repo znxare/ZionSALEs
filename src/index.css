@@ -197,3 +197,33 @@ body {
 .animate-pulse-ring {
   animation: pulseRing 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+
+/* ---- Public map: swaying groves, birds and peacocks (see WildlifeLayer.tsx) ---- */
+@keyframes zh-orbit { to { transform: rotate(360deg); } }
+@keyframes zh-flap { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(0.42); } }
+@keyframes zh-sway { 0%, 100% { transform: rotate(-2.2deg) scale(1); } 50% { transform: rotate(2.2deg) scale(1.045); } }
+@keyframes zh-fan { 0%, 55% { transform: scale(1, 0.38); } 68%, 90% { transform: scale(1, 1); } 100% { transform: scale(1, 0.38); } }
+@keyframes zh-strut {
+  0% { transform: translate(-16px, 3px) rotate(90deg); }
+  42% { transform: translate(16px, -2px) rotate(90deg); }
+  50% { transform: translate(16px, -2px) rotate(270deg); }
+  92% { transform: translate(-16px, 3px) rotate(270deg); }
+  100% { transform: translate(-16px, 3px) rotate(90deg); }
+}
+@keyframes zh-leaf {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+  15% { opacity: 0.9; }
+  100% { transform: translate(var(--lx, 18px), var(--ly, 26px)) rotate(200deg); opacity: 0; }
+}
+@keyframes zh-glow { 0%, 100% { opacity: 0.8; } 50% { opacity: 1; } }
+@keyframes zh-drift {
+  0% { transform: translate(0, 0); opacity: 0; }
+  20% { opacity: 1; }
+  50% { transform: translate(var(--fx, 14px), var(--fy, -10px)); opacity: 0.35; }
+  80% { opacity: 1; }
+  100% { transform: translate(calc(var(--fx, 14px) * -0.6), calc(var(--fy, -10px) * 1.6)); opacity: 0; }
+}
+@keyframes zh-bubble { 0% { opacity: 0; transform: translateY(4px) scale(0.96); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .zh-anim, .zh-anim * { animation: none !important; }
+}

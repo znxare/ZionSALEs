@@ -4,6 +4,7 @@ import { nearestWater, WATER_CAUTION_M, WATER_MAX_GPS_ERROR_M, WATER_REARM_M } f
 import type { MapPt } from '@/lib/tour';
 import { speak } from '@/lib/voice';
 import { playAlarm } from '@/lib/alarm';
+import { lxCrimson } from '@/lib/luxury';
 
 // Deep-water caution for anyone with a live position: a banner and a red outline round
 // the lake once, when they are right at its edge (within WATER_CAUTION_M).
@@ -72,13 +73,13 @@ export function WaterCautionBanner({ alert, top = 'top-[9.75rem]' }: { alert: Wa
   return (
     <div
       role="alert"
-      className={`pointer-events-none absolute inset-x-3 ${top} z-50 mx-auto flex max-w-md animate-slide-up items-center gap-3 rounded-2xl px-4 py-3 text-white shadow-xl ring-1 ring-white/30 ${danger || night ? 'bg-red-700' : 'bg-red-600/95'}`}
+      className={`pointer-events-none absolute inset-x-3 ${top} z-50 mx-auto flex max-w-md animate-slide-up items-center gap-3 rounded-[20px] px-4 py-3 ${lxCrimson}`}
     >
-      <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/20 ${danger ? 'animate-pulse' : ''}`}>
+      <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#f1d9a6]/20 ring-1 ring-[#f1d9a6]/50 ${danger ? 'animate-pulse' : ''}`}>
         {danger || night ? <AlertTriangle className="h-6 w-6" /> : <Waves className="h-6 w-6" />}
       </div>
       <div className="min-w-0">
-        <div className="text-[15px] font-bold leading-tight">{night ? 'Lake area closed after 6 PM' : danger ? 'Deep water right here — stay back' : 'Caution: deep water nearby'}</div>
+        <div className="font-serif text-[19px] font-semibold leading-tight">{night ? 'Lake area closed after 6 PM' : danger ? 'Deep water right here — stay back' : 'Caution: deep water nearby'}</div>
         <div className="text-[12.5px] leading-snug text-white/90">
           {night ? 'Going near the water at night is not permitted and not advisable. Move away from the edge now.' : danger ? 'Stop and move away from the edge. The bank can be steep and slippery.' : 'Keep well clear of the water’s edge. The lake is deep.'}
         </div>
