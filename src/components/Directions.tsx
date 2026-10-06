@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Navigation2, X, Search, MapPin, Flag, Home, Layers, CheckCircle2 } from 'lucide-react';
-import { AMENITIES, HOLES, PLOT_PLACES, findRoute, routeMetres, describeDistance, type Place } from '@/lib/directions';
+import { AMENITIES, HOLES, VILLAS, PLOT_PLACES, findRoute, routeMetres, describeDistance, type Place } from '@/lib/directions';
 import type { MapPt } from '@/lib/tour';
 
 // Directions and map layers, shared by the live tour (from the cart's GPS
@@ -10,7 +10,7 @@ import type { MapPt } from '@/lib/tour';
 export interface DirectionsView {
   route: MapPt[] | null;
   destination: { pt: MapPt; label: string } | null;
-  places: { pt: MapPt; label: string }[];
+  places: { pt: MapPt; label: string; kind?: 'villa' }[];
 }
 
 export function DirectionsControls({ from, toGps, spots = [], onView, className = '', dark = false }: {
@@ -51,7 +51,13 @@ export function DirectionsControls({ from, toGps, spots = [], onView, className 
     onView({
       route: route?.points ?? null,
       destination: dest ? { pt: dest.pt, label: dest.label } : null,
-      places: showPlaces ? AMENITIES.map((p) => ({ pt: p.pt, label: p.label })) : [],
+      places: showPlaces
+        ? [
+            ...AMENITIES.map((p) => ({ pt: p.pt, label: p.label })),
+            // Just the number on the map; the full name shows once picked as a destination.
+            ...VILLAS.map((p) => ({ pt: p.pt, label: p.label.replace('Villa ', ''), kind: 'villa' as const })),
+          ]
+        : [],
     });
   }, [route, dest, showPlaces, onView]);
 
@@ -115,6 +121,9 @@ export function DirectionsControls({ from, toGps, spots = [], onView, className 
   );
 }
 
+// Groups shown as a grid of short number buttons rather than a list.
+const GRID_GROUPS = ['Plots', 'Holes', 'Hospitality villas'];
+
 function PlacePicker({ live, start, onStart, spots, onPick, onClose }: {
   live: boolean;
   start: Place;
@@ -128,6 +137,7 @@ function PlacePicker({ live, start, onStart, spots, onPick, onClose }: {
   const match = (p: Place) => !s || p.label.toLowerCase().includes(s);
   const groups: { title: string; icon: typeof MapPin; items: Place[] }[] = [
     { title: 'Places', icon: Home, items: AMENITIES.filter(match) },
+    { title: 'Hospitality villas', icon: Home, items: VILLAS.filter(match) },
     { title: 'Holes', icon: Flag, items: HOLES.filter(match) },
     { title: 'Your named spots', icon: MapPin, items: spots.filter(match) },
     { title: 'Plots', icon: MapPin, items: PLOT_PLACES.filter(match) },
@@ -151,18 +161,18 @@ function PlacePicker({ live, start, onStart, spots, onPick, onClose }: {
         )}
         <div className="mx-5 mb-3 flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2">
           <Search className="h-4 w-4 text-gray-400" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search — clubhouse, hole 9, plot 622…" className="w-full bg-transparent text-sm outline-none" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search — clubhouse, hole 9, plot 622, villa 124…" className="w-full bg-transparent text-sm outline-none" />
         </div>
         <div className="flex-1 overflow-y-auto pb-4">
           {groups.length === 0 && <div className="px-5 py-10 text-center text-sm text-gray-400">Nothing matches.</div>}
           {groups.map((g) => (
             <div key={g.title} className="mb-2">
               <div className="px-5 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{g.title}</div>
-              <div className={g.title === 'Plots' || g.title === 'Holes' ? 'grid grid-cols-3 gap-1.5 px-5' : 'px-2'}>
+              <div className={GRID_GROUPS.includes(g.title) ? 'grid grid-cols-3 gap-1.5 px-5' : 'px-2'}>
                 {g.items.map((p) =>
-                  g.title === 'Plots' || g.title === 'Holes' ? (
+                  GRID_GROUPS.includes(g.title) ? (
                     <button key={p.id} onClick={() => onPick(p)} className="truncate rounded-xl bg-gray-50 px-2 py-2 text-[13px] font-semibold text-gray-800 hover:bg-[#f05a22]/10 hover:text-[#f05a22]">
-                      {p.label.replace('Plot ', '')}{g.title === 'Holes' ? '' : ''}
+                      {p.label.replace('Plot ', '').replace('Villa ', '')}
                     </button>
                   ) : (
                     <button key={p.id} onClick={() => onPick(p)} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-gray-50">

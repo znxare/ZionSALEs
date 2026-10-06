@@ -722,7 +722,7 @@ export function MasterPlanBoard({
   /** Directions: the line to follow, in % of the plan. */
   route?: [number, number][] | null;
   /** Labelled places layer (clubhouse, entry gates…). */
-  places?: { pt: [number, number]; label: string }[];
+  places?: { pt: [number, number]; label: string; kind?: 'villa' }[];
   /** Where the directions lead (a flag is drawn there). */
   destination?: { pt: [number, number]; label: string } | null;
 }) {
@@ -777,8 +777,11 @@ export function MasterPlanBoard({
                 const [px, py] = toScreen(pl.pt);
                 return (
                   <div key={`pl-${i}`} className="absolute z-20" style={{ left: px, top: py, ...upright, transformOrigin: '0 0' }}>
-                    <div className="absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 whitespace-nowrap rounded-full bg-[#13261c]/90 py-0.5 pl-1 pr-2 text-[11px] font-semibold text-white shadow ring-1 ring-white/30">
-                      <span className="h-2 w-2 rounded-full bg-[#e9dcc0]" /> {pl.label}
+                    <div
+                      title={pl.kind === 'villa' ? `Villa ${pl.label}` : undefined}
+                      className={`absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 whitespace-nowrap rounded-full py-0.5 pl-1 pr-2 text-[11px] font-semibold text-white shadow ring-1 ring-white/30 ${pl.kind === 'villa' ? 'bg-[#f05a22]' : 'bg-[#13261c]/90'}`}
+                    >
+                      <span className={`h-2 w-2 rounded-full ${pl.kind === 'villa' ? 'bg-white' : 'bg-[#e9dcc0]'}`} /> {pl.label}
                     </div>
                   </div>
                 );

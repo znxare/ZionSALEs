@@ -10,7 +10,7 @@ import type { MapPt } from './tour';
 export interface Place {
   id: string;
   label: string;
-  kind: 'amenity' | 'hole' | 'plot' | 'spot';
+  kind: 'amenity' | 'hole' | 'plot' | 'villa' | 'spot';
   pt: MapPt;
 }
 
@@ -32,6 +32,18 @@ const HOLE_PTS: Record<number, MapPt> = {
   13: [46.06, 21.19], 14: [34.5, 30.69], 15: [22.06, 44.03], 16: [20.89, 56.04], 17: [25.56, 47.17], 18: [32.5, 45.45],
 };
 export const HOLES: Place[] = Object.entries(HOLE_PTS).map(([n, pt]) => ({ id: `hole-${n}`, label: `Hole ${n}`, kind: 'hole', pt }));
+
+// Hospitality villas, by the plot number printed on the master plan. Positions
+// are the middle of each plot, read off the plan (% of the plan) and checked
+// against its printed numbers. To add a villa, add its plot number and position.
+const VILLA_PTS: Record<string, MapPt> = {
+  '124': [59.13, 88.1], '125': [59.81, 88.4], '152': [72.93, 90.46], '173': [71.94, 78.43],
+  '201': [72.43, 79.94], '202': [73.0, 80.68], '219': [75.58, 80.62], '243': [79.09, 73.54],
+  '260': [79.87, 80.5], '311': [58.97, 77.55], '314': [56.56, 76.62], '345': [46.58, 69.31],
+};
+export const VILLAS: Place[] = Object.entries(VILLA_PTS)
+  .sort(([a], [b]) => Number(a) - Number(b))
+  .map(([no, pt]) => ({ id: `villa-${no}`, label: `Villa ${no}`, kind: 'villa', pt }));
 
 export const PLOT_PLACES: Place[] = SAMPLE_PLOTS.map((p) => ({ id: `plot-${p.id}`, label: `Plot ${p.plotNo}`, kind: 'plot', pt: centroidOf(p) }));
 
