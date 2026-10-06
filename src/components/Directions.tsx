@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Navigation2, X, Search, MapPin, Home, Layers, CheckCircle2 } from 'lucide-react';
+import { Navigation2, X, Search, MapPin, Home, Layers, CheckCircle2, Waves } from 'lucide-react';
 import { AMENITIES, VILLAS, PLOT_PLACES, findRoute, type Place } from '@/lib/directions';
 import type { MapPt } from '@/lib/tour';
+import { routeWaterContact, WATER_CAUTION_M } from '@/lib/water';
 
 // Directions and map layers, shared by the live tour (from the cart's GPS
 // position) and buyer presentation (from a chosen starting place).
@@ -34,6 +35,9 @@ export function DirectionsControls({ from, toGps, offRoad = false, initialDestin
 
   const origin: MapPt | null = live ? from ?? null : start.pt;
   const route = useMemo(() => (origin && dest ? findRoute(origin, dest.pt) : null), [origin?.[0], origin?.[1], dest]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Does the road run close to a lake? Said in the banner, ahead of time.
+  const passesWater = useMemo(() => !!route && route.points.length > 1 && routeWaterContact(route.points).metres <= WATER_CAUTION_M, [route]);
 
   // Arrival (live tour): within ~25 m of the destination.
   useEffect(() => {
@@ -102,6 +106,9 @@ export function DirectionsControls({ from, toGps, offRoad = false, initialDestin
                 <div className={`truncate text-[13px] ${live && offRoad ? 'font-semibold text-red-600' : 'text-gray-500'}`}>
                   {!origin ? 'Waiting for your location…' : !route ? 'No road inside the estate to here' : live && offRoad ? "You've left the road — get back on it" : live ? 'Follow the orange line' : `From ${start.label}`}
                 </div>
+                {passesWater && !!route && (
+                  <div className="mt-0.5 flex items-center gap-1 text-[12px] font-semibold text-red-600"><Waves className="h-3.5 w-3.5 shrink-0" /> Route passes close to deep water — go slowly</div>
+                )}
               </div>
               <button onClick={() => setDest(null)} aria-label="End directions" className="rounded-full p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
             </div>

@@ -298,7 +298,7 @@ export function describeDistance(m: number | null): string | null {
 
 // Plan % → metres, from the 36-spot calibration ride of 5 Oct 2026 (the plan
 // is ~2.37 km × 1.69 km). Good to within a few metres over a route.
-const PLAN_TO_METRES = [[23.711, 0.175], [-0.006, -16.9]] as const;
+export const PLAN_TO_METRES = [[23.711, 0.175], [-0.006, -16.9]] as const;
 
 export function planMetres(points: MapPt[]): number {
   let m = 0;

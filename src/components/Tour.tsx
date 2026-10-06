@@ -14,6 +14,7 @@ import { VideoModal, TestimonialButton } from './ShowcaseMedia';
 import { loadShowcase, type Showcase, type TourStop } from '@/lib/showcase';
 import { DirectionsControls, type DirectionsView } from './Directions';
 import Compass from './Compass';
+import { useWaterCaution, WaterCautionBanner } from './WaterCaution';
 import { metresFromRoad, OFF_ROAD_M, BACK_ON_ROAD_M } from '@/lib/directions';
 
 const FOLLOW_ZOOM = 2.5;
@@ -613,6 +614,7 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
   // (out past one, back inside the other) so a wobbly GPS doesn't flicker.
   const cartX = markerFor(fix, cal)?.pt[0], cartY = markerFor(fix, cal)?.pt[1];
   const [offRoad, setOffRoad] = useState(false);
+  const waterAlert = useWaterCaution(cartX !== undefined && cartY !== undefined ? [cartX, cartY] : null);
   useEffect(() => {
     if (cartX === undefined || cartY === undefined) { setOffRoad(false); return; }
     const m = metresFromRoad([cartX, cartY]);
@@ -729,6 +731,7 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
           destination={dirView.destination}
           places={dirView.places}
           offRoad={offRoad}
+          waterAlert={waterAlert?.index ?? null}
           // Heading-up shows more of the road ahead: cart sits below the centre.
           focus={marker && follow ? { pt: marker.pt, zoom: FOLLOW_ZOOM, follow: true, offsetY: headingUp ? window.innerHeight * 0.18 : 0 } : null}
           onUserMove={() => setFollow(false)}
@@ -746,6 +749,8 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
 
       {/* Compass: the needle points to north on screen. Tap to switch between
           "turn with the cart" and "north up" (matches the plan's drawn compass). */}
+      <WaterCautionBanner alert={waterAlert} />
+
       <Compass rotation={rotation} headingUp={headingUp} onToggle={() => setHeadingUp((v) => !v)} />
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-40 flex items-start justify-between gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5">

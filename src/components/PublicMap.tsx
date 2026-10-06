@@ -4,6 +4,7 @@ import { MasterPlanBoard, type MapFocus, type TourMarker } from './LiveInventory
 import { DirectionsControls, type DirectionsView } from './Directions';
 import { fitTransform, loadPublicCalibration, smoothFix, bearing, distanceM, HeadingTracker, MIN_HEADING_SPEED, type Calibration, type GpsFix } from '@/lib/tour';
 import Compass from './Compass';
+import { useWaterCaution, WaterCautionBanner } from './WaterCaution';
 import { findPlace } from '@/lib/directions';
 import { SAMPLE_PLOTS } from '@/lib/inventory';
 
@@ -88,6 +89,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
     : null;
   const onPlan = !!marker && marker.pt[0] > -5 && marker.pt[0] < 105 && marker.pt[1] > -5 && marker.pt[1] < 105;
   const markerX = marker?.pt[0], markerY = marker?.pt[1];
+  const waterAlert = useWaterCaution(onPlan && markerX !== undefined && markerY !== undefined ? [markerX, markerY] : null);
 
   // Keep the turn "unwrapped" (350° → 370°, not back to 10°) so passing north animates the short way.
   if (marker?.heading != null) {
@@ -139,6 +141,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
           focus={focus}
           rotation={rotation}
           turnable
+          waterAlert={waterAlert?.index ?? null}
         />
       </div>
 
@@ -170,6 +173,8 @@ export default function PublicMap({ toId }: { toId?: string }) {
           </button>
         </div>
       </div>
+
+      <WaterCautionBanner alert={waterAlert} />
 
       <Compass rotation={rotation} headingUp={headingUp} onToggle={() => setHeadingUp((v) => !v)} />
 

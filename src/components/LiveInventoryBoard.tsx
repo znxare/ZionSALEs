@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { SAMPLE_PLOTS, PHASES, PLOT_STATUSES, BEDROOM_OPTIONS, STATUS_COLORS, type Plot, type PlotStatus } from '@/lib/inventory';
+import { WATER_BODIES } from '@/lib/waterBodies';
 import { BUDGETS, inBudget, outlineOf, centroidOf, plotAt, SHAPE_COLORS, plotShareLink, type BudgetId } from '@/lib/plotMap';
 import { getCurrentUser } from '@/lib/auth';
 import { createQuoteLink, quoteUrl, quoteMessage, whatsappTo } from '@/lib/quoteLinks';
@@ -812,15 +813,30 @@ function MasterPlanImage({ view, loaded, onLoad }: { view: ViewState; loaded: bo
 }
 
 /** Plot outlines drawn on the map (inside the zoomed layer, in % coordinates). */
-function PlotShapes({ plots, highlight, hoverId, selectedId, large }: {
+function PlotShapes({ plots, highlight, hoverId, selectedId, large, waterAlert }: {
   plots: Plot[];
   highlight: Set<string> | null;
   hoverId: string | null;
   selectedId?: string | null;
   large?: boolean;
+  /** The lake to outline in red (deep-water caution). */
+  waterAlert?: number | null;
 }) {
   return (
     <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+      {waterAlert != null && WATER_BODIES[waterAlert] && (
+        <polygon
+          points={WATER_BODIES[waterAlert].map(([x, y]) => `${x},${y}`).join(' ')}
+          fill="#dc2626"
+          fillOpacity={0.16}
+          stroke="#dc2626"
+          strokeWidth={3}
+          strokeDasharray="8 6"
+          vectorEffect="non-scaling-stroke"
+          strokeLinejoin="round"
+          className="animate-pulse"
+        />
+      )}
       {plots.map((p) => {
         const c = SHAPE_COLORS[p.status];
         const dim = highlight !== null && !highlight.has(p.id);
@@ -848,7 +864,7 @@ function PlotShapes({ plots, highlight, hoverId, selectedId, large }: {
 export type TourMarker = { pt: [number, number]; accuracyPct?: number; heading?: number | null };
 
 export function MasterPlanBoard({
-  plots, highlight = null, onSelect, large, selectedId, tooltip = 'internal', bare, cover, publicView,
+  plots, highlight = null, onSelect, large, selectedId, tooltip = 'internal', bare, cover, publicView, waterAlert = null,
   marker = null, focus = null, onUserMove, onMapPoint, pins = [], rotation = 0, turnable = false, route = null, places = [], destination = null, offRoad = false,
 }: {
   plots: Plot[];
@@ -866,6 +882,8 @@ export function MasterPlanBoard({
   cover?: boolean;
   /** Public map: hover shows the plot number and status only, never prices. */
   publicView?: boolean;
+  /** Deep-water caution: index of the lake the position is close to (outlined in red). */
+  waterAlert?: number | null;
   /** Live tour: the cart's position ("You are here"). */
   marker?: TourMarker | null;
   focus?: MapFocus | null;
@@ -922,7 +940,7 @@ export function MasterPlanBoard({
         mapLayer={(view) => (
           <>
             <MasterPlanImage view={view} loaded={loaded} onLoad={() => setLoaded(true)} />
-            {loaded && <PlotShapes plots={plots} highlight={highlight} hoverId={hoverId} selectedId={selectedId} large={large} />}
+            {loaded && <PlotShapes plots={plots} highlight={highlight} hoverId={hoverId} selectedId={selectedId} large={large} waterAlert={waterAlert} />}
           </>
         )}
         overlay={({ zoom, pan, size, viewport, rotation: turned }) => {
