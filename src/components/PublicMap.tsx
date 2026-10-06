@@ -123,7 +123,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
     : null;
   const onPlan = !!marker && marker.pt[0] > -5 && marker.pt[0] < 105 && marker.pt[1] > -5 && marker.pt[1] < 105;
   const markerX = marker?.pt[0], markerY = marker?.pt[1];
-  const waterAlert = useWaterCaution(onPlan && markerX !== undefined && markerY !== undefined ? [markerX, markerY] : null);
+  const waterAlert = useWaterCaution(onPlan && markerX !== undefined && markerY !== undefined ? [markerX, markerY] : null, fix?.accuracy ?? null);
 
   // Keep the turn "unwrapped" (350° → 370°, not back to 10°) so passing north animates the short way.
   if (marker?.heading != null) {

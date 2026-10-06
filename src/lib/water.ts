@@ -6,11 +6,14 @@ import { PLAN_TO_METRES } from './directions';
 
 type MapPt = [number, number];
 
-/** Caution comes on inside this distance from the water's edge, and goes off past the second (so a wobbly GPS doesn't flicker). */
-export const WATER_CAUTION_M = 25;
-export const WATER_CLEAR_M = 35;
-/** Closer than this, the warning becomes "stop and move away". */
-export const WATER_DANGER_M = 10;
+/** The live warning goes off once, when someone is this close to the water's edge (as drawn on the plan)... */
+export const WATER_CAUTION_M = 8;
+/** ...and can go off again only after they have been this far away. */
+export const WATER_REARM_M = 25;
+/** A route that runs closer than this to a lake gets a note in the directions banner. */
+export const WATER_ROUTE_NOTE_M = 25;
+/** Positions less certain than this (metres of GPS error) are too vague to say someone is at the water. */
+export const WATER_MAX_GPS_ERROR_M = 20;
 
 const toMetres = ([x, y]: MapPt): MapPt => [PLAN_TO_METRES[0][0] * x + PLAN_TO_METRES[0][1] * y, PLAN_TO_METRES[1][0] * x + PLAN_TO_METRES[1][1] * y];
 const METRE_POLYS = WATER_BODIES.map((poly) => poly.map(toMetres));

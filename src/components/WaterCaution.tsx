@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Waves } from 'lucide-react';
-import { nearestWater, WATER_CAUTION_M, WATER_CLEAR_M, WATER_DANGER_M } from '@/lib/water';
+import { nearestWater, WATER_CAUTION_M, WATER_MAX_GPS_ERROR_M, WATER_REARM_M } from '@/lib/water';
 import type { MapPt } from '@/lib/tour';
 import { speak } from '@/lib/voice';
 import { playAlarm } from '@/lib/alarm';
 
 // Deep-water caution for anyone with a live position: a banner and a red outline round
-// the lake once they come within WATER_CAUTION_M of its edge.
+// the lake once, when they are right at its edge (within WATER_CAUTION_M).
 
 export interface WaterAlert { index: number; metres: number; danger: boolean; /** After 6 pm: the lake area is not to be entered. */ night: boolean }
 
@@ -26,41 +26,43 @@ export function isLakeCurfew(now: Date = new Date()): boolean {
 const NIGHT_SPEECH = 'Warning. The lake area is not permitted after six P M. Please move away from the water for your safety.';
 const DAY_SPEECH = 'Caution. Deep water nearby. Keep clear of the water’s edge.';
 
-/** The lake the position is close to (null when clear). Two distances (in past one, out past the other) so a wobbly GPS doesn't flicker. */
-export function useWaterCaution(pt: MapPt | null): WaterAlert | null {
+const SHOW_MS = 9000;
+
+/**
+ * The warning for someone right at the water's edge. It goes off ONCE (banner, one siren after
+ * 6 pm, one spoken line, one buzz), then stays quiet until they have moved well away and come back.
+ * `accuracyM` is the GPS error; a vague position never raises it.
+ */
+export function useWaterCaution(pt: MapPt | null, accuracyM: number | null = null): WaterAlert | null {
   const [alert, setAlert] = useState<WaterAlert | null>(null);
   const px = pt?.[0], py = pt?.[1];
-  const wasNear = useRef(false);
-  useEffect(() => {
-    if (px === undefined || py === undefined) { wasNear.current = false; setAlert(null); return; }
-    const { index, metres } = nearestWater([px, py]);
-    const near = wasNear.current ? metres <= WATER_CLEAR_M : metres <= WATER_CAUTION_M;
-    const night = isLakeCurfew();
-    if (near && !wasNear.current) {
-      try { navigator.vibrate?.([200, 100, 200]); } catch { /* not supported */ }
-      speak(night ? NIGHT_SPEECH : DAY_SPEECH);
-      if (night) playAlarm();
-    }
-    wasNear.current = near;
-    setAlert((prev) => {
-      if (!near) return prev ? null : prev;
-      const danger = metres <= WATER_DANGER_M;
-      return prev && prev.index === index && prev.danger === danger && prev.night === night && Math.abs(prev.metres - metres) < 3 ? prev : { index, metres, danger, night };
-    });
-  }, [px, py]);
+  const armed = useRef(true);
+  const hideTimer = useRef(0);
 
-  // After 6 pm the warning keeps sounding (siren every 6 s, spoken every 24 s) until they move away.
-  const night = !!alert?.night;
+  useEffect(() => () => window.clearTimeout(hideTimer.current), []);
+
   useEffect(() => {
-    if (!night) return;
-    let n = 0;
-    const id = window.setInterval(() => {
-      n += 1;
-      try { navigator.vibrate?.([300, 150, 300]); } catch { /* not supported */ }
-      if (n % 4 === 0) speak(NIGHT_SPEECH); else playAlarm();
-    }, 6000);
-    return () => window.clearInterval(id);
-  }, [night]);
+    if (px === undefined || py === undefined) { armed.current = true; window.clearTimeout(hideTimer.current); setAlert(null); return; }
+    if (accuracyM != null && accuracyM > WATER_MAX_GPS_ERROR_M) return;
+    const { index, metres } = nearestWater([px, py]);
+    if (metres > WATER_REARM_M) {
+      armed.current = true;
+      window.clearTimeout(hideTimer.current);
+      setAlert((prev) => (prev ? null : prev));
+      return;
+    }
+    if (metres <= WATER_CAUTION_M && armed.current) {
+      armed.current = false;
+      const night = isLakeCurfew();
+      try { navigator.vibrate?.(night ? [300, 150, 300] : [200, 100, 200]); } catch { /* not supported */ }
+      if (night) playAlarm();
+      speak(night ? NIGHT_SPEECH : DAY_SPEECH);
+      setAlert({ index, metres, danger: true, night });
+      window.clearTimeout(hideTimer.current);
+      hideTimer.current = window.setTimeout(() => setAlert(null), SHOW_MS);
+    }
+  }, [px, py, accuracyM]);
+
   return alert;
 }
 

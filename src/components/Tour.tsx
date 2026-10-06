@@ -623,7 +623,7 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
   // (out past one, back inside the other) so a wobbly GPS doesn't flicker.
   const cartX = markerFor(fix, cal)?.pt[0], cartY = markerFor(fix, cal)?.pt[1];
   const [offRoad, setOffRoad] = useState(false);
-  const waterAlert = useWaterCaution(cartX !== undefined && cartY !== undefined ? [cartX, cartY] : null);
+  const waterAlert = useWaterCaution(cartX !== undefined && cartY !== undefined ? [cartX, cartY] : null, fix?.accuracy ?? null);
   useEffect(() => {
     if (cartX === undefined || cartY === undefined) { setOffRoad(false); return; }
     const m = metresFromRoad([cartX, cartY]);

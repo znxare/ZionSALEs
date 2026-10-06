@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Navigation2, X, Search, MapPin, Home, Layers, CheckCircle2, Waves, ArrowUp, ArrowUpLeft, ArrowUpRight, CornerUpLeft, CornerUpRight, Undo2, Flag } from 'lucide-react';
 import { AMENITIES, VILLAS, PLOT_PLACES, findRoute, planMetres, describeDistance, type Place } from '@/lib/directions';
 import type { MapPt } from '@/lib/tour';
-import { routeWaterContact, WATER_CAUTION_M } from '@/lib/water';
+import { routeWaterContact, WATER_ROUTE_NOTE_M } from '@/lib/water';
 import { maneuversOf, turnWords, distanceWords, type TurnKind } from '@/lib/turns';
 
 // Directions and map layers, shared by the live tour (from the cart's GPS
@@ -53,7 +53,7 @@ export function DirectionsControls({ from, toGps, offRoad = false, initialDestin
   const route = useMemo(() => (origin && dest ? findRoute(origin, dest.pt) : null), [origin?.[0], origin?.[1], dest]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Does the road run close to a lake? Said in the banner, ahead of time.
-  const passesWater = useMemo(() => !!route && route.points.length > 1 && routeWaterContact(route.points).metres <= WATER_CAUTION_M, [route]);
+  const passesWater = useMemo(() => !!route && route.points.length > 1 && routeWaterContact(route.points).metres <= WATER_ROUTE_NOTE_M, [route]);
 
   // Turn-by-turn (live position only). The route is rebuilt from the traveller's position at
   // every fix, so its first turn is always the next one to make.
