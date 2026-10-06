@@ -3,7 +3,7 @@ import { cardinal } from '@/lib/compass';
 
 // The map's compass: the needle points to north on screen. Tap to switch between
 // "turn with the traveller" (heading up) and "north up". Shared by the tour and the public map.
-export default function Compass({ rotation, headingUp, onToggle, top = 'top-16', facing = null }: { rotation: number; headingUp: boolean; onToggle: () => void; top?: string; /** The way the traveller is facing, in compass degrees (shown as "Facing NE"). */ facing?: number | null }) {
+export default function Compass({ rotation, headingUp, onToggle, top = 'top-16', facing = null, weak = false }: { rotation: number; headingUp: boolean; onToggle: () => void; top?: string; /** The compass sensor is unsure: ask the person to wave the phone in a figure 8. */ weak?: boolean; /** The way the traveller is facing, in compass degrees (shown as "Facing NE"). */ facing?: number | null }) {
   // Turns with the same smoothing as the map itself, so the needle and the map never disagree.
   const shown = useSmoothedAngle(rotation);
   return (
@@ -41,7 +41,8 @@ export default function Compass({ rotation, headingUp, onToggle, top = 'top-16',
         <circle cx="24" cy="24" r="2.3" fill="#fbf7ee" stroke="#13261c" strokeWidth="1.2" />
       </svg>
       <span className="rounded-full bg-[#13261c] px-2 py-0.5 text-[9px] font-semibold uppercase leading-tight tracking-[0.14em] text-[#e9d8aa]">{headingUp ? 'Heading up' : 'North up'}</span>
-      {facing != null && <span className="text-[10px] font-bold leading-none tracking-wide text-[#d9480f]">Facing {cardinal(facing)}</span>}
+      {facing != null && <span className="text-[10px] font-bold leading-none tracking-wide text-[#d9480f]">Facing {cardinal(facing)} {Math.round(((facing % 360) + 360) % 360)}°</span>}
+      {weak && <span className="max-w-[84px] text-center text-[8.5px] font-semibold leading-tight text-[#a3241c]">Wave phone in a figure 8</span>}
     </button>
   );
 }

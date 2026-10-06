@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 // time constant (so a stream of sensor readings looks like one smooth motion), and a big
 // swing (switching to north-up, for instance) eases in and out.
 
-const FOLLOW_SECONDS = 0.16;
+const FOLLOW_SECONDS = 0.11;
 const BIG_SWING = 45;
 const easeInOut = (k: number) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
 

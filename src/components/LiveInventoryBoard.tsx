@@ -1096,7 +1096,9 @@ export function MasterPlanBoard({
                         <path d="M0 0 L-17 -32 A36 36 0 0 1 17 -32 Z" fill="url(#gm-beam)" />
                       </svg>
                     )}
-                    <div className="absolute h-[22px] w-[22px] -translate-x-1/2 -translate-y-1/2 rounded-full shadow-[0_1px_4px_rgba(0,0,0,0.35)] ring-[3px] ring-white" style={{ backgroundColor: dot }} />
+                    <span className="zh-radiate" />
+                    <span className="zh-radiate zh-radiate-2" />
+                    <div className="zh-heart absolute left-0 top-0 h-[22px] w-[22px] rounded-full ring-[3px] ring-white" style={{ backgroundColor: dot }} />
                   </div>
                 );
               })()}

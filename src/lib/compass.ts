@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 // (no jump at 359 -> 0) before being handed on at no more than ~30 updates a second.
 
 const RAD = Math.PI / 180;
-const SMOOTH_SECONDS = 0.12;
+const SMOOTH_SECONDS = 0.08;
 const MIN_STEP_DEG = 0.4;
 
 type OrientationEventIOS = DeviceOrientationEvent & { webkitCompassHeading?: number; webkitCompassAccuracy?: number };
@@ -43,8 +43,9 @@ export function headingFromEvent(e: OrientationEventIOS): number | null {
   return (h + screenAngle() + 360) % 360;
 }
 
-export function useDeviceHeading(enabled: boolean): { heading: number | null; request: () => void } {
+export function useDeviceHeading(enabled: boolean): { heading: number | null; request: () => void; /** The sensor says it is unsure (iPhone/iPad: accuracy worse than 25 degrees, or uncalibrated). */ weak: boolean } {
   const [heading, setHeading] = useState<number | null>(null);
+  const [weak, setWeak] = useState(false);
   const [granted, setGranted] = useState(false);
 
   // iOS asks permission; Android doesn't. Call this from a tap.
@@ -64,13 +65,17 @@ export function useDeviceHeading(enabled: boolean): { heading: number | null; re
     if (typeof window === 'undefined') return;
 
     // Unit-vector low-pass, so 359 -> 1 is a 2 degree move, not a 358 degree one.
-    let vx = 0, vy = 0, have = false, lastT = 0, lastOut: number | null = null, lastEmit = 0;
+    let vx = 0, vy = 0, have = false, lastT = 0, lastOut: number | null = null, lastEmit = 0, weakNow = false;
     const onEvent = (ev: Event) => {
       const e = ev as OrientationEventIOS;
       // Android also fires a relative `deviceorientation`; only trust the absolute one (or iOS's compass).
       if (ev.type === 'deviceorientation' && typeof e.webkitCompassHeading !== 'number' && (e as DeviceOrientationEvent & { absolute?: boolean }).absolute !== true) return;
       const h = headingFromEvent(e);
       if (h == null) return;
+      if (typeof e.webkitCompassAccuracy === 'number') {
+        const bad = e.webkitCompassAccuracy < 0 || e.webkitCompassAccuracy > 25;
+        if (bad !== weakNow) { weakNow = bad; setWeak(bad); }
+      }
       const now = performance.now();
       const dt = lastT ? Math.min(0.2, (now - lastT) / 1000) : 1;
       lastT = now;
@@ -99,7 +104,7 @@ export function useDeviceHeading(enabled: boolean): { heading: number | null; re
     return () => { window.clearTimeout(trailing); window.removeEventListener(hasAbsolute ? 'deviceorientationabsolute' : 'deviceorientation', onEvent as EventListener, true); };
   }, [enabled, granted]);
 
-  return { heading, request };
+  return { heading, request, weak };
 }
 
 /** Mixes two compass bearings on the circle: 0 = all `a`, 1 = all `b`. */

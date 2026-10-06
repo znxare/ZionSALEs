@@ -313,7 +313,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
 
       <WaterCautionBanner alert={waterAlert} top={navigating ? 'top-[14rem]' : undefined} />
 
-      <Compass rotation={rotation} facing={locating ? facing : null} headingUp={headingUp} onToggle={() => setHeadingUp((v) => !v)} top={navigating ? 'top-[7.75rem]' : undefined} />
+      <Compass rotation={rotation} facing={locating ? facing : null} weak={locating && compass.weak} headingUp={headingUp} onToggle={() => setHeadingUp((v) => !v)} top={navigating ? 'top-[7.75rem]' : undefined} />
 
       <DirectionsControls
         key={exitDest?.id ?? 'dir'}

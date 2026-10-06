@@ -763,7 +763,7 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
           "turn with the cart" and "north up" (matches the plan's drawn compass). */}
       <WaterCautionBanner alert={waterAlert} />
 
-      <Compass rotation={rotation} facing={mode === 'self' ? facingBearing(fix?.heading ?? null, compass.heading, fix?.speed ?? null) : null} headingUp={headingUp} onToggle={() => setHeadingUp((v) => !v)} />
+      <Compass rotation={rotation} weak={mode === 'self' && compass.weak} facing={mode === 'self' ? facingBearing(fix?.heading ?? null, compass.heading, fix?.speed ?? null) : null} headingUp={headingUp} onToggle={() => setHeadingUp((v) => !v)} />
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-40 flex items-start justify-between gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5">
         <span className={`pointer-events-auto flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-semibold shadow-md backdrop-blur ${state === 'Live' ? 'bg-white/90 text-emerald-700' : 'bg-white/90 text-gray-600'}`}>
