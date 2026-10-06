@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Loader2, LocateFixed, Share2 } from 'lucide-react';
+import { Check, Compass as CompassIcon, CornerUpRight, Loader2, Navigation, Share2 } from 'lucide-react';
 import { MasterPlanBoard, type AdPin, type MapFocus, type TourMarker } from './LiveInventoryBoard';
 import { DirectionsControls, type DirectionsPhase, type DirectionsView } from './Directions';
 import { useDeviceHeading, facingBearing } from '@/lib/compass';
@@ -30,7 +30,8 @@ const LOGO = '/zion-hills-logo.svg';
 const FOLLOW_ZOOM = 2.2;
 const NAV_ZOOM = 2.6;
 
-const pill = 'pointer-events-auto flex items-center gap-1.5 rounded-full bg-white/90 px-3.5 py-2 text-sm font-semibold text-gray-800 shadow-md backdrop-blur transition hover:bg-white';
+const fab = 'pointer-events-auto grid h-14 w-14 place-items-center rounded-[20px] bg-white text-gray-900 shadow-lg ring-1 ring-black/5 transition active:scale-95';
+
 
 export default function PublicMap({ toId }: { toId?: string }) {
   const [cal, setCal] = useState<Calibration | null>(null);
@@ -47,6 +48,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
   const [follow, setFollow] = useState(false);
   // Adverts drawn on the map: a few vacant plots as "can be yours" flags (more appear as dots once zoomed in).
   const [adSel, setAdSel] = useState<string | null>(null);
+  const [pickerSignal, setPickerSignal] = useState(0);
   const adPins = useMemo<AdPin[]>(() => {
     const open = SAMPLE_PLOTS.filter((p) => p.status === 'Available').sort(() => Math.random() - 0.5);
     const spots = open.map((p) => ({ p, pt: centroidOf(p) as [number, number] }));
@@ -225,17 +227,13 @@ export default function PublicMap({ toId }: { toId?: string }) {
             onLocate={() => setLocating(true)}
             onRouteToGate={() => setExitDest(findPlace('entry-main'))}
           />
-          <button onClick={share} className={pill}>
-            {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Share2 className="h-4 w-4" />}
-            <span className="hidden sm:inline">{copied ? 'Link copied' : 'Share'}</span>
-          </button>
         </div>
       </div>
       )}
 
       {/* While navigating the SOS button stays within reach, above the location button. */}
       {navigating && (
-        <div className="absolute bottom-[10rem] right-3 z-40 sm:right-5">
+        <div className="absolute bottom-[11rem] right-3 z-40 sm:right-5">
           <EmergencyButton
             position={fix ? { lat: fix.lat, lng: fix.lng } : null}
             onPlan={onPlan && marker ? marker.pt : null}
@@ -246,18 +244,28 @@ export default function PublicMap({ toId }: { toId?: string }) {
         </div>
       )}
 
-      {/* Google Maps-style location button, bottom right: tap to find me / re-centre on me. */}
-      <button
-        onClick={onLocateTap}
-        aria-label={locating ? 'Centre the map on my location' : 'Show my location'}
-        className={`pointer-events-auto absolute right-3 z-40 grid h-14 w-14 place-items-center rounded-full bg-white shadow-xl ring-1 ring-black/10 transition active:scale-95 sm:right-5 ${navigating ? 'bottom-[6.5rem]' : phase === 'preview' ? 'bottom-[11rem]' : 'bottom-6'}`}
-      >
-        {locating && !fix ? (
-          <Loader2 className="h-6 w-6 animate-spin text-[#1a73e8]" />
-        ) : (
-          <LocateFixed className={`h-6 w-6 ${locating && fix && follow ? 'text-[#1a73e8]' : locating ? 'text-[#1a73e8]/70' : 'text-gray-600'}`} strokeWidth={locating && fix && follow ? 3 : 2} />
+      {/* Square buttons, bottom right (like Google Maps): share, my location, directions. */}
+      <div className={`pointer-events-none absolute right-3 z-40 flex flex-col gap-3 sm:right-5 ${navigating ? 'bottom-[6.5rem]' : phase === 'preview' ? 'bottom-[11rem]' : 'bottom-6'}`}>
+        {phase === 'idle' && (
+          <button onClick={share} aria-label="Share this map" className={fab}>
+            {copied ? <Check className="h-7 w-7 text-emerald-600" /> : <Share2 className="h-7 w-7" />}
+          </button>
         )}
-      </button>
+        <button onClick={onLocateTap} aria-label={locating ? 'Centre the map on my location' : 'Show my location'} className={fab}>
+          {locating && !fix ? (
+            <Loader2 className="h-7 w-7 animate-spin text-[#1a73e8]" />
+          ) : locating && fix && follow ? (
+            <Navigation className="h-7 w-7 fill-[#1a73e8] text-[#1a73e8]" />
+          ) : (
+            <CompassIcon className={`h-7 w-7 ${locating ? 'text-[#1a73e8]' : ''}`} strokeWidth={2.2} />
+          )}
+        </button>
+        {phase === 'idle' && (
+          <button onClick={() => setPickerSignal((n) => n + 1)} aria-label="Directions" className={`${fab} !bg-[#f05a22] !text-white`}>
+            <span className="grid h-8 w-8 rotate-45 place-items-center rounded-[8px] bg-white"><CornerUpRight className="h-[18px] w-[18px] -rotate-45 text-[#f05a22]" strokeWidth={3.2} /></span>
+          </button>
+        )}
+      </div>
 
       <WaterCautionBanner alert={waterAlert} top={navigating ? 'top-[14rem]' : undefined} />
 
@@ -271,6 +279,8 @@ export default function PublicMap({ toId }: { toId?: string }) {
         initialDestination={exitDest ?? initialDest}
         onView={setDirView}
         guided
+        hidePill
+        openSignal={pickerSignal}
         onStart={onStartNav}
         onPhase={(p) => { setPhase(p); if (p !== 'navigating') setHeadingUp(false); }}
       />

@@ -17,7 +17,7 @@ export interface DirectionsView {
 
 export type DirectionsPhase = 'idle' | 'preview' | 'navigating';
 
-export function DirectionsControls({ from, toGps, offRoad = false, initialDestination, onView, className = '', dark = false, guided = false, onStart, onPhase }: {
+export function DirectionsControls({ from, toGps, offRoad = false, initialDestination, onView, className = '', dark = false, guided = false, onStart, onPhase, hidePill = false, openSignal = 0 }: {
   /** Live position (tour). Leave undefined to let the user pick a starting place. */
   from?: MapPt | null;
   toGps?: ((pt: MapPt) => { lat: number; lng: number }) | null;
@@ -33,6 +33,10 @@ export function DirectionsControls({ from, toGps, offRoad = false, initialDestin
   /** Guided: Start was tapped (the parent starts locating, follows the position, …). */
   onStart?: () => void;
   onPhase?: (phase: DirectionsPhase) => void;
+  /** The parent has its own Directions button: hide this one. */
+  hidePill?: boolean;
+  /** Bump this number to open the place picker from the parent's button. */
+  openSignal?: number;
 }) {
   const live = from !== undefined;
   const [picking, setPicking] = useState(false);
@@ -41,6 +45,7 @@ export function DirectionsControls({ from, toGps, offRoad = false, initialDestin
   const [showPlaces, setShowPlaces] = useState(false);
   const [arrived, setArrived] = useState(false);
   const [navigating, setNavigating] = useState(false);
+  useEffect(() => { if (openSignal > 0) setPicking(true); }, [openSignal]);
 
   const origin: MapPt | null = live ? from ?? null : start.pt;
   const route = useMemo(() => (origin && dest ? findRoute(origin, dest.pt) : null), [origin?.[0], origin?.[1], dest]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -93,9 +98,11 @@ export function DirectionsControls({ from, toGps, offRoad = false, initialDestin
     <>
       {phase !== 'navigating' && (
       <div className={`pointer-events-auto flex items-center gap-2 ${className}`}>
+        {!hidePill && (
         <button onClick={() => setPicking(true)} className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold shadow-md backdrop-blur ${dest ? 'bg-[#f05a22] text-white' : pill}`}>
           <Navigation2 className="h-4 w-4" /> Directions
         </button>
+        )}
         <button
           onClick={() => setShowPlaces((v) => !v)}
           aria-pressed={showPlaces}
