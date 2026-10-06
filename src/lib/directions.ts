@@ -80,8 +80,28 @@ const CLOSED_ROADS: MapPt[][] = [
   [[15.95, 54.8], [15.95, 57.6]],
   // Boundary road from the west gate to the main gate
   [[15.9, 57.2], [17, 58.84], [18, 59.82], [20, 61.55], [25, 66.03], [30, 69.87], [35, 73.37], [40, 76.9], [43, 79.03], [45.2, 80.55]],
+  // Outer south boundary road, from the main gate round to the south-east corner
+  // (the road below the southern plots; marked wrong on the plan by the sales team)
+  [[45.86, 80.64], [45.93, 79.55]],
+  [[46.14, 81.19], [53.42, 85.82], [54.14, 86.76], [54.86, 87.78], [55.03, 88.02], [56.36, 88.73], [56.58, 89.04], [57.36, 89.2], [70.08, 95.95], [72.14, 96.11], [72.25, 96.19], [74.08, 96.27], [74.19, 96.35], [77.75, 96.74], [77.92, 96.9], [80.69, 96.66], [80.81, 96.58], [81.64, 96.58], [81.75, 96.5], [83.58, 96.27], [84.08, 95.88]],
+  [[73.97, 94.64], [74.19, 95.17], [76.64, 95.48], [77.42, 95.72], [77.58, 95.64]],
 ];
 const CLOSED_WITHIN = 7; // grid px either side of a closed line
+
+/**
+ * Roads the plan's grey colouring missed, drawn on the plan by the sales team
+ * (% of the plan). Unlike EXTRA_PATHS, each is joined to the nearest road at
+ * both ends (if one is within JOIN_MAX grid px).
+ */
+const EXTRA_ROADS: MapPt[][] = [
+  // Road round the back of the Club House, from the road below it up to the Sports courts road
+  [[38.95, 62.12], [39.55, 62.54], [40.8, 62.61], [41.75, 62.26], [42.2, 61.77], [42.2, 57.46]],
+  // Short road past the building on the north side of the main road, near plots 301–314
+  [[51.55, 75.62], [51.85, 75.76], [52.55, 75.76], [53.55, 76.33], [54.05, 76.4], [54.35, 76.61], [55.0, 76.68], [55.4, 76.96], [55.6, 76.96]],
+  // Road at the north entry
+  [[28.65, 26.01], [28.1, 27.28], [27.7, 27.77]],
+];
+const JOIN_MAX = 40;
 
 type Graph = { xs: Int16Array; ys: Int16Array; index: Map<number, number>; n: number };
 let graph: Graph | null = null;
@@ -121,6 +141,20 @@ function getGraph(): Graph {
     }
     line(xs[best], ys[best], grid[0][0], grid[0][1]);
     for (let i = 1; i < grid.length; i++) line(grid[i - 1][0], grid[i - 1][1], grid[i][0], grid[i][1]);
+  }
+  for (const path of EXTRA_ROADS) {
+    const grid = path.map((pt) => toGrid(pt).map(Math.round) as [number, number]);
+    const joinToRoad = ([gx, gy]: [number, number]) => {
+      let best = -1, bd = JOIN_MAX * JOIN_MAX;
+      for (let i = 0; i < roadCount; i++) {
+        const d = (xs[i] - gx) ** 2 + (ys[i] - gy) ** 2;
+        if (d <= bd) { bd = d; best = i; }
+      }
+      if (best >= 0) line(xs[best], ys[best], gx, gy);
+    };
+    joinToRoad(grid[0]);
+    for (let i = 1; i < grid.length; i++) line(grid[i - 1][0], grid[i - 1][1], grid[i][0], grid[i][1]);
+    joinToRoad(grid[grid.length - 1]);
   }
   // Drop scraps of closed roads (small pieces cut off from everything else), so
   // a point near one doesn't snap to a road that leads nowhere.
