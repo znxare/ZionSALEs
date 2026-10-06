@@ -849,10 +849,14 @@ function PlotShapes({ plots, highlight, hoverId, selectedId, large, waterAlert }
 /** An advert drawn on the map itself: a vacant plot ("can be yours") or a sponsor's board. */
 export type AdPin = { id: string; pt: [number, number]; label: string; sub?: string; featured?: boolean; kind?: 'plot' | 'sponsor' };
 
+/** The hole layer: a numbered badge per hole, and (for the hole you are on / have tapped) its line from tee to green. */
+export type HolePin = { n: number; pt: [number, number] };
+export type HoleTrail = { n: number; tee: [number, number]; mid: [number, number]; green: [number, number] };
+
 export type TourMarker = { pt: [number, number]; accuracyPct?: number; heading?: number | null };
 
 export function MasterPlanBoard({
-  plots, highlight = null, onSelect, large, selectedId, tooltip = 'internal', bare, cover, publicView, waterAlert = null, wildlife = false, night = 0, adPins = [], selectedAdId = null, onAdTap,
+  plots, highlight = null, onSelect, large, selectedId, tooltip = 'internal', bare, cover, publicView, waterAlert = null, wildlife = false, night = 0, adPins = [], selectedAdId = null, onAdTap, holePins = [], holeTrail = null, onHoleTap,
   marker = null, focus = null, onUserMove, onMapPoint, pins = [], rotation = 0, turnable = false, route = null, places = [], destination = null, offRoad = false,
 }: {
   plots: Plot[];
@@ -874,6 +878,10 @@ export function MasterPlanBoard({
   night?: number;
   /** Public map: swaying groves, peacocks, birds and parrots drawn on the map. */
   wildlife?: boolean;
+  /** The hole layer (see HolePin / HoleTrail). */
+  holePins?: HolePin[];
+  holeTrail?: HoleTrail | null;
+  onHoleTap?: (n: number) => void;
   /** Adverts on the map: featured ones always show; the rest appear as dots once zoomed in. */
   adPins?: AdPin[];
   selectedAdId?: string | null;
@@ -960,6 +968,49 @@ export function MasterPlanBoard({
                 </svg>
               )}
               {wildlife && <WildlifeLayer toScreen={toScreen} zoom={zoom} upright={upright} night={night} />}
+              {holeTrail && (() => {
+                const [t, m, g] = [toScreen(holeTrail.tee), toScreen(holeTrail.mid), toScreen(holeTrail.green)];
+                const d = `M ${t[0]} ${t[1]} Q ${m[0] * 2 - (t[0] + g[0]) / 2} ${m[1] * 2 - (t[1] + g[1]) / 2} ${g[0]} ${g[1]}`;
+                return (
+                  <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" style={{ zIndex: 14 }}>
+                    <path d={d} fill="none" stroke="#0f2118" strokeOpacity={0.55} strokeWidth={7} strokeLinecap="round" />
+                    <path d={d} fill="none" stroke="#f1d9a6" strokeWidth={3.5} strokeLinecap="round" strokeDasharray="1 9" />
+                  </svg>
+                );
+              })()}
+              {holeTrail && (() => {
+                const [tx, ty] = toScreen(holeTrail.tee);
+                const [gx, gy] = toScreen(holeTrail.green);
+                return (
+                  <>
+                    <div className="absolute z-20" style={{ left: tx, top: ty, ...upright, transformOrigin: '0 0' }}>
+                      <div className="absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full bg-[#0f2118] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#f1d9a6] shadow-lg ring-1 ring-[#c9a96e]">Tee</div>
+                    </div>
+                    <div className="absolute z-20" style={{ left: gx, top: gy, ...upright, transformOrigin: '0 0' }}>
+                      <div className="absolute -translate-x-1/2 -translate-y-full">
+                        <svg width="26" height="30" viewBox="0 0 26 30" className="drop-shadow-lg"><path d="M5 28V3" stroke="#f1d9a6" strokeWidth="2" strokeLinecap="round" /><path d="M5 3l15 5.5L5 14z" fill="#f05a22" stroke="#fbf7ee" strokeWidth="1.2" strokeLinejoin="round" /><circle cx="5" cy="28" r="2.6" fill="#0f2118" stroke="#f1d9a6" strokeWidth="1.2" /></svg>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+              {holePins.map((h) => {
+                const [hx, hy] = toScreen(h.pt);
+                const picked = holeTrail?.n === h.n;
+                return (
+                  <div key={`hole-${h.n}`} className={`absolute ${picked ? 'z-30' : 'z-20'}`} style={{ left: hx, top: hy, ...upright, transformOrigin: '0 0' }}>
+                    <button
+                      type="button"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => { e.stopPropagation(); onHoleTap?.(h.n); }}
+                      aria-label={`Hole ${h.n}`}
+                      className={`pointer-events-auto absolute grid h-9 w-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full font-serif text-[19px] font-bold leading-none shadow-[0_8px_16px_-6px_rgba(5,14,9,0.7)] ring-[1.5px] transition ${picked ? 'scale-110 bg-gradient-to-br from-[#f7733f] to-[#d9480f] text-white ring-[#f1d9a6]' : 'bg-[#0f2118] text-[#f1d9a6] ring-[#c9a96e]'}`}
+                    >
+                      {h.n}
+                    </button>
+                  </div>
+                );
+              })}
               {adPins.map((ad) => {
                 const picked = ad.id === selectedAdId;
                 if (!ad.featured && !picked && zoom < 1.9) return null;

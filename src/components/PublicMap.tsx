@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Compass as CompassIcon, CornerUpRight, Loader2, Navigation, Share2 } from 'lucide-react';
-import { MasterPlanBoard, type AdPin, type MapFocus, type TourMarker } from './LiveInventoryBoard';
+import { Check, Compass as CompassIcon, CornerUpRight, Flag, Loader2, Navigation, Share2 } from 'lucide-react';
+import { MasterPlanBoard, type AdPin, type HolePin, type HoleTrail, type MapFocus, type TourMarker } from './LiveInventoryBoard';
+import { HoleCard } from './HoleCard';
+import { HOLE_GUIDE, holeGuide } from '@/lib/holes';
+import { holeMid, useNearHole } from '@/lib/holeNear';
 import { DirectionsControls, type DirectionsPhase, type DirectionsView } from './Directions';
 import { useDeviceHeading, facingBearing } from '@/lib/compass';
 import { fitTransform, loadPublicCalibration, smoothFix, bearing, distanceM, HeadingTracker, MIN_HEADING_SPEED, type Calibration, type GpsFix } from '@/lib/tour';
@@ -51,6 +54,9 @@ export default function PublicMap({ toId }: { toId?: string }) {
   // Adverts drawn on the map: a few vacant plots as "can be yours" flags (more appear as dots once zoomed in).
   const [adSel, setAdSel] = useState<string | null>(null);
   const [pickerSignal, setPickerSignal] = useState(0);
+  // The hole layer: numbered badges; tap one for its card. When the visitor is on a hole, only that hole shows.
+  const [holesOn, setHolesOn] = useState(false);
+  const [holeSel, setHoleSel] = useState<number | null>(null);
   const night = useNightLevel();
   const adPins = useMemo<AdPin[]>(() => {
     const open = SAMPLE_PLOTS.filter((p) => p.status === 'Available').sort(() => Math.random() - 0.5);
@@ -126,6 +132,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
     : null;
   const onPlan = !!marker && marker.pt[0] > -5 && marker.pt[0] < 105 && marker.pt[1] > -5 && marker.pt[1] < 105;
   const markerX = marker?.pt[0], markerY = marker?.pt[1];
+  const near = useNearHole(onPlan && markerX !== undefined && markerY !== undefined ? [markerX, markerY] : null);
   const waterAlert = useWaterCaution(onPlan && markerX !== undefined && markerY !== undefined ? [markerX, markerY] : null, fix?.accuracy ?? null);
 
   // Keep the turn "unwrapped" (350° → 370°, not back to 10°) so passing north animates the short way.
@@ -142,6 +149,30 @@ export default function PublicMap({ toId }: { toId?: string }) {
   }, [locating, !!fix, onPlan]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const navigating = phase === 'navigating';
+
+  const activeHole = holeSel ?? (holesOn && near ? near.hole.n : null);
+  const holePins = useMemo<HolePin[]>(
+    () => (phase !== 'idle' || !holesOn ? [] : HOLE_GUIDE.filter((h) => !near || h.n === near.hole.n || h.n === holeSel).map((h) => ({ n: h.n, pt: holeMid(h.n) }))),
+    [phase, holesOn, near?.hole.n, holeSel], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const holeTrail = useMemo<HoleTrail | null>(() => {
+    const g = activeHole != null && phase === 'idle' ? holeGuide(activeHole) : null;
+    return g ? { n: g.n, tee: g.tee, mid: holeMid(g.n), green: g.green } : null;
+  }, [activeHole, phase]);
+  const selHole = holeSel != null ? holeGuide(holeSel) : null;
+
+  function showHole(n: number) {
+    const g = holeGuide(n);
+    if (!g) return;
+    const pts = [g.tee, holeMid(n), g.green];
+    const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]);
+    const w = Math.max(...xs) - Math.min(...xs), h = Math.max(...ys) - Math.min(...ys);
+    // The hole card covers the lower half of the screen, so the hole is framed in the upper part.
+    const zoom = Math.min(3, Math.max(1.5, 0.4 * Math.min(100 / Math.max(w, 3), 100 / Math.max(h, 3))));
+    setFollow(false);
+    setFocus({ pt: [(Math.max(...xs) + Math.min(...xs)) / 2, (Math.max(...ys) + Math.min(...ys)) / 2], zoom, exact: true, offsetY: -window.innerHeight * 0.2, nonce: Date.now() });
+  }
+  function openHole(n: number) { setHolesOn(true); setAdSel(null); setHoleSel(n); showHole(n); }
 
   // Choosing a place shows the whole route first (like Google Maps' preview).
   const destX = dirView.destination?.pt[0], destY = dirView.destination?.pt[1];
@@ -209,6 +240,9 @@ export default function PublicMap({ toId }: { toId?: string }) {
           wildlife={phase === 'idle'}
           night={night}
           adPins={phase === 'idle' ? adPins : []}
+          holePins={holePins}
+          holeTrail={holeTrail}
+          onHoleTap={openHole}
           selectedAdId={adSel}
           onAdTap={(id) => {
             setAdSel(id);
@@ -252,6 +286,11 @@ export default function PublicMap({ toId }: { toId?: string }) {
       {/* Square buttons, bottom right (like Google Maps): share, my location, directions. */}
       <div className={`pointer-events-none absolute right-3 z-40 flex flex-col gap-3 sm:right-5 ${navigating ? 'bottom-[6.5rem]' : phase === 'preview' ? 'bottom-[11rem]' : 'bottom-6'}`}>
         {phase === 'idle' && (
+          <button onClick={() => { setHolesOn((v) => !v); setHoleSel(null); }} aria-label="Hole by hole" aria-pressed={holesOn} className={`${fab} ${holesOn ? '!text-[#f26a35] !ring-[#f26a35]/[0.7]' : ''}`}>
+            <Flag className="h-6 w-6" strokeWidth={1.8} />
+          </button>
+        )}
+        {phase === 'idle' && (
           <button onClick={share} aria-label="Share this map" className={fab}>
             {copied ? <Check className="h-7 w-7 text-[#e3c98d]" /> : <Share2 className="h-6 w-6" strokeWidth={1.8} />}
           </button>
@@ -291,7 +330,33 @@ export default function PublicMap({ toId }: { toId?: string }) {
         onPhase={(p) => { setPhase(p); if (p !== 'navigating') setHeadingUp(false); }}
       />
 
-      {phase === 'idle' && adPlot && (
+      {phase === 'idle' && selHole && (
+        <HoleCard
+          key={selHole.n}
+          className="absolute bottom-4 left-3 right-[5.25rem] z-40 sm:left-24 sm:right-auto sm:w-[28rem]"
+          hole={selHole}
+          yards={near && near.hole.n === selHole.n ? near.yards : null}
+          onClose={() => setHoleSel(null)}
+          onTeeOff={() => { const dest = findPlace(`tee-${selHole.n}`); setHoleSel(null); setExitDest(dest); }}
+          onShowOnMap={() => showHole(selHole.n)}
+          onPick={openHole}
+        />
+      )}
+
+      {phase === 'idle' && !selHole && near && (
+        <button
+          onClick={() => openHole(near.hole.n)}
+          className={`pointer-events-auto absolute bottom-[7rem] left-3 right-[5.25rem] z-40 flex animate-slide-up items-center gap-3 rounded-[20px] px-3.5 py-2 text-left sm:left-24 sm:right-auto sm:w-[26rem] ${lxIvory}`}
+        >
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#0f2118] font-serif text-[22px] font-bold text-[#f1d9a6] ring-1 ring-[#c9a96e]">{near.hole.n}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-serif text-[18px] font-semibold leading-tight text-[#13261c]">You&rsquo;re on Hole {near.hole.n} &middot; Par {near.hole.par}</span>
+            <span className="block text-[12px] text-[#5b5a4c]">{Math.round(near.yards)} yards to the green &middot; tap for the hole</span>
+          </span>
+        </button>
+      )}
+
+      {phase === 'idle' && !selHole && adPlot && (
         <div className={`pointer-events-auto absolute bottom-4 left-3 right-[5.25rem] z-40 animate-slide-up rounded-[22px] p-3.5 sm:left-24 sm:right-auto sm:w-[26rem] ${lxIvory}`}>
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
@@ -308,7 +373,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
         </div>
       )}
 
-      {phase === 'idle' && !adPlot && (
+      {phase === 'idle' && !adPlot && !selHole && (
         <MapInfoCard
           className="absolute bottom-4 left-3 right-[5.25rem] z-40 sm:left-24 sm:right-auto sm:w-[26rem]"
           onShowPlace={(id) => setExitDest(findPlace(id))}

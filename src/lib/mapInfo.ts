@@ -16,6 +16,10 @@ export const ESTATE_FACTS: { title: string; text: string }[] = [
   { title: '250-acre golf county', text: 'An 18-hole golf course woven through lakes, greens and villas.' },
   { title: 'Lakes all around', text: 'Water bodies sit throughout the course — please keep clear of the edges.' },
   { title: 'Hospitality villas', text: 'Twelve villas for getaways and corporate stays, right on the course.' },
+  { title: 'A Fream & Philpot design', text: 'Ronald Fream and George Philpot shaped the course to challenge champions and inspire beginners.' },
+  { title: 'Hole 13 · the signature hole', text: 'An island putting green in the lake — the approach has to be exact.' },
+  { title: 'Hole 14 · longest par 3 in India', text: 'Up to 255 yards from the back tee, guarded by bunkers on every side.' },
+  { title: 'Hole 18 · longest par 5 in India', text: 'A 660-yard double dogleg to a three-tiered green by the clubhouse.' },
 ];
 
 export interface Atmosphere {

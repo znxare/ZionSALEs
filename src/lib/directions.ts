@@ -1,6 +1,7 @@
 import { ROAD_GRID, ROAD_PIXELS_B64 } from './roadNetwork';
 import { SAMPLE_PLOTS } from './inventory';
 import { centroidOf } from './plotMap';
+import { HOLE_GUIDE } from './holes';
 import type { MapPt } from './tour';
 
 // Directions on the master plan: shortest way along the estate's roads (traced
@@ -43,9 +44,12 @@ export const VILLAS: Place[] = Object.entries(VILLA_PTS)
 
 export const PLOT_PLACES: Place[] = SAMPLE_PLOTS.map((p) => ({ id: `plot-${p.id}`, label: `Plot ${p.plotNo}`, kind: 'plot', pt: centroidOf(p) }));
 
-/** A place by its id (e.g. 'villa-202', 'clubhouse'), for links that open straight onto directions. */
+/** Where each hole starts (its tee boxes), for "Tee off here". */
+export const HOLE_TEES: Place[] = HOLE_GUIDE.map((h) => ({ id: `tee-${h.n}`, label: `Hole ${h.n} tee`, kind: 'spot', pt: h.tee }));
+
+/** A place by its id (e.g. 'villa-202', 'clubhouse', 'tee-4'), for links that open straight onto directions. */
 export function findPlace(id: string): Place | undefined {
-  return [...AMENITIES, ...VILLAS, ...PLOT_PLACES, ...HOLES].find((p) => p.id === id);
+  return [...AMENITIES, ...VILLAS, ...PLOT_PLACES, ...HOLES, ...HOLE_TEES].find((p) => p.id === id);
 }
 
 // ---------- road graph (built once, on first use) ----------
