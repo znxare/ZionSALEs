@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Loader2, LocateFixed, Share2 } from 'lucide-react';
 import { MasterPlanBoard, type MapFocus, type TourMarker } from './LiveInventoryBoard';
-import { DirectionsControls, type DirectionsView } from './Directions';
+import { DirectionsControls, type DirectionsPhase, type DirectionsView } from './Directions';
 import { fitTransform, loadPublicCalibration, smoothFix, bearing, distanceM, HeadingTracker, MIN_HEADING_SPEED, type Calibration, type GpsFix } from '@/lib/tour';
 import Compass from './Compass';
 import { EmergencyButton } from './EmergencyButton';
@@ -23,6 +23,7 @@ import { SAMPLE_PLOTS } from '@/lib/inventory';
 
 const LOGO = '/zion-hills-logo.svg';
 const FOLLOW_ZOOM = 2.2;
+const NAV_ZOOM = 2.6;
 
 const pill = 'pointer-events-auto flex items-center gap-1.5 rounded-full bg-white/90 px-3.5 py-2 text-sm font-semibold text-gray-800 shadow-md backdrop-blur transition hover:bg-white';
 
@@ -35,9 +36,12 @@ export default function PublicMap({ toId }: { toId?: string }) {
   const [focus, setFocus] = useState<MapFocus | null>(null);
   const [copied, setCopied] = useState(false);
   // Heading-up like the tour: the map turns so the way you are walking is at the top.
-  const [headingUp, setHeadingUp] = useState(true);
+  // North-up while just looking around; heading-up once navigation starts (like Google Maps).
+  const [headingUp, setHeadingUp] = useState(false);
+  // The camera follows the visitor's dot (until they drag the map); the location button re-centres it.
+  const [follow, setFollow] = useState(false);
+  const [phase, setPhase] = useState<DirectionsPhase>('idle');
   const turn = useRef(0);
-  const centred = useRef(false);
   const initialDest = useMemo(() => (toId ? findPlace(toId) : undefined), [toId]);
   // The Emergency sheet's "way out" picks the destination (remounts the directions control with it chosen).
   const [exitDest, setExitDest] = useState<ReturnType<typeof findPlace>>(undefined);
@@ -51,7 +55,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
 
   // The visitor's own location, only once they ask for it.
   useEffect(() => {
-    if (!locating) { setFix(null); centred.current = false; return; }
+    if (!locating) { setFix(null); return; }
     if (!('geolocation' in navigator)) { setNote("This device can't share its location."); setLocating(false); return; }
     setNote(null);
     let last: GpsFix | null = null;
@@ -105,12 +109,36 @@ export default function PublicMap({ toId }: { toId?: string }) {
     if (!locating || !fix || !tf) return;
     if (!onPlan) { setNote("You don't seem to be at Zion Hills right now — pick a starting place instead."); return; }
     setNote(null);
-    if (!centred.current && markerX !== undefined && markerY !== undefined) {
-      centred.current = true;
-      setFocus({ pt: [markerX, markerY], zoom: FOLLOW_ZOOM, exact: true, nonce: Date.now() });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locating, !!fix, onPlan]);
+  }, [locating, !!fix, onPlan]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const navigating = phase === 'navigating';
+
+  // Choosing a place shows the whole route first (like Google Maps' preview).
+  const destX = dirView.destination?.pt[0], destY = dirView.destination?.pt[1];
+  useEffect(() => {
+    if (phase !== 'preview' || !dirView.route || dirView.route.length < 2) return;
+    const xs = dirView.route.map((q) => q[0]), ys = dirView.route.map((q) => q[1]);
+    const w = Math.max(...xs) - Math.min(...xs), h = Math.max(...ys) - Math.min(...ys);
+    const zoom = Math.min(3, Math.max(1.2, 0.7 * Math.min(100 / Math.max(w, 4), 100 / Math.max(h, 4))));
+    setFollow(false);
+    setFocus({ pt: [(Math.max(...xs) + Math.min(...xs)) / 2, (Math.max(...ys) + Math.min(...ys)) / 2 + 4], zoom, exact: true, nonce: Date.now() });
+  }, [phase, destX, destY]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function onStartNav() {
+    if (!locating) setLocating(true);
+    setFollow(true);
+    setHeadingUp(true);
+  }
+
+  function onLocateTap() {
+    if (!tf) { setNote("Live location isn't switched on for this map yet."); return; }
+    if (!locating) { setLocating(true); setFollow(true); return; }
+    setFollow(true); // already locating: bring the camera back to the dot
+  }
+
+  const followFocus: MapFocus | null = follow && onPlan && marker
+    ? { pt: marker.pt, zoom: navigating ? NAV_ZOOM : FOLLOW_ZOOM, follow: true, offsetY: navigating && headingUp ? window.innerHeight * 0.18 : 0 }
+    : null;
 
   async function share() {
     const url = `${window.location.origin}/#/map`;
@@ -141,35 +169,21 @@ export default function PublicMap({ toId }: { toId?: string }) {
           route={dirView.route}
           destination={dirView.destination}
           places={dirView.places}
-          focus={focus}
+          focus={followFocus ?? focus}
+          onUserMove={() => setFollow(false)}
           rotation={rotation}
           turnable
           waterAlert={waterAlert?.index ?? null}
         />
       </div>
 
+      {!navigating && (
       <div className="pointer-events-none absolute inset-x-0 top-0 z-40 flex items-start justify-between gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5">
         <div className="pointer-events-auto flex items-center gap-2.5 rounded-full bg-white/90 py-1.5 pl-3 pr-4 shadow-md backdrop-blur">
           <img src={LOGO} alt="Zion Hills Golf County" className="h-7 w-auto" />
           <span className="hidden text-sm font-semibold text-gray-800 sm:inline">Map &amp; directions</span>
         </div>
         <div className="flex items-center gap-2">
-          {tf && (
-            locating && onPlan ? (
-              <>
-                <button
-                  onClick={() => marker && setFocus({ pt: marker.pt, zoom: FOLLOW_ZOOM, exact: true, nonce: Date.now() })}
-                  className={pill}
-                ><LocateFixed className="h-4 w-4 text-[#1a73e8]" /> <span className="hidden sm:inline">Find me</span></button>
-                <button onClick={() => setLocating(false)} className={pill}>Stop</button>
-              </>
-            ) : (
-              <button onClick={() => setLocating((v) => !v)} className={pill}>
-                {locating ? <Loader2 className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}
-                <span className="hidden sm:inline">{locating ? 'Locating…' : 'Show my location'}</span>
-              </button>
-            )
-          )}
           <EmergencyButton
             position={fix ? { lat: fix.lat, lng: fix.lng } : null}
             onPlan={onPlan && marker ? marker.pt : null}
@@ -183,10 +197,37 @@ export default function PublicMap({ toId }: { toId?: string }) {
           </button>
         </div>
       </div>
+      )}
 
-      <WaterCautionBanner alert={waterAlert} />
+      {/* While navigating the SOS button stays within reach, above the location button. */}
+      {navigating && (
+        <div className="absolute bottom-[10rem] right-3 z-40 sm:right-5">
+          <EmergencyButton
+            position={fix ? { lat: fix.lat, lng: fix.lng } : null}
+            onPlan={onPlan && marker ? marker.pt : null}
+            locating={locating}
+            onLocate={() => setLocating(true)}
+            onRouteToGate={() => setExitDest(findPlace('entry-main'))}
+          />
+        </div>
+      )}
 
-      <Compass rotation={rotation} headingUp={headingUp} onToggle={() => setHeadingUp((v) => !v)} />
+      {/* Google Maps-style location button, bottom right: tap to find me / re-centre on me. */}
+      <button
+        onClick={onLocateTap}
+        aria-label={locating ? 'Centre the map on my location' : 'Show my location'}
+        className={`pointer-events-auto absolute right-3 z-40 grid h-14 w-14 place-items-center rounded-full bg-white shadow-xl ring-1 ring-black/10 transition active:scale-95 sm:right-5 ${navigating ? 'bottom-[6.5rem]' : phase === 'preview' ? 'bottom-[11rem]' : 'bottom-6'}`}
+      >
+        {locating && !fix ? (
+          <Loader2 className="h-6 w-6 animate-spin text-[#1a73e8]" />
+        ) : (
+          <LocateFixed className={`h-6 w-6 ${locating && fix && follow ? 'text-[#1a73e8]' : locating ? 'text-[#1a73e8]/70' : 'text-gray-600'}`} strokeWidth={locating && fix && follow ? 3 : 2} />
+        )}
+      </button>
+
+      <WaterCautionBanner alert={waterAlert} top={navigating ? 'top-[14rem]' : undefined} />
+
+      <Compass rotation={rotation} headingUp={headingUp} onToggle={() => setHeadingUp((v) => !v)} top={navigating ? 'top-[7.75rem]' : undefined} />
 
       <DirectionsControls
         key={exitDest?.id ?? 'dir'}
@@ -195,11 +236,14 @@ export default function PublicMap({ toId }: { toId?: string }) {
         toGps={tf ? (pt) => tf.toGps(pt) : null}
         initialDestination={exitDest ?? initialDest}
         onView={setDirView}
+        guided
+        onStart={onStartNav}
+        onPhase={(p) => { setPhase(p); if (p !== 'navigating') setHeadingUp(false); }}
       />
 
       {note && (
-        <div className="pointer-events-none absolute inset-x-3 bottom-4 z-40 mx-auto max-w-md rounded-2xl bg-gray-900/90 px-4 py-2.5 text-center text-[13px] font-medium text-white shadow-lg">
-          {note}
+        <div className={`pointer-events-none absolute inset-x-3 z-[60] mx-auto max-w-md rounded-2xl ${navigating ? 'bottom-24' : phase === 'preview' ? 'bottom-44' : 'bottom-4'}`}>
+          <div className="rounded-2xl bg-gray-900/90 px-4 py-2.5 text-center text-[13px] font-medium text-white shadow-lg">{note}</div>
         </div>
       )}
     </div>

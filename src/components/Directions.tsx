@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Navigation2, X, Search, MapPin, Home, Layers, CheckCircle2, Waves, ArrowUp, ArrowUpLeft, ArrowUpRight, CornerUpLeft, CornerUpRight, Undo2, Flag, Volume2, VolumeX } from 'lucide-react';
-import { AMENITIES, VILLAS, PLOT_PLACES, findRoute, type Place } from '@/lib/directions';
+import { AMENITIES, VILLAS, PLOT_PLACES, findRoute, planMetres, describeDistance, type Place } from '@/lib/directions';
 import type { MapPt } from '@/lib/tour';
 import { routeWaterContact, WATER_CAUTION_M } from '@/lib/water';
 import { maneuversOf, turnWords, distanceWords, type TurnKind } from '@/lib/turns';
@@ -16,7 +16,9 @@ export interface DirectionsView {
   places: { pt: MapPt; label: string; kind?: 'villa' }[];
 }
 
-export function DirectionsControls({ from, toGps, offRoad = false, initialDestination, onView, className = '', dark = false }: {
+export type DirectionsPhase = 'idle' | 'preview' | 'navigating';
+
+export function DirectionsControls({ from, toGps, offRoad = false, initialDestination, onView, className = '', dark = false, guided = false, onStart, onPhase }: {
   /** Live position (tour). Leave undefined to let the user pick a starting place. */
   from?: MapPt | null;
   toGps?: ((pt: MapPt) => { lat: number; lng: number }) | null;
@@ -27,6 +29,11 @@ export function DirectionsControls({ from, toGps, offRoad = false, initialDestin
   onView: (v: DirectionsView) => void;
   className?: string;
   dark?: boolean;
+  /** Google Maps-style: choosing a place shows a route preview with a Start button; Start begins turn-by-turn navigation. */
+  guided?: boolean;
+  /** Guided: Start was tapped (the parent starts locating, follows the position, …). */
+  onStart?: () => void;
+  onPhase?: (phase: DirectionsPhase) => void;
 }) {
   const live = from !== undefined;
   const [picking, setPicking] = useState(false);
@@ -34,6 +41,9 @@ export function DirectionsControls({ from, toGps, offRoad = false, initialDestin
   const [start, setStart] = useState<Place>(AMENITIES[0]);
   const [showPlaces, setShowPlaces] = useState(false);
   const [arrived, setArrived] = useState(false);
+  const [navigating, setNavigating] = useState(false);
+  // Guided mode speaks and instructs only once Start has been tapped; otherwise it is always on.
+  const active = !guided || navigating;
 
   const origin: MapPt | null = live ? from ?? null : start.pt;
   const route = useMemo(() => (origin && dest ? findRoute(origin, dest.pt) : null), [origin?.[0], origin?.[1], dest]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -48,15 +58,17 @@ export function DirectionsControls({ from, toGps, offRoad = false, initialDestin
   const voiceOn = useVoiceEnabled();
   const spoken = useRef(new Set<string>());
   const turnId = useRef<{ kind: TurnKind; at: MapPt; id: string } | null>(null);
-  useEffect(() => { spoken.current = new Set(); turnId.current = null; }, [dest]);
+  useEffect(() => { spoken.current = new Set(); turnId.current = null; if (!dest) setNavigating(false); }, [dest]);
+  const phase: DirectionsPhase = !dest ? 'idle' : guided && navigating ? 'navigating' : 'preview';
+  useEffect(() => { onPhase?.(phase); }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!dest || !live) return;
+    if (!dest || !live || !active) return;
     if (!spoken.current.has('start')) { spoken.current.add('start'); speak(`Directions to ${dest.label} started. Follow the orange line.`); }
-  }, [dest, live]);
+  }, [dest, live, active]);
 
   useEffect(() => {
-    if (!next || !guide || offRoad || arrived) return;
+    if (!next || !guide || offRoad || arrived || !active) return;
     // Say each turn three times: well ahead, then close, then now. If a stage was skipped (fast
     // driving, a gap in GPS) only the latest is spoken.
     // The same turn is found a few metres apart as the route is rebuilt each fix, so treat turns of
@@ -73,14 +85,14 @@ export function DirectionsControls({ from, toGps, offRoad = false, initialDestin
     order.slice(0, mine + 1).forEach((st) => spoken.current.add(`${id}:${st}`));
     const where = next.kind === 'arrive' ? `arrive at ${dest?.label ?? 'your destination'}` : turnWords(next.kind).toLowerCase();
     speak(stage === 'now' ? (next.kind === 'arrive' ? `You will arrive at ${dest?.label ?? 'your destination'}` : `${turnWords(next.kind)} now`) : `In ${distanceWords(next.s).replace(' m', ' metres').replace(' km', ' kilometres')}, ${where}`);
-  }, [next?.kind, next?.at[0], next?.at[1], next && Math.round(next.s / 10), offRoad, arrived]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [next?.kind, next?.at[0], next?.at[1], next && Math.round(next.s / 10), offRoad, arrived, active]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!live || !dest) return;
+    if (!live || !dest || !active) return;
     if (offRoad) { if (!spoken.current.has('off')) { spoken.current.add('off'); speak("You have left the road. Get back on it."); } }
     else spoken.current.delete('off');
-  }, [offRoad, live, dest]);
-  useEffect(() => { if (arrived && dest) speak(`You have arrived at ${dest.label}`); }, [arrived]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [offRoad, live, dest, active]);
+  useEffect(() => { if (arrived && dest && active) speak(`You have arrived at ${dest.label}`); }, [arrived]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Arrival (live tour): within ~25 m of the destination.
   useEffect(() => {
@@ -116,6 +128,7 @@ export function DirectionsControls({ from, toGps, offRoad = false, initialDestin
 
   return (
     <>
+      {phase !== 'navigating' && (
       <div className={`pointer-events-auto flex items-center gap-2 ${className}`}>
         <button onClick={() => setPicking(true)} className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold shadow-md backdrop-blur ${dest ? 'bg-[#f05a22] text-white' : pill}`}>
           <Navigation2 className="h-4 w-4" /> Directions
@@ -128,9 +141,29 @@ export function DirectionsControls({ from, toGps, offRoad = false, initialDestin
           <Layers className="h-4 w-4" /> Places
         </button>
       </div>
+      )}
+
+      {guided && dest && (
+        <GuidedPanels
+          phase={phase}
+          dest={dest}
+          live={live}
+          origin={origin}
+          start={start}
+          route={route}
+          guide={guide}
+          next={next}
+          offRoad={offRoad}
+          arrived={arrived}
+          passesWater={passesWater}
+          voiceOn={voiceOn}
+          onStart={() => { setNavigating(true); setArrived(false); onStart?.(); }}
+          onEnd={() => { setDest(null); setArrived(false); setNavigating(false); }}
+        />
+      )}
 
       {/* Route banner */}
-      {dest && (
+      {dest && !guided && (
         <div className="pointer-events-auto fixed inset-x-3 bottom-20 z-[45] mx-auto max-w-md animate-slide-up rounded-2xl bg-white/95 px-4 py-3 shadow-xl ring-1 ring-black/5 backdrop-blur">
           {arrived ? (
             <div className="flex items-center gap-3">
@@ -265,4 +298,113 @@ function PlacePicker({ live, start, onStart, onPick, onClose }: {
 function TurnIcon({ kind, className }: { kind: TurnKind; className?: string }) {
   const Icon = { left: CornerUpLeft, right: CornerUpRight, 'slight-left': ArrowUpLeft, 'slight-right': ArrowUpRight, uturn: Undo2, arrive: Flag }[kind] ?? ArrowUp;
   return <Icon className={className} strokeWidth={2.5} />;
+}
+
+// ---------------------------------------------------------------------------
+// Google Maps-style panels: a route preview with a Start button, then, once started,
+// the next turn at the top and time / distance / Exit at the bottom.
+// ---------------------------------------------------------------------------
+
+function GuidedPanels({ phase, dest, live, origin, start, route, guide, next, offRoad, arrived, passesWater, voiceOn, onStart, onEnd }: {
+  phase: DirectionsPhase;
+  dest: Place;
+  live: boolean;
+  origin: MapPt | null;
+  start: Place;
+  route: { points: MapPt[] } | null;
+  guide: { steps: { kind: TurnKind; s: number }[]; total: number } | null;
+  next: { kind: TurnKind; s: number } | null;
+  offRoad: boolean;
+  arrived: boolean;
+  passesWater: boolean;
+  voiceOn: boolean;
+  onStart: () => void;
+  onEnd: () => void;
+}) {
+  const total = guide?.total ?? (route && route.points.length > 1 ? planMetres(route.points) : null);
+  const mins = total != null ? Math.max(1, Math.round(total / 200)) : null;
+  const water = passesWater && !!route && (
+    <div className="mt-0.5 flex items-center gap-1 text-[12px] font-semibold text-red-600"><Waves className="h-3.5 w-3.5 shrink-0" /> Route passes close to deep water &mdash; go slowly</div>
+  );
+
+  if (phase === 'preview') {
+    return (
+      <div className="pointer-events-auto fixed inset-x-3 bottom-4 z-[55] mx-auto max-w-md animate-slide-up rounded-3xl bg-white px-4 pb-4 pt-3 shadow-2xl ring-1 ring-black/5">
+        <div className="flex items-start gap-3">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#f05a22] text-white"><Navigation2 className="h-5 w-5" /></div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[17px] font-extrabold text-gray-900">{dest.label}</div>
+            <div className="truncate text-[13px] text-gray-500">
+              {!route ? 'No road inside the estate to here' : total != null ? `${mins} min · ${distanceWords(total)}` : ''}
+              {route ? ` \u00b7 ${live ? 'from your location' : `from ${start.label}`}` : ''}
+            </div>
+            {water}
+          </div>
+          <button onClick={onEnd} aria-label="Close directions" className="rounded-full p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
+        </div>
+        <button
+          onClick={onStart}
+          disabled={!route}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-[#f05a22] py-3 text-[16px] font-bold text-white shadow-md active:scale-[0.98] disabled:opacity-50"
+        >
+          <Navigation2 className="h-5 w-5" /> Start
+        </button>
+        {!live && <p className="mt-2 text-center text-[12px] text-gray-400">Start uses your location to guide you turn by turn.</p>}
+      </div>
+    );
+  }
+
+  // Navigating
+  const bad = live && offRoad;
+  return (
+    <>
+      <div className={`pointer-events-auto fixed inset-x-3 top-[max(0.75rem,env(safe-area-inset-top))] z-[55] mx-auto max-w-md animate-slide-up rounded-2xl px-4 py-3 text-white shadow-2xl ring-1 ring-white/10 ${bad ? 'bg-red-700' : 'bg-[#13261c]'}`}>
+        {arrived ? (
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="h-9 w-9 shrink-0 text-emerald-400" />
+            <div className="min-w-0 flex-1"><div className="text-[20px] font-extrabold leading-tight">You&rsquo;ve arrived</div><div className="truncate text-[14px] text-white/80">{dest.label}</div></div>
+          </div>
+        ) : bad ? (
+          <div className="flex items-center gap-3">
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/20"><Navigation2 className="h-7 w-7" /></div>
+            <div className="min-w-0 flex-1"><div className="text-[18px] font-extrabold leading-tight">You&rsquo;ve left the road</div><div className="text-[13px] text-white/85">Get back on it &mdash; the route updates from where you are.</div></div>
+          </div>
+        ) : !live || !origin ? (
+          <div className="flex items-center gap-3">
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/15"><Navigation2 className="h-7 w-7" /></div>
+            <div className="min-w-0 flex-1"><div className="text-[17px] font-extrabold leading-tight">Waiting for your location&hellip;</div><div className="text-[13px] text-white/75">Stay in the open. Allow location if your phone asks.</div></div>
+          </div>
+        ) : next ? (
+          <div className="flex items-center gap-3">
+            <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-[#f05a22]"><TurnIcon kind={next.kind} className="h-10 w-10" /></div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[26px] font-extrabold leading-none">{next.s <= 25 ? 'Now' : distanceWords(next.s)}</div>
+              <div className="mt-0.5 truncate text-[16px] font-semibold leading-tight text-white/90">{next.kind === 'arrive' ? `Arrive at ${dest.label}` : turnWords(next.kind)}</div>
+            </div>
+          </div>
+        ) : null}
+        {!arrived && !bad && passesWater && live && (
+          <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-red-600/90 px-2.5 py-1 text-[12px] font-semibold"><Waves className="h-3.5 w-3.5 shrink-0" /> Route passes close to deep water &mdash; go slowly</div>
+        )}
+      </div>
+
+      <div className="pointer-events-auto fixed inset-x-3 bottom-4 z-[55] mx-auto flex max-w-md animate-slide-up items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-2xl ring-1 ring-black/5">
+        <div className="min-w-0 flex-1">
+          <div className="text-[22px] font-extrabold leading-tight text-emerald-600">{arrived ? 'Arrived' : mins != null ? `${mins} min` : '\u2014'}</div>
+          <div className="truncate text-[13px] text-gray-500">{total != null && !arrived ? `${distanceWords(total)} \u00b7 ` : ''}{dest.label}</div>
+        </div>
+        {voiceAvailable() && (
+          <button
+            onClick={() => setVoiceEnabled(!voiceOn)}
+            aria-label={voiceOn ? 'Mute voice directions' : 'Turn on voice directions'}
+            aria-pressed={voiceOn}
+            className={`rounded-full p-2.5 hover:bg-gray-100 ${voiceOn ? 'text-[#f05a22]' : 'text-gray-400'}`}
+          >
+            {voiceOn ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
+          </button>
+        )}
+        <button onClick={onEnd} className="rounded-full bg-red-600 px-5 py-2.5 text-[15px] font-bold text-white shadow active:scale-95">{arrived ? 'Done' : 'Exit'}</button>
+      </div>
+    </>
+  );
 }

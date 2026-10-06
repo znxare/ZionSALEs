@@ -32,13 +32,13 @@ export function useWaterCaution(pt: MapPt | null): WaterAlert | null {
   return alert;
 }
 
-export function WaterCautionBanner({ alert }: { alert: WaterAlert | null }) {
+export function WaterCautionBanner({ alert, top = 'top-[9.75rem]' }: { alert: WaterAlert | null; top?: string }) {
   if (!alert) return null;
   const { danger } = alert;
   return (
     <div
       role="alert"
-      className={`pointer-events-none absolute inset-x-3 top-[9.75rem] z-50 mx-auto flex max-w-md animate-slide-up items-center gap-3 rounded-2xl px-4 py-3 text-white shadow-xl ring-1 ring-white/30 ${danger ? 'bg-red-700' : 'bg-red-600/95'}`}
+      className={`pointer-events-none absolute inset-x-3 ${top} z-50 mx-auto flex max-w-md animate-slide-up items-center gap-3 rounded-2xl px-4 py-3 text-white shadow-xl ring-1 ring-white/30 ${danger ? 'bg-red-700' : 'bg-red-600/95'}`}
     >
       <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/20 ${danger ? 'animate-pulse' : ''}`}>
         {danger ? <AlertTriangle className="h-6 w-6" /> : <Waves className="h-6 w-6" />}

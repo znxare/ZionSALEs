@@ -117,9 +117,8 @@ export function turnWords(kind: TurnKind): string {
   }
 }
 
-/** "50 m", "350 m", "1.2 km" — rounded the way a driver wants to hear it. */
+/** "50 m", "340 m", "1.2 km" — to the nearest 10 m under a kilometre, to 0.1 km above. */
 export function distanceWords(m: number): string {
-  if (m >= 950) return `${(m / 1000).toFixed(1)} km`;
-  if (m >= 100) return `${Math.round(m / 50) * 50} m`;
-  return `${Math.max(10, Math.round(m / 10) * 10)} m`;
+  const tens = Math.max(10, Math.round(m / 10) * 10);
+  return tens >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${tens} m`;
 }

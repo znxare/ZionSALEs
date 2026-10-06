@@ -1,11 +1,11 @@
 // The map's compass: the needle points to north on screen. Tap to switch between
 // "turn with the traveller" (heading up) and "north up". Shared by the tour and the public map.
-export default function Compass({ rotation, headingUp, onToggle }: { rotation: number; headingUp: boolean; onToggle: () => void }) {
+export default function Compass({ rotation, headingUp, onToggle, top = 'top-16' }: { rotation: number; headingUp: boolean; onToggle: () => void; top?: string }) {
   return (
     <button
       onClick={onToggle}
       aria-label={headingUp ? 'Show north up' : 'Turn the map with your direction of travel'}
-      className="absolute right-3 top-16 z-40 flex flex-col items-center gap-1 rounded-2xl bg-white/95 p-1.5 pb-1.5 shadow-lg ring-1 ring-black/5 backdrop-blur active:scale-95 sm:right-5"
+      className={`absolute right-3 ${top} z-40 flex flex-col items-center gap-1 rounded-2xl bg-white/95 p-1.5 pb-1.5 shadow-lg ring-1 ring-black/5 backdrop-blur active:scale-95 sm:right-5`}
     >
       <svg viewBox="0 0 48 48" className="h-12 w-12" style={{ transform: `rotate(${-rotation}deg)`, transition: 'transform 0.9s linear' }}>
         <defs>
