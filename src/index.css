@@ -221,6 +221,37 @@ body {
 .zh-heart { animation: zh-heart 2.6s ease-in-out infinite, zh-glow 2.6s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .zh-radiate, .zh-heart { animation: none; } }
 
+/* ---- Public map: fish, tortoises and birds crossing the course (see WildlifeLayer.tsx) ---- */
+@keyframes zh-wag { 0%, 100% { transform: rotate(-16deg); } 50% { transform: rotate(16deg); } }
+@keyframes zh-ripple {
+  0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0.7; }
+  100% { transform: translate(-50%, -50%) scale(3.2); opacity: 0; }
+}
+@keyframes zh-leap {
+  0%, 86%, 100% { transform: translateY(0) scale(1); filter: none; }
+  90% { transform: translateY(-9px) scale(1.5) rotate(-8deg); filter: drop-shadow(0 6px 4px rgba(0, 0, 0, 0.25)); }
+  95% { transform: translateY(-2px) scale(1.15) rotate(6deg); }
+}
+@keyframes zh-cross {
+  0% { transform: translate(-90px, 24px); opacity: 0; }
+  8% { opacity: 1; }
+  92% { opacity: 1; }
+  100% { transform: translate(210px, -46px); opacity: 0; }
+}
+/* the tortoise: out of its shell, a stroll, a turn, back again, and in */
+@keyframes zh-peek {
+  0%, 20% { transform: scale(0); }
+  27%, 80% { transform: scale(1); }
+  87%, 100% { transform: scale(0); }
+}
+@keyframes zh-crawl {
+  0%, 24% { transform: translate(0, 0) rotate(62deg); }
+  50% { transform: translate(20px, -11px) rotate(62deg); }
+  55% { transform: translate(20px, -11px) rotate(242deg); }
+  80%, 100% { transform: translate(0, 0) rotate(242deg); }
+}
+@keyframes zh-step { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(1.2px); } }
+
 /* ---- Public map: swaying groves, birds and peacocks (see WildlifeLayer.tsx) ---- */
 @keyframes zh-orbit { to { transform: rotate(360deg); } }
 @keyframes zh-flap { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(0.42); } }
