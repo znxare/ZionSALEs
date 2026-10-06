@@ -17,14 +17,9 @@ export interface Place {
 /** Numbered places from the master plan's legend (positions of its red markers). */
 export const AMENITIES: Place[] = [
   { id: 'entry-main', label: 'Main entry gate', kind: 'amenity', pt: [47.0, 79.63] },
-  { id: 'entry-west', label: 'West entry gate', kind: 'amenity', pt: [15.8, 58.46] },
-  { id: 'entry-north', label: 'North entry (existing road)', kind: 'amenity', pt: [28.05, 27.1] },
   { id: 'clubhouse', label: 'Club House', kind: 'amenity', pt: [40.24, 58.38] },
   { id: 'practice', label: 'Golf practice facilities', kind: 'amenity', pt: [48.16, 46.93] },
   { id: 'sports', label: 'Sports courts', kind: 'amenity', pt: [43.83, 56.33] },
-  { id: 'camp', label: 'Camp site', kind: 'amenity', pt: [38.21, 33.32] },
-  { id: 'commercial', label: 'Commercial & residential', kind: 'amenity', pt: [14.89, 54.36] },
-  { id: 'parking', label: 'Utility & parking', kind: 'amenity', pt: [45.08, 74.5] },
 ];
 
 const HOLE_PTS: Record<number, MapPt> = {

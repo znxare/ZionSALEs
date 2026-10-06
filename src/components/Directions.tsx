@@ -97,7 +97,7 @@ export function DirectionsControls({ from, toGps, offRoad = false, onView, class
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[15px] font-bold text-gray-900">{dest.label}</div>
                 <div className={`truncate text-[13px] ${live && offRoad ? 'font-semibold text-red-600' : 'text-gray-500'}`}>
-                  {!origin ? 'Waiting for your location…' : !route ? 'No road inside the estate — the north side is reached by the existing road (North entry)' : live && offRoad ? "You've left the road — get back on it" : live ? 'Follow the orange line' : `From ${start.label}`}
+                  {!origin ? 'Waiting for your location…' : !route ? 'No road inside the estate to here' : live && offRoad ? "You've left the road — get back on it" : live ? 'Follow the orange line' : `From ${start.label}`}
                 </div>
               </div>
               <button onClick={() => setDest(null)} aria-label="End directions" className="rounded-full p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
@@ -149,8 +149,7 @@ function PlacePicker({ live, start, onStart, onPick, onClose }: {
           <label className="mx-5 mb-2 flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-2 text-[13px] text-gray-600">
             From
             <select value={start.id} onChange={(e) => onStart(AMENITIES.find((a) => a.id === e.target.value) ?? AMENITIES[0])} className="flex-1 bg-transparent font-semibold text-gray-900 outline-none">
-              {/* The west gate is closed for now (see CLOSED_ROADS). */}
-              {AMENITIES.filter((a) => a.id !== 'entry-west').map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
+              {AMENITIES.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
             </select>
           </label>
         )}
