@@ -62,8 +62,8 @@ const PEACOCKS: { pt: Pt; delay: number; flip?: boolean }[] = [
   { pt: [19.6, 47.4], delay: -13, flip: true },
 ];
 
-// Greens that are being watered, by hole number; each runs on its own timer.
-const SPRINKLED = [1, 3, 9, 12, 16];
+// Greens that are being watered, by hole number (just a couple, lightly).
+const SPRINKLED = [9, 16];
 
 // Kingfishers: perched on a lake bank, watching the water, diving, and back to the perch.
 const KINGFISHERS: { bank: [number, number]; water: [number, number] }[] = (() => {
@@ -206,20 +206,18 @@ function Bush({ size }: { size: number }) {
   );
 }
 
-/** A sprinkler head with spinning arms of spray and a wet shine on the grass. */
+/** Water on a green, kept very light: a soft cool mist and a gentle shine on the grass - no spray dots. */
 function Sprinkler({ size }: { size: number }) {
-  const arm = (rot: number) => (
-    <g key={rot} transform={`rotate(${rot})`}>
-      <path d="M0 0 Q 20 -24 38 -6" fill="none" stroke="#e8f6ff" strokeWidth="2.4" strokeLinecap="round" strokeDasharray="0.1 5.4" />
-      <path d="M0 0 Q 15 -16 28 -3" fill="none" stroke="#bfe6ff" strokeWidth="1.8" strokeLinecap="round" strokeDasharray="0.1 4.6" opacity="0.8" />
-    </g>
-  );
   return (
     <svg width={size} height={size} viewBox="-44 -44 88 88" className="overflow-visible">
-      <circle r="38" fill="#9ed7ff" opacity="0.2" style={{ animation: 'zh-wet 3.2s ease-in-out infinite' }} />
-      <circle r="38" fill="none" stroke="#e8f6ff" strokeWidth="0.8" opacity="0.5" />
-      <g style={{ animation: 'zh-orbit 2.6s linear infinite' }}>{[0, 120, 240].map(arm)}</g>
-      <circle r="2.6" fill="#8fa2a8" stroke="#fbf7ee" strokeWidth="1" />
+      <defs>
+        <radialGradient id="zh-mist" cx="0" cy="0" r="40" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#d8efff" stopOpacity="0.32" />
+          <stop offset="0.7" stopColor="#b4defa" stopOpacity="0.14" />
+          <stop offset="1" stopColor="#b4defa" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <circle r="40" fill="url(#zh-mist)" style={{ animation: 'zh-wet 4.4s ease-in-out infinite' }} />
     </svg>
   );
 }
