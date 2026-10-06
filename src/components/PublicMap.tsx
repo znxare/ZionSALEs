@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Compass as CompassIcon, CornerUpRight, Flag, Loader2, Navigation, Share2 } from 'lucide-react';
+import { Check, Moon, Sun, Compass as CompassIcon, CornerUpRight, Flag, Loader2, Navigation, Share2 } from 'lucide-react';
 import { MasterPlanBoard, type AdPin, type HolePin, type HoleTrail, type MapFocus, type TourMarker } from './LiveInventoryBoard';
 import { HoleCard } from './HoleCard';
 import { HOLE_GUIDE, holeGuide } from '@/lib/holes';
@@ -10,7 +10,7 @@ import { fitTransform, loadPublicCalibration, smoothFix, bearing, distanceM, Hea
 import Compass from './Compass';
 import { EmergencyButton } from './EmergencyButton';
 import { MapInfoCard } from './MapInfoCard';
-import { useNightLevel } from '@/lib/night';
+import { useNightControl } from '@/lib/night';
 import { useWaterCaution, WaterCautionBanner } from './WaterCaution';
 import { findPlace } from '@/lib/directions';
 import { SAMPLE_PLOTS } from '@/lib/inventory';
@@ -57,7 +57,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
   // The hole layer: numbered badges; tap one for its card. When the visitor is on a hole, only that hole shows.
   const [holesOn, setHolesOn] = useState(false);
   const [holeSel, setHoleSel] = useState<number | null>(null);
-  const night = useNightLevel();
+  const { level: night, isNight, toggle: toggleNight } = useNightControl();
   // Height of whichever full-width panel (route preview / navigation bar) is sitting at the bottom, so the buttons stand just above it.
   const [dock, setDock] = useState(0);
   useEffect(() => {
@@ -329,6 +329,14 @@ export default function PublicMap({ toId }: { toId?: string }) {
       </div>
 
       <WaterCautionBanner alert={waterAlert} top={navigating ? 'top-[10rem]' : undefined} />
+
+      <button
+        onClick={toggleNight}
+        aria-label={isNight ? 'Switch to day view' : 'Switch to night view'}
+        className={`pointer-events-auto absolute right-3 z-40 grid h-10 w-10 place-items-center rounded-full text-[#e9d8aa] transition active:scale-95 sm:right-5 sm:h-11 sm:w-11 ${lxGlass} ${navigating ? 'top-[14.6rem] sm:top-[15.9rem]' : 'top-[8.7rem] sm:top-[9.9rem]'}`}
+      >
+        {isNight ? <Sun className="h-5 w-5" strokeWidth={1.8} /> : <Moon className="h-5 w-5" strokeWidth={1.8} />}
+      </button>
 
       <Compass rotation={rotation} facing={locating ? facing : null} weak={locating && compass.weak} headingUp={headingUp} onToggle={() => setHeadingUp((v) => !v)} top={navigating ? 'top-[9.6rem]' : undefined} />
 
