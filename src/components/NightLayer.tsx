@@ -7,7 +7,7 @@ import { roadLampPoints } from '@/lib/directions';
 const ASPECT = 3369.9 / 2383.8; // the plan's width over its height, to keep the glows round
 
 export function NightLayer({ level }: { level: number }) {
-  const lamps = useMemo(() => roadLampPoints(40), []);
+  const lamps = useMemo(() => roadLampPoints(32), []);
   const groups = [0, 1, 2, 3];
   return (
     <>

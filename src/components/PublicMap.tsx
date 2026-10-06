@@ -35,7 +35,7 @@ const LOGO = '/zion-hills-logo.svg';
 const FOLLOW_ZOOM = 2.2;
 const NAV_ZOOM = 2.6;
 
-const fab = `pointer-events-auto grid h-14 w-14 place-items-center rounded-[20px] text-[#e9d8aa] transition active:scale-95 ${lxGlass}`;
+const fab = `pointer-events-auto grid h-12 w-12 place-items-center rounded-[17px] text-[#e9d8aa] transition active:scale-95 sm:h-14 sm:w-14 sm:rounded-[20px] ${lxGlass}`;
 
 
 export default function PublicMap({ toId }: { toId?: string }) {
@@ -58,6 +58,16 @@ export default function PublicMap({ toId }: { toId?: string }) {
   const [holesOn, setHolesOn] = useState(false);
   const [holeSel, setHoleSel] = useState<number | null>(null);
   const night = useNightLevel();
+  // Height of whichever full-width panel (route preview / navigation bar) is sitting at the bottom, so the buttons stand just above it.
+  const [dock, setDock] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      // only panels that reach under the right-hand button column count
+      const h = Math.max(0, ...[...document.querySelectorAll('[data-dock="full"]')].filter((el) => el.getBoundingClientRect().right > window.innerWidth - 84).map((el) => window.innerHeight - el.getBoundingClientRect().top));
+      setDock((d) => (Math.abs(d - h) > 2 ? h : d));
+    }, 200);
+    return () => window.clearInterval(id);
+  }, []);
   const adPins = useMemo<AdPin[]>(() => {
     const open = SAMPLE_PLOTS.filter((p) => p.status === 'Available').sort(() => Math.random() - 0.5);
     const spots = open.map((p) => ({ p, pt: centroidOf(p) as [number, number] }));
@@ -185,11 +195,20 @@ export default function PublicMap({ toId }: { toId?: string }) {
     setFocus({ pt: [(Math.max(...xs) + Math.min(...xs)) / 2, (Math.max(...ys) + Math.min(...ys)) / 2 + 4], zoom, exact: true, nonce: Date.now() });
   }, [phase, destX, destY]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function onStartNav() {
+  // Messages fade away on their own.
+  useEffect(() => {
+    if (!note) return;
+    const t = window.setTimeout(() => setNote(null), 7000);
+    return () => window.clearTimeout(t);
+  }, [note]);
+
+  function onStartNav(): boolean {
+    if (!tf) { setNote("Turn-by-turn isn't switched on for this map yet."); return false; }
     compass.request();
     if (!locating) setLocating(true);
     setFollow(true);
     setHeadingUp(true);
+    return true;
   }
 
   function onLocateTap() {
@@ -270,21 +289,19 @@ export default function PublicMap({ toId }: { toId?: string }) {
       </div>
       )}
 
-      {/* While navigating the SOS button stays within reach, above the location button. */}
-      {navigating && (
-        <div className="absolute bottom-[11rem] right-3 z-40 sm:right-5">
-          <EmergencyButton
-            position={fix ? { lat: fix.lat, lng: fix.lng } : null}
-            onPlan={onPlan && marker ? marker.pt : null}
-            locating={locating}
-            onLocate={() => setLocating(true)}
-            onRouteToGate={() => setExitDest(findPlace('entry-main'))}
-          />
-        </div>
-      )}
-
       {/* Square buttons, bottom right (like Google Maps): share, my location, directions. */}
-      <div className={`pointer-events-none absolute right-3 z-40 flex flex-col gap-3 sm:right-5 ${navigating ? 'bottom-[6.5rem]' : phase === 'preview' ? 'bottom-[11rem]' : 'bottom-6'}`}>
+      <div className="pointer-events-none absolute right-3 z-40 flex flex-col gap-2.5 sm:right-5 sm:gap-3" style={{ bottom: dock > 0 ? dock + 12 : 'max(1.25rem, env(safe-area-inset-bottom))' }}>
+        {navigating && (
+          <div className="self-end">
+            <EmergencyButton
+              position={fix ? { lat: fix.lat, lng: fix.lng } : null}
+              onPlan={onPlan && marker ? marker.pt : null}
+              locating={locating}
+              onLocate={() => setLocating(true)}
+              onRouteToGate={() => setExitDest(findPlace('entry-main'))}
+            />
+          </div>
+        )}
         {phase === 'idle' && (
           <button onClick={() => { setHolesOn((v) => !v); setHoleSel(null); }} aria-label="Hole by hole" aria-pressed={holesOn} className={`${fab} ${holesOn ? '!text-[#f26a35] !ring-[#f26a35]/[0.7]' : ''}`}>
             <Flag className="h-6 w-6" strokeWidth={1.8} />
@@ -292,28 +309,28 @@ export default function PublicMap({ toId }: { toId?: string }) {
         )}
         {phase === 'idle' && (
           <button onClick={share} aria-label="Share this map" className={fab}>
-            {copied ? <Check className="h-7 w-7 text-[#e3c98d]" /> : <Share2 className="h-6 w-6" strokeWidth={1.8} />}
+            {copied ? <Check className="h-6 w-6 text-[#e3c98d]" /> : <Share2 className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={1.8} />}
           </button>
         )}
         <button onClick={onLocateTap} aria-label={locating ? 'Centre the map on my location' : 'Show my location'} className={fab}>
           {locating && !fix ? (
-            <Loader2 className="h-7 w-7 animate-spin text-[#f26a35]" />
+            <Loader2 className="h-6 w-6 animate-spin text-[#f26a35]" />
           ) : locating && fix && follow ? (
-            <Navigation className="h-7 w-7 fill-[#f26a35] text-[#f26a35]" />
+            <Navigation className="h-6 w-6 fill-[#f26a35] text-[#f26a35]" />
           ) : (
-            <CompassIcon className={`h-7 w-7 ${locating ? 'text-[#f1d9a6]' : ''}`} strokeWidth={1.8} />
+            <CompassIcon className={`h-6 w-6 sm:h-7 sm:w-7 ${locating ? 'text-[#f1d9a6]' : ''}`} strokeWidth={1.8} />
           )}
         </button>
         {phase === 'idle' && (
           <button onClick={() => setPickerSignal((n) => n + 1)} aria-label="Directions" className={`${fab} !bg-none ${lxOrange}`}>
-            <span className="grid h-8 w-8 rotate-45 place-items-center rounded-[8px] bg-[#fbf7ee]"><CornerUpRight className="h-[18px] w-[18px] -rotate-45 text-[#f05a22]" strokeWidth={3.2} /></span>
+            <span className="grid h-7 w-7 rotate-45 place-items-center rounded-[7px] bg-[#fbf7ee] sm:h-8 sm:w-8 sm:rounded-[8px]"><CornerUpRight className="h-[18px] w-[18px] -rotate-45 text-[#f05a22]" strokeWidth={3.2} /></span>
           </button>
         )}
       </div>
 
-      <WaterCautionBanner alert={waterAlert} top={navigating ? 'top-[14rem]' : undefined} />
+      <WaterCautionBanner alert={waterAlert} top={navigating ? 'top-[10rem]' : undefined} />
 
-      <Compass rotation={rotation} facing={locating ? facing : null} weak={locating && compass.weak} headingUp={headingUp} onToggle={() => setHeadingUp((v) => !v)} top={navigating ? 'top-[7.75rem]' : undefined} />
+      <Compass rotation={rotation} facing={locating ? facing : null} weak={locating && compass.weak} headingUp={headingUp} onToggle={() => setHeadingUp((v) => !v)} top={navigating ? 'top-[9.6rem]' : undefined} />
 
       <DirectionsControls
         key={exitDest?.id ?? 'dir'}
@@ -333,7 +350,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
       {phase === 'idle' && selHole && (
         <HoleCard
           key={selHole.n}
-          className="absolute bottom-4 left-3 right-[5.25rem] z-40 sm:left-24 sm:right-auto sm:w-[28rem]"
+          className="absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-3 right-[4.5rem] z-40 sm:left-24 sm:right-auto sm:w-[28rem]"
           hole={selHole}
           yards={near && near.hole.n === selHole.n ? near.yards : null}
           onClose={() => setHoleSel(null)}
@@ -346,7 +363,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
       {phase === 'idle' && !selHole && near && (
         <button
           onClick={() => openHole(near.hole.n)}
-          className={`pointer-events-auto absolute bottom-[7rem] left-3 right-[5.25rem] z-40 flex animate-slide-up items-center gap-3 rounded-[20px] px-3.5 py-2 text-left sm:left-24 sm:right-auto sm:w-[26rem] ${lxIvory}`}
+          className={`pointer-events-auto absolute bottom-[5.6rem] left-3 right-[4.5rem] z-40 flex animate-slide-up items-center gap-3 rounded-[20px] px-3.5 py-2 text-left sm:left-24 sm:right-auto sm:w-[26rem] ${lxIvory}`}
         >
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#0f2118] font-serif text-[22px] font-bold text-[#f1d9a6] ring-1 ring-[#c9a96e]">{near.hole.n}</span>
           <span className="min-w-0 flex-1">
@@ -357,7 +374,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
       )}
 
       {phase === 'idle' && !selHole && adPlot && (
-        <div className={`pointer-events-auto absolute bottom-4 left-3 right-[5.25rem] z-40 animate-slide-up rounded-[22px] p-3.5 sm:left-24 sm:right-auto sm:w-[26rem] ${lxIvory}`}>
+        <div data-dock="left" className={`pointer-events-auto absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-3 right-[4.5rem] z-40 animate-slide-up rounded-[22px] p-3 sm:left-24 sm:p-3.5 sm:right-auto sm:w-[26rem] ${lxIvory}`}>
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
               <div className={`${lxEyebrow} text-[#d9480f]`}>Vacant &middot; available now</div>
@@ -375,13 +392,13 @@ export default function PublicMap({ toId }: { toId?: string }) {
 
       {phase === 'idle' && !adPlot && !selHole && (
         <MapInfoCard
-          className="absolute bottom-4 left-3 right-[5.25rem] z-40 sm:left-24 sm:right-auto sm:w-[26rem]"
+          className="absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-3 right-[4.5rem] z-40 sm:left-24 sm:right-auto sm:w-[26rem]"
           onShowPlace={(id) => setExitDest(findPlace(id))}
         />
       )}
 
       {note && (
-        <div className={`pointer-events-none absolute inset-x-3 z-[60] mx-auto max-w-md rounded-2xl ${navigating ? 'bottom-24' : phase === 'preview' ? 'bottom-44' : 'bottom-28'}`}>
+        <div className={`pointer-events-none absolute left-3 right-[5.6rem] z-[60] rounded-2xl sm:left-5 sm:right-auto sm:max-w-sm ${navigating ? 'top-[9.5rem]' : 'top-[3.9rem]'}`}>
           <div className={`rounded-2xl px-4 py-2.5 text-center text-[13px] font-medium ${lxGlass}`}>{note}</div>
         </div>
       )}

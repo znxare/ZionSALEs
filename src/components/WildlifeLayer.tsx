@@ -90,7 +90,7 @@ function Peacock({ size }: { size: number }) {
   );
 }
 
-export function WildlifeLayer({ toScreen, zoom, upright, night = 0 }: { toScreen: (p: Pt) => number[]; zoom: number; upright?: CSSProperties; night?: number }) {
+export function WildlifeLayer({ toScreen, zoom, upright, night = 0, safe = null, viewport }: { toScreen: (p: Pt) => number[]; zoom: number; upright?: CSSProperties; night?: number; safe?: { top: number; bottom: number; right: number; left: number } | null; viewport?: { width: number; height: number } }) {
   const [open, setOpen] = useState<string | null>(null);
   if (zoom < 1.35) return null;
   const k = Math.min(2, Math.max(0.9, zoom / 1.6)); // creatures grow a little as you zoom in
@@ -98,6 +98,8 @@ export function WildlifeLayer({ toScreen, zoom, upright, night = 0 }: { toScreen
 
   const at = (pt: Pt, node: ReactNode, key: string, z = 15) => {
     const [x, y] = toScreen(pt);
+    // Nothing wanders behind the buttons, compass or cards.
+    if (safe && viewport && !(y > safe.top && y < viewport.height - safe.bottom && x < viewport.width - safe.right && x > safe.left)) return null;
     return (
       <div key={key} className="absolute" style={{ left: x, top: y, zIndex: z, ...upright, transformOrigin: '0 0' }}>{node}</div>
     );

@@ -73,7 +73,7 @@ export function WaterCautionBanner({ alert, top = 'top-[9.75rem]' }: { alert: Wa
   return (
     <div
       role="alert"
-      className={`pointer-events-none absolute inset-x-3 ${top} z-50 mx-auto flex max-w-md animate-slide-up items-center gap-3 rounded-[20px] px-4 py-3 ${lxCrimson}`}
+      className={`pointer-events-none absolute left-3 right-[4.75rem] sm:right-3 ${top} z-50 mx-auto flex max-w-md animate-slide-up items-center gap-3 rounded-[20px] px-4 py-3 ${lxCrimson}`}
     >
       <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#f1d9a6]/20 ring-1 ring-[#f1d9a6]/50 ${danger ? 'animate-pulse' : ''}`}>
         {danger || night ? <AlertTriangle className="h-6 w-6" /> : <Waves className="h-6 w-6" />}
@@ -81,7 +81,7 @@ export function WaterCautionBanner({ alert, top = 'top-[9.75rem]' }: { alert: Wa
       <div className="min-w-0">
         <div className="font-serif text-[19px] font-semibold leading-tight">{night ? 'Lake area closed after 6 PM' : danger ? 'Deep water right here — stay back' : 'Caution: deep water nearby'}</div>
         <div className="text-[12.5px] leading-snug text-white/90">
-          {night ? 'Going near the water at night is not permitted and not advisable. Move away from the edge now.' : danger ? 'Stop and move away from the edge. The bank can be steep and slippery.' : 'Keep well clear of the water’s edge. The lake is deep.'}
+          {night ? 'Not permitted and not advisable at night. Move away from the edge now.' : danger ? 'Stop and move away from the edge. The bank can be steep and slippery.' : 'Keep clear of the water’s edge. The lake is deep.'}
         </div>
       </div>
     </div>

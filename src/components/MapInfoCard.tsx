@@ -112,29 +112,28 @@ export function MapInfoCard({ onShowPlace, className = '' }: { onShowPlace: (pla
 
   return (
     <div
-      className={`pointer-events-auto ${className}`}
+      data-dock="left"
+      className={`pointer-events-auto [@media(max-height:460px)]:hidden ${className}`}
       onPointerEnter={() => setPaused(true)}
       onPointerLeave={() => setPaused(false)}
     >
       <div className={`overflow-hidden rounded-[20px] ${lxIvory}`}>
-        <div key={s.key} className="flex animate-slide-up items-center gap-3 py-2.5 pl-2.5 pr-1.5">
-          <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-[14px] ${tile}`}>{s.icon}</div>
+        <div key={s.key} className="flex animate-slide-up items-center gap-2.5 py-2 pl-2 pr-1 sm:gap-3 sm:py-2.5 sm:pl-2.5">
+          <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-[13px] sm:h-11 sm:w-11 sm:rounded-[14px] ${tile}`}>{s.icon}</div>
           <button type="button" onClick={() => setI((n) => n + 1)} className="min-w-0 flex-1 text-left" aria-label="Next">
-            <div className={`${lxEyebrow} mb-0.5 ${s.tone === 'ad' ? 'text-[#d9480f]' : s.tone === 'warn' ? 'text-[#a3241c]' : 'text-[#9a8450]'}`}>{s.tone === 'ad' ? 'Available now' : s.tone === 'warn' ? 'For your safety' : 'Zion Hills'}</div>
-            <div className="truncate font-serif text-[18px] font-semibold leading-tight text-[#13261c]">{s.title}</div>
-            <div className="line-clamp-2 text-[12px] leading-snug text-[#5b5a4c]">{s.text}</div>
+            <div className={`${lxEyebrow} mb-0.5 hidden sm:block ${s.tone === 'ad' ? 'text-[#d9480f]' : s.tone === 'warn' ? 'text-[#a3241c]' : 'text-[#9a8450]'}`}>{s.tone === 'ad' ? 'Available now' : s.tone === 'warn' ? 'For your safety' : 'Zion Hills'}</div>
+            <div className="truncate font-serif text-[17px] font-semibold leading-tight text-[#13261c] sm:text-[18px]">{s.title}</div>
+            <div className="line-clamp-1 text-[12px] leading-snug text-[#5b5a4c] sm:line-clamp-2">{s.text}</div>
           </button>
           {s.cta ? (
-            <button onClick={s.cta.run} className={`flex shrink-0 items-center gap-0.5 rounded-full px-3.5 py-2 text-[13px] font-semibold tracking-wide active:scale-95 ${lxOrange}`}>
-              {s.cta.label} <ChevronRight className="h-4 w-4" />
+            <button onClick={s.cta.run} aria-label={s.cta.label} className={`flex shrink-0 items-center gap-0.5 rounded-full p-2 text-[13px] font-semibold tracking-wide active:scale-95 sm:px-3.5 ${lxOrange}`}>
+              <span className="hidden sm:inline">{s.cta.label}</span> <ChevronRight className="h-5 w-5 sm:h-4 sm:w-4" />
             </button>
           ) : null}
-          <button onClick={() => setClosed(true)} aria-label="Close" className="shrink-0 self-start rounded-full p-1 text-[#b7a574] hover:bg-[#c9a96e]/[0.15] hover:text-[#8a7a52]"><X className="h-4 w-4" /></button>
+          <button onClick={() => setClosed(true)} aria-label="Hide these tips" className="shrink-0 self-start rounded-full p-1 text-[#b7a574] hover:bg-[#c9a96e]/[0.15] hover:text-[#8a7a52]"><X className="h-4 w-4" /></button>
         </div>
-        <div className="flex justify-center gap-1 pb-1.5">
-          {slides.map((sl, n) => (
-            <span key={sl.key} className={`h-1 rounded-full transition-all ${n === i % slides.length ? 'w-4 bg-[#c9a96e]' : 'w-1 bg-[#c9a96e]/30'}`} />
-          ))}
+        <div className="h-[2px] w-full bg-[#c9a96e]/[0.18]">
+          <div key={`${s.key}-${i}`} className="h-full origin-left bg-[#c9a96e]" style={{ animation: `zh-progress ${ROTATE_MS}ms linear`, animationPlayState: paused ? 'paused' : 'running' }} />
         </div>
       </div>
     </div>

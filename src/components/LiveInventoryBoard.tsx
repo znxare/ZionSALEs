@@ -698,7 +698,7 @@ function ZoomPanMap({
       </div>
 
       {/* Zoom controls */}
-      <div className={`absolute bottom-3 left-3 z-30 flex flex-col overflow-hidden ${luxury ? 'rounded-[16px] bg-[#0f2118]/[0.92] ring-1 ring-[#c9a96e]/[0.45] shadow-[0_12px_28px_-10px_rgba(5,14,9,0.6)] backdrop-blur-xl' : 'rounded-xl border border-black/5 bg-white/95 shadow backdrop-blur'} ${controlsClassName}`}>
+      <div className={`absolute bottom-3 left-3 z-30 flex flex-col overflow-hidden ${luxury ? 'max-sm:hidden rounded-[16px] bg-[#0f2118]/[0.92] ring-1 ring-[#c9a96e]/[0.45] shadow-[0_12px_28px_-10px_rgba(5,14,9,0.6)] backdrop-blur-xl' : 'rounded-xl border border-black/5 bg-white/95 shadow backdrop-blur'} ${controlsClassName}`}>
         <button onClick={() => zoomBy(0.6)} aria-label="Zoom in" className={luxury ? 'p-2.5 text-[#e9d8aa] hover:bg-white/10 active:bg-white/[0.15]' : 'p-2.5 text-gray-600 hover:bg-gray-50 active:bg-gray-100'}>
           <Plus className="h-4 w-4" />
         </button>
@@ -931,7 +931,7 @@ export function MasterPlanBoard({
       <ZoomPanMap
         cover={cover}
         // On phones the zoom buttons sit mid-left, clear of the directions banner and bottom buttons.
-        controlsClassName={large ? 'max-sm:bottom-auto max-sm:top-1/2 max-sm:-translate-y-1/2 sm:scale-125 sm:origin-bottom-left' : ''}
+        controlsClassName={large ? 'max-sm:bottom-auto max-sm:top-[55%] max-sm:-translate-y-1/2 sm:scale-125 sm:origin-bottom-left' : ''}
         luxury={publicView}
         focus={shownFocus}
         onUserMove={onUserMove}
@@ -956,6 +956,8 @@ export function MasterPlanBoard({
             viewport.width / 2 + pan.x + zoom * ((px / 100) * size.width - size.width / 2),
             viewport.height / 2 + pan.y + zoom * ((py / 100) * size.height - size.height / 2),
           ];
+          // Where the buttons, compass and cards sit (adverts and wildlife keep clear of it).
+          const safe = publicView ? (viewport.width < 640 ? { top: 100, bottom: 170, right: 72, left: 84 } : { top: 80, bottom: 130, right: 96, left: 90 }) : null;
           // Labels stay upright even when the map is turned (heading-up).
           const upright = turned ? { transform: `rotate(${turned}deg)` } : undefined;
           const extras = (
@@ -967,7 +969,7 @@ export function MasterPlanBoard({
                   <polyline points={routePts.map((q) => toScreen(q).join(',')).join(' ')} fill="none" stroke="white" strokeOpacity={0.7} strokeWidth={2} strokeDasharray="2 10" strokeLinecap="round" className="animate-route-flow" />
                 </svg>
               )}
-              {wildlife && <WildlifeLayer toScreen={toScreen} zoom={zoom} upright={upright} night={night} />}
+              {wildlife && <WildlifeLayer toScreen={toScreen} zoom={zoom} upright={upright} night={night} safe={safe} viewport={viewport} />}
               {holeTrail && (() => {
                 const [t, m, g] = [toScreen(holeTrail.tee), toScreen(holeTrail.mid), toScreen(holeTrail.green)];
                 const d = `M ${t[0]} ${t[1]} Q ${m[0] * 2 - (t[0] + g[0]) / 2} ${m[1] * 2 - (t[1] + g[1]) / 2} ${g[0]} ${g[1]}`;
@@ -1016,6 +1018,9 @@ export function MasterPlanBoard({
                 if (!ad.featured && !picked && zoom < 1.9) return null;
                 const [ax, ay] = toScreen(ad.pt);
                 const sponsor = ad.kind === 'sponsor';
+                // Keep adverts out of the zones the buttons and cards live in.
+                const clear = !safe || (ay > safe.top && ay < viewport.height - safe.bottom && ax < viewport.width - safe.right && ax > safe.left);
+                if (!clear && !picked) return null;
                 return (
                   <div key={`ad-${ad.id}`} className={`absolute ${picked ? 'z-30' : 'z-20'}`} style={{ left: ax, top: ay, ...upright, transformOrigin: '0 0' }}>
                     <button

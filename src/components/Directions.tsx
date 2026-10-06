@@ -32,7 +32,7 @@ export function DirectionsControls({ from, toGps, offRoad = false, initialDestin
   /** Google Maps-style: choosing a place shows a route preview with a Start button; Start begins turn-by-turn navigation. */
   guided?: boolean;
   /** Guided: Start was tapped (the parent starts locating, follows the position, …). */
-  onStart?: () => void;
+  onStart?: () => boolean | void;
   onPhase?: (phase: DirectionsPhase) => void;
   /** The parent has its own Directions button: hide this one. */
   hidePill?: boolean;
@@ -131,7 +131,7 @@ export function DirectionsControls({ from, toGps, offRoad = false, initialDestin
           offRoad={offRoad}
           arrived={arrived}
           passesWater={passesWater}
-          onStart={() => { setNavigating(true); setArrived(false); onStart?.(); }}
+          onStart={() => { if (onStart?.() === false) return; setNavigating(true); setArrived(false); }}
           onEnd={() => { setDest(null); setArrived(false); setNavigating(false); }}
         />
       )}
@@ -292,12 +292,12 @@ function GuidedPanels({ phase, dest, live, origin, start, route, guide, next, of
 
   if (phase === 'preview') {
     return (
-      <div className={`pointer-events-auto fixed inset-x-3 bottom-4 z-[55] mx-auto max-w-md animate-slide-up rounded-[26px] px-4 pb-4 pt-3.5 ${lxIvory}`}>
+      <div data-dock="full" className={`pointer-events-auto fixed inset-x-3 bottom-[max(1rem,env(safe-area-inset-bottom))] z-[55] [@media(max-height:460px)]:left-24 mx-auto max-w-md [@media(max-height:460px)]:right-auto [@media(max-height:460px)]:mx-0 [@media(max-height:460px)]:w-[24rem] animate-slide-up rounded-[24px] px-3.5 pb-3.5 pt-3 sm:rounded-[26px] sm:px-4 sm:pb-4 sm:pt-3.5 ${lxIvory}`}>
         <div className="flex items-start gap-3">
           <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-[14px] ${lxOrange}`}><Navigation2 className="h-5 w-5" /></div>
           <div className="min-w-0 flex-1">
             <div className={`${lxEyebrow} text-[#9a8450]`}>Your route</div>
-            <div className="truncate font-serif text-[24px] font-semibold leading-tight text-[#13261c]">{dest.label}</div>
+            <div className="truncate font-serif text-[22px] font-semibold leading-tight text-[#13261c] sm:text-[24px]">{dest.label}</div>
             <div className="truncate text-[13px] text-[#5b5a4c]">
               {!route ? 'No road inside the estate to here' : total != null ? `${mins} min \u00b7 ${distanceWords(total)}` : ''}
               {route ? ` \u00b7 ${live ? 'from your location' : `from ${start.label}`}` : ''}
@@ -313,7 +313,7 @@ function GuidedPanels({ phase, dest, live, origin, start, route, guide, next, of
         >
           <Navigation2 className="h-5 w-5" /> Start
         </button>
-        {!live && <p className="mt-2 text-center text-[12px] text-[#8a7a52]">Start uses your location to guide you turn by turn.</p>}
+        {!live && <p className="mt-1.5 hidden text-center text-[12px] text-[#8a7a52] [@media(min-height:700px)]:block">Start uses your location to guide you turn by turn.</p>}
       </div>
     );
   }
@@ -322,7 +322,7 @@ function GuidedPanels({ phase, dest, live, origin, start, route, guide, next, of
   const bad = live && offRoad;
   return (
     <>
-      <div className={`pointer-events-auto fixed inset-x-3 top-[max(0.75rem,env(safe-area-inset-top))] z-[55] mx-auto max-w-md animate-slide-up rounded-[22px] px-4 py-3 ${bad ? 'bg-gradient-to-br from-[#a3241c] to-[#7a1712] text-white ring-1 ring-[#f1d9a6]/[0.55] shadow-[0_14px_30px_-10px_rgba(122,23,18,0.7)]' : lxGlass}`}>
+      <div className={`pointer-events-auto fixed inset-x-3 top-[max(0.75rem,env(safe-area-inset-top))] z-[55] mx-auto max-w-md [@media(max-height:460px)]:right-auto [@media(max-height:460px)]:mx-0 [@media(max-height:460px)]:w-[24rem] animate-slide-up rounded-[22px] px-4 py-3 ${bad ? 'bg-gradient-to-br from-[#a3241c] to-[#7a1712] text-white ring-1 ring-[#f1d9a6]/[0.55] shadow-[0_14px_30px_-10px_rgba(122,23,18,0.7)]' : lxGlass}`}>
         {arrived ? (
           <div className="flex items-center gap-3">
             <CheckCircle2 className="h-9 w-9 shrink-0 text-[#e3c98d]" />
@@ -352,7 +352,7 @@ function GuidedPanels({ phase, dest, live, origin, start, route, guide, next, of
         )}
       </div>
 
-      <div className={`pointer-events-auto fixed inset-x-3 bottom-4 z-[55] mx-auto flex max-w-md animate-slide-up items-center gap-3 rounded-[22px] px-4 py-3 ${lxIvory}`}>
+      <div data-dock="full" className={`pointer-events-auto fixed inset-x-3 bottom-[max(1rem,env(safe-area-inset-bottom))] z-[55] [@media(max-height:460px)]:left-24 mx-auto flex max-w-md [@media(max-height:460px)]:right-auto [@media(max-height:460px)]:mx-0 [@media(max-height:460px)]:w-[24rem] animate-slide-up items-center gap-3 rounded-[22px] px-4 py-2.5 sm:py-3 ${lxIvory}`}>
         <div className="min-w-0 flex-1">
           <div className="font-serif text-[30px] font-semibold leading-none text-[#13261c]">{arrived ? 'Arrived' : mins != null ? `${mins} min` : '\u2014'}</div>
           <div className="mt-0.5 truncate text-[13px] text-[#5b5a4c]">{total != null && !arrived ? `${distanceWords(total)} \u00b7 ` : ''}{dest.label}</div>
