@@ -98,7 +98,7 @@ export function DirectionsControls({ from, toGps, spots = [], onView, className 
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[15px] font-bold text-gray-900">{dest.label}</div>
                 <div className="truncate text-[13px] text-gray-500">
-                  {!origin ? 'Waiting for your location…' : !route ? 'No open road to here yet — go from the main road' : live ? (describeDistance(metres) ?? 'Follow the orange line') : `From ${start.label}${metres != null ? ` · ${describeDistance(metres)}` : ''}`}
+                  {!origin ? 'Waiting for your location…' : !route ? 'No road inside the estate — the north side is reached by the existing road (North entry)' : live ? (describeDistance(metres) ?? 'Follow the orange line') : `From ${start.label}${metres != null ? ` · ${describeDistance(metres)}` : ''}`}
                 </div>
               </div>
               <button onClick={() => setDest(null)} aria-label="End directions" className="rounded-full p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
