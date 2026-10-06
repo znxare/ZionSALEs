@@ -37,21 +37,54 @@ export const PLOT_PLACES: Place[] = SAMPLE_PLOTS.map((p) => ({ id: `plot-${p.id}
 
 // ---------- road graph (built once, on first use) ----------
 
+/**
+ * Cart paths the plan's grey roads don't include, traced by hand (% of the
+ * plan). Each path's first point is joined to the nearest road.
+ * - Main road by the basketball courts → past the Sports courts → up the cart
+ *   path → into the Golf practice range (marked on the plan by the sales team, 6 Oct 2026).
+ */
+const EXTRA_PATHS: MapPt[][] = [
+  [
+    [42.68, 57.25], [43.28, 56.72], [43.84, 56.27], [44.48, 55.14], [45.16, 54.23], [45.26, 53.61], [45.4, 52.93],
+    [45.76, 52.68], [46.16, 52.42], [46.44, 52.14], [46.6, 51.69], [46.68, 51.01], [46.7, 50.33], [46.6, 49.77],
+    [46.42, 49.31], [46.28, 48.75], [46.24, 48.07], [46.26, 47.39], [46.36, 46.88], [46.52, 46.6], [46.8, 46.43],
+    [47.12, 46.32], [47.34, 46.66], [47.6, 47.28],
+  ],
+];
+
 type Graph = { xs: Int16Array; ys: Int16Array; index: Map<number, number>; n: number };
 let graph: Graph | null = null;
 
 function getGraph(): Graph {
   if (graph) return graph;
   const bin = atob(ROAD_PIXELS_B64);
-  const n = bin.length / 4;
-  const xs = new Int16Array(n), ys = new Int16Array(n);
+  const xs: number[] = [], ys: number[] = [];
   const index = new Map<number, number>();
-  for (let i = 0; i < n; i++) {
-    xs[i] = bin.charCodeAt(i * 4) | (bin.charCodeAt(i * 4 + 1) << 8);
-    ys[i] = bin.charCodeAt(i * 4 + 2) | (bin.charCodeAt(i * 4 + 3) << 8);
-    index.set(ys[i] * ROAD_GRID.width + xs[i], i);
+  const add = (x: number, y: number) => {
+    const k = y * ROAD_GRID.width + x;
+    if (index.has(k)) return;
+    index.set(k, xs.length); xs.push(x); ys.push(y);
+  };
+  for (let i = 0; i < bin.length / 4; i++) {
+    add(bin.charCodeAt(i * 4) | (bin.charCodeAt(i * 4 + 1) << 8), bin.charCodeAt(i * 4 + 2) | (bin.charCodeAt(i * 4 + 3) << 8));
   }
-  graph = { xs, ys, index, n };
+  const roadCount = xs.length;
+  // Lay each extra path into the grid as an 8-connected line of pixels.
+  const line = (ax: number, ay: number, bx: number, by: number) => {
+    const steps = Math.max(Math.abs(bx - ax), Math.abs(by - ay)) || 1;
+    for (let s = 0; s <= steps; s++) add(Math.round(ax + ((bx - ax) * s) / steps), Math.round(ay + ((by - ay) * s) / steps));
+  };
+  for (const path of EXTRA_PATHS) {
+    const grid = path.map((pt) => toGrid(pt).map(Math.round) as [number, number]);
+    let best = 0, bd = Infinity;
+    for (let i = 0; i < roadCount; i++) {
+      const d = (xs[i] - grid[0][0]) ** 2 + (ys[i] - grid[0][1]) ** 2;
+      if (d < bd) { bd = d; best = i; }
+    }
+    line(xs[best], ys[best], grid[0][0], grid[0][1]);
+    for (let i = 1; i < grid.length; i++) line(grid[i - 1][0], grid[i - 1][1], grid[i][0], grid[i][1]);
+  }
+  graph = { xs: Int16Array.from(xs), ys: Int16Array.from(ys), index, n: xs.length };
   return graph;
 }
 
