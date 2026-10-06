@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Navigation2, X, Search, MapPin, Home, Layers, CheckCircle2, Waves } from 'lucide-react';
+import { Navigation2, X, Search, MapPin, Home, Layers, CheckCircle2, Waves, ArrowUp, ArrowUpLeft, ArrowUpRight, CornerUpLeft, CornerUpRight, Undo2, Flag, Volume2, VolumeX } from 'lucide-react';
 import { AMENITIES, VILLAS, PLOT_PLACES, findRoute, type Place } from '@/lib/directions';
 import type { MapPt } from '@/lib/tour';
 import { routeWaterContact, WATER_CAUTION_M } from '@/lib/water';
+import { maneuversOf, turnWords, distanceWords, type TurnKind } from '@/lib/turns';
+import { speak, useVoiceEnabled, setVoiceEnabled, voiceAvailable } from '@/lib/voice';
 
 // Directions and map layers, shared by the live tour (from the cart's GPS
 // position) and buyer presentation (from a chosen starting place).
@@ -38,6 +40,47 @@ export function DirectionsControls({ from, toGps, offRoad = false, initialDestin
 
   // Does the road run close to a lake? Said in the banner, ahead of time.
   const passesWater = useMemo(() => !!route && route.points.length > 1 && routeWaterContact(route.points).metres <= WATER_CAUTION_M, [route]);
+
+  // Turn-by-turn (live position only). The route is rebuilt from the traveller's position at
+  // every fix, so its first turn is always the next one to make.
+  const guide = useMemo(() => (live && route && route.points.length > 1 ? maneuversOf(route.points) : null), [live, route]);
+  const next = guide?.steps[0] ?? null;
+  const voiceOn = useVoiceEnabled();
+  const spoken = useRef(new Set<string>());
+  const turnId = useRef<{ kind: TurnKind; at: MapPt; id: string } | null>(null);
+  useEffect(() => { spoken.current = new Set(); turnId.current = null; }, [dest]);
+
+  useEffect(() => {
+    if (!dest || !live) return;
+    if (!spoken.current.has('start')) { spoken.current.add('start'); speak(`Directions to ${dest.label} started. Follow the orange line.`); }
+  }, [dest, live]);
+
+  useEffect(() => {
+    if (!next || !guide || offRoad || arrived) return;
+    // Say each turn three times: well ahead, then close, then now. If a stage was skipped (fast
+    // driving, a gap in GPS) only the latest is spoken.
+    // The same turn is found a few metres apart as the route is rebuilt each fix, so treat turns of
+    // the same kind within ~35 m as one.
+    const prev = turnId.current;
+    const same = prev && prev.kind === next.kind && Math.hypot((prev.at[0] - next.at[0]) * 23.7, (prev.at[1] - next.at[1]) * 16.9) < 35;
+    if (!same) turnId.current = { kind: next.kind, at: next.at, id: `${next.kind}@${next.at[0].toFixed(2)},${next.at[1].toFixed(2)}` };
+    const id = turnId.current!.id;
+    const stage = next.s <= 40 ? 'now' : next.s <= 150 ? 'near' : next.s <= 400 ? 'far' : null;
+    if (!stage) return;
+    const order = ['far', 'near', 'now'];
+    const mine = order.indexOf(stage);
+    if (order.slice(mine).some((st) => spoken.current.has(`${id}:${st}`))) return;
+    order.slice(0, mine + 1).forEach((st) => spoken.current.add(`${id}:${st}`));
+    const where = next.kind === 'arrive' ? `arrive at ${dest?.label ?? 'your destination'}` : turnWords(next.kind).toLowerCase();
+    speak(stage === 'now' ? (next.kind === 'arrive' ? `You will arrive at ${dest?.label ?? 'your destination'}` : `${turnWords(next.kind)} now`) : `In ${distanceWords(next.s).replace(' m', ' metres').replace(' km', ' kilometres')}, ${where}`);
+  }, [next?.kind, next?.at[0], next?.at[1], next && Math.round(next.s / 10), offRoad, arrived]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!live || !dest) return;
+    if (offRoad) { if (!spoken.current.has('off')) { spoken.current.add('off'); speak("You have left the road. Get back on it."); } }
+    else spoken.current.delete('off');
+  }, [offRoad, live, dest]);
+  useEffect(() => { if (arrived && dest) speak(`You have arrived at ${dest.label}`); }, [arrived]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Arrival (live tour): within ~25 m of the destination.
   useEffect(() => {
@@ -100,16 +143,40 @@ export function DirectionsControls({ from, toGps, offRoad = false, initialDestin
             </div>
           ) : (
             <div className="flex items-center gap-3">
-              <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-white ${live && offRoad ? 'bg-red-600' : 'bg-[#f05a22]'}`}><Navigation2 className="h-5 w-5" /></div>
+              {guide && next && !offRoad ? (
+                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-[#f05a22] text-white"><TurnIcon kind={next.kind} className="h-9 w-9" /></div>
+              ) : (
+                <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-white ${live && offRoad ? 'bg-red-600' : 'bg-[#f05a22]'}`}><Navigation2 className="h-5 w-5" /></div>
+              )}
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[15px] font-bold text-gray-900">{dest.label}</div>
-                <div className={`truncate text-[13px] ${live && offRoad ? 'font-semibold text-red-600' : 'text-gray-500'}`}>
-                  {!origin ? 'Waiting for your location…' : !route ? 'No road inside the estate to here' : live && offRoad ? "You've left the road — get back on it" : live ? 'Follow the orange line' : `From ${start.label}`}
-                </div>
+                {guide && next && !offRoad ? (
+                  <>
+                    <div className="truncate text-[20px] font-extrabold leading-tight text-gray-900">{next.s <= 25 ? 'Now' : `In ${distanceWords(next.s)}`}</div>
+                    <div className="truncate text-[15px] font-bold leading-tight text-[#f05a22]">{next.kind === 'arrive' ? `Arrive at ${dest.label}` : turnWords(next.kind)}</div>
+                    <div className="truncate text-[12px] text-gray-500">{dest.label} · {distanceWords(guide.total)} to go</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="truncate text-[15px] font-bold text-gray-900">{dest.label}</div>
+                    <div className={`truncate text-[13px] ${live && offRoad ? 'font-semibold text-red-600' : 'text-gray-500'}`}>
+                      {!origin ? 'Waiting for your location…' : !route ? 'No road inside the estate to here' : live && offRoad ? "You've left the road — get back on it" : live ? 'Follow the orange line' : `From ${start.label}`}
+                    </div>
+                  </>
+                )}
                 {passesWater && !!route && (
                   <div className="mt-0.5 flex items-center gap-1 text-[12px] font-semibold text-red-600"><Waves className="h-3.5 w-3.5 shrink-0" /> Route passes close to deep water — go slowly</div>
                 )}
               </div>
+              {live && voiceAvailable() && (
+                <button
+                  onClick={() => setVoiceEnabled(!voiceOn)}
+                  aria-label={voiceOn ? 'Mute voice directions' : 'Turn on voice directions'}
+                  aria-pressed={voiceOn}
+                  className={`rounded-full p-2 hover:bg-gray-100 ${voiceOn ? 'text-[#f05a22]' : 'text-gray-400'}`}
+                >
+                  {voiceOn ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
+                </button>
+              )}
               <button onClick={() => setDest(null)} aria-label="End directions" className="rounded-full p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
             </div>
           )}
@@ -193,4 +260,9 @@ function PlacePicker({ live, start, onStart, onPick, onClose }: {
     </div>,
     document.body,
   );
+}
+
+function TurnIcon({ kind, className }: { kind: TurnKind; className?: string }) {
+  const Icon = { left: CornerUpLeft, right: CornerUpRight, 'slight-left': ArrowUpLeft, 'slight-right': ArrowUpRight, uturn: Undo2, arrive: Flag }[kind] ?? ArrowUp;
+  return <Icon className={className} strokeWidth={2.5} />;
 }

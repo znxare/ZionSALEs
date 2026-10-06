@@ -4,6 +4,7 @@ import { MasterPlanBoard, type MapFocus, type TourMarker } from './LiveInventory
 import { DirectionsControls, type DirectionsView } from './Directions';
 import { fitTransform, loadPublicCalibration, smoothFix, bearing, distanceM, HeadingTracker, MIN_HEADING_SPEED, type Calibration, type GpsFix } from '@/lib/tour';
 import Compass from './Compass';
+import { EmergencyButton } from './EmergencyButton';
 import { useWaterCaution, WaterCautionBanner } from './WaterCaution';
 import { findPlace } from '@/lib/directions';
 import { SAMPLE_PLOTS } from '@/lib/inventory';
@@ -38,6 +39,8 @@ export default function PublicMap({ toId }: { toId?: string }) {
   const turn = useRef(0);
   const centred = useRef(false);
   const initialDest = useMemo(() => (toId ? findPlace(toId) : undefined), [toId]);
+  // The Emergency sheet's "way out" picks the destination (remounts the directions control with it chosen).
+  const [exitDest, setExitDest] = useState<ReturnType<typeof findPlace>>(undefined);
 
   useEffect(() => {
     document.title = 'Map & directions · Zion Hills Golf County';
@@ -167,6 +170,13 @@ export default function PublicMap({ toId }: { toId?: string }) {
               </button>
             )
           )}
+          <EmergencyButton
+            position={fix ? { lat: fix.lat, lng: fix.lng } : null}
+            onPlan={onPlan && marker ? marker.pt : null}
+            locating={locating}
+            onLocate={() => setLocating(true)}
+            onRouteToGate={() => setExitDest(findPlace('entry-main'))}
+          />
           <button onClick={share} className={pill}>
             {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Share2 className="h-4 w-4" />}
             <span className="hidden sm:inline">{copied ? 'Link copied' : 'Share'}</span>
@@ -179,10 +189,11 @@ export default function PublicMap({ toId }: { toId?: string }) {
       <Compass rotation={rotation} headingUp={headingUp} onToggle={() => setHeadingUp((v) => !v)} />
 
       <DirectionsControls
+        key={exitDest?.id ?? 'dir'}
         className="absolute left-3 top-16 z-40 sm:left-5"
         from={from}
         toGps={tf ? (pt) => tf.toGps(pt) : null}
-        initialDestination={initialDest}
+        initialDestination={exitDest ?? initialDest}
         onView={setDirView}
       />
 

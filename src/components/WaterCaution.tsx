@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Waves } from 'lucide-react';
 import { nearestWater, WATER_CAUTION_M, WATER_CLEAR_M, WATER_DANGER_M } from '@/lib/water';
 import type { MapPt } from '@/lib/tour';
+import { speak } from '@/lib/voice';
 
 // Deep-water caution for anyone with a live position: a banner and a red outline round
 // the lake once they come within WATER_CAUTION_M of its edge.
@@ -19,6 +20,7 @@ export function useWaterCaution(pt: MapPt | null): WaterAlert | null {
     const near = wasNear.current ? metres <= WATER_CLEAR_M : metres <= WATER_CAUTION_M;
     if (near && !wasNear.current) {
       try { navigator.vibrate?.([200, 100, 200]); } catch { /* not supported */ }
+      speak('Caution. Deep water nearby. Keep clear of the water’s edge.');
     }
     wasNear.current = near;
     setAlert((prev) => {
