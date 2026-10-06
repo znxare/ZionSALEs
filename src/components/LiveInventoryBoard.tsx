@@ -10,6 +10,10 @@ import { WATER_BODIES } from '@/lib/waterBodies';
 import { useSmoothedAngle } from '@/lib/smoothAngle';
 import { WildlifeLayer } from './WildlifeLayer';
 import { NightLayer } from './NightLayer';
+import { DaylightLayer } from './DaylightLayer';
+import { CartsLayer } from './CartsLayer';
+import { AmbientLayer } from './AmbientLayer';
+import type { Daylight } from '@/lib/daylight';
 import { BUDGETS, inBudget, outlineOf, centroidOf, plotAt, SHAPE_COLORS, plotShareLink, type BudgetId } from '@/lib/plotMap';
 import { getCurrentUser } from '@/lib/auth';
 import { createQuoteLink, quoteUrl, quoteMessage, whatsappTo } from '@/lib/quoteLinks';
@@ -856,7 +860,7 @@ export type HoleTrail = { n: number; tee: [number, number]; mid: [number, number
 export type TourMarker = { pt: [number, number]; accuracyPct?: number; heading?: number | null };
 
 export function MasterPlanBoard({
-  plots, highlight = null, onSelect, large, selectedId, tooltip = 'internal', bare, cover, publicView, waterAlert = null, wildlife = false, night = 0, adPins = [], selectedAdId = null, onAdTap, holePins = [], holeTrail = null, onHoleTap,
+  plots, highlight = null, onSelect, large, selectedId, tooltip = 'internal', bare, cover, publicView, waterAlert = null, wildlife = false, night = 0, daylight = null, ambient = false, adPins = [], selectedAdId = null, onAdTap, holePins = [], holeTrail = null, onHoleTap,
   marker = null, focus = null, onUserMove, onMapPoint, pins = [], rotation = 0, turnable = false, route = null, places = [], destination = null, offRoad = false,
 }: {
   plots: Plot[];
@@ -876,6 +880,10 @@ export function MasterPlanBoard({
   publicView?: boolean;
   /** 0 = day … 1 = night: the plan darkens and the roads get lamps. */
   night?: number;
+  /** The light of the day: golden hour, dawn mist, sparkle on the water. */
+  daylight?: Daylight | null;
+  /** Golf carts on the roads, flags on the greens, a glint on the clubhouse. */
+  ambient?: boolean;
   /** Public map: swaying groves, peacocks, birds and parrots drawn on the map. */
   wildlife?: boolean;
   /** The hole layer (see HolePin / HoleTrail). */
@@ -947,6 +955,8 @@ export function MasterPlanBoard({
           <>
             <MasterPlanImage view={view} loaded={loaded} onLoad={() => setLoaded(true)} />
             {loaded && night > 0.001 && <NightLayer level={night} />}
+            {loaded && daylight && <DaylightLayer light={daylight} night={night} />}
+            {loaded && ambient && view.zoom >= 1.25 && <CartsLayer night={night} />}
             {loaded && <PlotShapes plots={plots} highlight={highlight} hoverId={hoverId} selectedId={selectedId} large={large} waterAlert={waterAlert} />}
           </>
         )}
@@ -969,6 +979,7 @@ export function MasterPlanBoard({
                   <polyline points={routePts.map((q) => toScreen(q).join(',')).join(' ')} fill="none" stroke="white" strokeOpacity={0.7} strokeWidth={2} strokeDasharray="2 10" strokeLinecap="round" className="animate-route-flow" />
                 </svg>
               )}
+              {ambient && <AmbientLayer toScreen={toScreen} zoom={zoom} upright={upright} sun={1 - night} safe={safe} viewport={viewport} />}
               {wildlife && <WildlifeLayer toScreen={toScreen} zoom={zoom} upright={upright} night={night} safe={safe} viewport={viewport} />}
               {holeTrail && (() => {
                 const [t, m, g] = [toScreen(holeTrail.tee), toScreen(holeTrail.mid), toScreen(holeTrail.green)];

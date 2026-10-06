@@ -11,8 +11,10 @@ import Compass from './Compass';
 import { EmergencyButton } from './EmergencyButton';
 import { MapInfoCard } from './MapInfoCard';
 import { useNightControl } from '@/lib/night';
+import { useDaylight } from '@/lib/daylight';
+import { WelcomeGreeting, greetingFor, guestFromLink } from './WelcomeGreeting';
 import { useWaterCaution, WaterCautionBanner } from './WaterCaution';
-import { findPlace } from '@/lib/directions';
+import { findPlace, planMetres } from '@/lib/directions';
 import { SAMPLE_PLOTS } from '@/lib/inventory';
 import { centroidOf } from '@/lib/plotMap';
 import { SPONSORS } from '@/lib/mapInfo';
@@ -58,6 +60,9 @@ export default function PublicMap({ toId }: { toId?: string }) {
   const [holesOn, setHolesOn] = useState(false);
   const [holeSel, setHoleSel] = useState<number | null>(null);
   const { level: night, isNight, toggle: toggleNight } = useNightControl();
+  const daylight = useDaylight(night);
+  const [greet, setGreet] = useState<{ eyebrow: string; title: string } | null>(null);
+  const arrivedShown = useRef(false);
   // Height of whichever full-width panel (route preview / navigation bar) is sitting at the bottom, so the buttons stand just above it.
   const [dock, setDock] = useState(0);
   useEffect(() => {
@@ -195,6 +200,28 @@ export default function PublicMap({ toId }: { toId?: string }) {
     setFocus({ pt: [(Math.max(...xs) + Math.min(...xs)) / 2, (Math.max(...ys) + Math.min(...ys)) / 2 + 4], zoom, exact: true, nonce: Date.now() });
   }, [phase, destX, destY]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The opening: a greeting for the time of day, and the map gliding in to the main gate (once per visit).
+  useEffect(() => {
+    if (toId) return; // a shared destination goes straight to its route
+    try { if (sessionStorage.getItem('zion-welcomed')) return; sessionStorage.setItem('zion-welcomed', '1'); } catch { /* no storage */ }
+    const guest = guestFromLink();
+    setGreet({ eyebrow: greetingFor(), title: guest ? `Welcome, ${guest}` : 'Welcome to Zion Hills' });
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const gate = findPlace('entry-main');
+    const t = window.setTimeout(() => { if (gate) setFocus({ pt: gate.pt, zoom: 2.1, exact: true, durationMs: 3200, nonce: Date.now() }); }, 900);
+    return () => window.clearTimeout(t);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Arriving at the gate in person gets its own welcome.
+  useEffect(() => {
+    if (arrivedShown.current || !onPlan || markerX === undefined || markerY === undefined) return;
+    const gate = findPlace('entry-main');
+    if (gate && planMetres([[markerX, markerY], gate.pt]) < 70) {
+      arrivedShown.current = true;
+      setGreet({ eyebrow: 'You have arrived', title: 'Welcome to Zion Hills' });
+    }
+  }, [markerX, markerY, onPlan]);
+
   // Messages fade away on their own.
   useEffect(() => {
     if (!note) return;
@@ -258,6 +285,8 @@ export default function PublicMap({ toId }: { toId?: string }) {
           waterAlert={waterAlert?.index ?? null}
           wildlife={phase === 'idle'}
           night={night}
+          daylight={daylight}
+          ambient={phase === 'idle'}
           adPins={phase === 'idle' ? adPins : []}
           holePins={holePins}
           holeTrail={holeTrail}
@@ -404,6 +433,8 @@ export default function PublicMap({ toId }: { toId?: string }) {
           onShowPlace={(id) => setExitDest(findPlace(id))}
         />
       )}
+
+      {greet && <WelcomeGreeting eyebrow={greet.eyebrow} title={greet.title} onDone={() => setGreet(null)} />}
 
       {note && (
         <div className={`pointer-events-none absolute left-3 right-[5.6rem] z-[60] rounded-2xl sm:left-5 sm:right-auto sm:max-w-sm ${navigating ? 'top-[9.5rem]' : 'top-[3.9rem]'}`}>

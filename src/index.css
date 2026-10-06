@@ -327,6 +327,11 @@ body {
   100% { transform: translate(calc(var(--fx, 14px) * -0.6), calc(var(--fy, -10px) * 1.6)); opacity: 0; }
 }
 @keyframes zh-progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes zh-mist { from { transform: translate(-0.7px, 0.2px); } to { transform: translate(0.7px, -0.2px); } }
+@keyframes zh-twinkle { 0%, 100% { opacity: 0; } 45%, 55% { opacity: 1; } }
+@keyframes zh-wave { 0%, 100% { transform: skewY(-7deg) scaleX(1); } 50% { transform: skewY(7deg) scaleX(0.88); } }
+@keyframes zh-glint { 0%, 78%, 100% { opacity: 0; transform: scale(0.3) rotate(0deg); } 86% { opacity: 1; transform: scale(1) rotate(20deg); } 94% { opacity: 0; transform: scale(0.4) rotate(45deg); } }
+@keyframes zh-welcome { 0% { opacity: 0; transform: translateY(10px); } 14%, 80% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-6px); } }
 @keyframes zh-bubble { 0% { opacity: 0; transform: translateY(4px) scale(0.96); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
 @media (prefers-reduced-motion: reduce) {
   .zh-anim, .zh-anim * { animation: none !important; }
