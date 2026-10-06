@@ -757,7 +757,8 @@ export function MasterPlanBoard({
 
       <ZoomPanMap
         cover={cover}
-        controlsClassName={large ? 'scale-125 origin-bottom-left' : ''}
+        // On phones the zoom buttons sit mid-left, clear of the directions banner and bottom buttons.
+        controlsClassName={large ? 'max-sm:bottom-auto max-sm:top-1/2 max-sm:-translate-y-1/2 sm:scale-125 sm:origin-bottom-left' : ''}
         focus={focus}
         onUserMove={onUserMove}
         rotation={rotation}
