@@ -266,6 +266,39 @@ export function distanceM(a: { lat: number; lng: number }, b: { lat: number; lng
   return Math.hypot(x, y);
 }
 
+// ---------- direction of travel ----------
+
+/** Below this (m/s, ~4 km/h) a GPS "direction" is mostly noise: keep the last good one. */
+export const MIN_HEADING_SPEED = 1.2;
+
+/**
+ * Steady direction of travel for turning the map. GPS course is unreliable when
+ * slow or stopped (the reading wanders in every direction), so the map must not
+ * follow it then. This holds the last good heading when stopped, eases towards
+ * new readings (faster when the cart is going faster), and doesn't act on a
+ * sudden big swing at low speed until the next reading agrees with it.
+ */
+export class HeadingTracker {
+  heading: number | null = null;
+  private pending: number | null = null;
+
+  /** `course`: direction of travel in degrees from north (null when unknown); `speed` in m/s; `accuracy` in metres. */
+  update(course: number | null, speed: number, accuracy: number): number | null {
+    if (course == null || Number.isNaN(course) || speed < MIN_HEADING_SPEED || accuracy > 30) return this.heading;
+    const norm = ((course % 360) + 360) % 360;
+    if (this.heading == null) { this.heading = norm; return norm; }
+    const delta = ((norm - this.heading + 540) % 360) - 180;
+    if (Math.abs(delta) > 60 && speed < 3) {
+      const confirmed = this.pending != null && Math.abs(((norm - this.pending + 540) % 360) - 180) < 25;
+      if (!confirmed) { this.pending = norm; return this.heading; }
+    }
+    this.pending = null;
+    const w = Math.min(0.6, 0.2 + speed * 0.08);
+    this.heading = (this.heading + delta * w + 360) % 360;
+    return this.heading;
+  }
+}
+
 // ---------- GPS smoothing ----------
 
 /** Light exponential smoothing so the dot glides instead of jittering. */

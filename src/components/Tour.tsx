@@ -5,6 +5,7 @@ import { centroidOf } from '@/lib/plotMap';
 import { usePermissions } from '@/lib/access';
 import {
   fitTransform, loadCalibration, saveCalibration, joinTour, newPairCode, smoothFix, keepScreenOn, bearing, distanceM,
+  HeadingTracker, MIN_HEADING_SPEED,
   placedPoints, type Calibration, type CalPoint, type GpsFix, type MapPt, type TourMessage,
 } from '@/lib/tour';
 import { MasterPlanBoard, type TourMarker, type MapFocus } from './LiveInventoryBoard';
@@ -110,11 +111,15 @@ function useGps(active: boolean, sim: boolean, cal: Calibration | null) {
   const [fix, setFix] = useState<GpsFix | null>(null);
   const [error, setError] = useState<string | null>(null);
   const last = useRef<GpsFix | null>(null);
-  const lastRaw = useRef<{ lat: number; lng: number } | null>(null);
+  // A point well behind us, to work out the direction of travel from when the phone gives none.
+  const anchor = useRef<{ lat: number; lng: number; t: number } | null>(null);
+  const tracker = useRef(new HeadingTracker());
 
   useEffect(() => {
     if (!active) return;
     setError(null);
+    tracker.current = new HeadingTracker();
+    anchor.current = null;
     if (sim) {
       const tf = fitTransform(cal ?? SIM_CAL) ?? fitTransform(SIM_CAL)!;
       const route = simRoute();
@@ -123,7 +128,7 @@ function useGps(active: boolean, sim: boolean, cal: Calibration | null) {
         const a = route[i % route.length], b = route[(i + 1) % route.length];
         const pt: MapPt = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
         const g = tf.toGps(pt);
-        const heading = bearing(tf.toGps(a), tf.toGps(b));
+        const heading = tracker.current.update(bearing(tf.toGps(a), tf.toGps(b)), 4, 4);
         const next = { lat: g.lat, lng: g.lng, accuracy: 4, heading, t: Date.now() };
         last.current = next;
         setFix(next);
@@ -139,16 +144,25 @@ function useGps(active: boolean, sim: boolean, cal: Calibration | null) {
     const id = navigator.geolocation.watchPosition(
       (pos) => {
         const here = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        // Direction of travel: the phone's own heading when moving, else worked
-        // out from the last few metres travelled (many phones report none).
-        let heading: number | null = last.current?.heading ?? null;
-        if (pos.coords.heading != null && !Number.isNaN(pos.coords.heading) && (pos.coords.speed ?? 0) > 0.5) {
-          heading = pos.coords.heading;
-        } else if (lastRaw.current && distanceM(lastRaw.current, here) >= 4) {
-          heading = bearing(lastRaw.current, here);
+        const accuracy = pos.coords.accuracy;
+        // Direction of travel: the phone's own course when it is really moving, else
+        // worked out from a point well behind us (many phones report none). When
+        // slow or stopped nothing is passed on, and the tracker holds the last good
+        // heading, so the map doesn't spin from GPS wander.
+        let speed = pos.coords.speed != null && !Number.isNaN(pos.coords.speed) ? pos.coords.speed : null;
+        let course: number | null = null;
+        const a = anchor.current;
+        const gap = a ? distanceM(a, here) : 0;
+        const farEnough = gap >= Math.max(15, accuracy * 1.5);
+        if (pos.coords.heading != null && !Number.isNaN(pos.coords.heading) && (speed ?? 0) >= MIN_HEADING_SPEED) {
+          course = pos.coords.heading;
+        } else if (a && farEnough) {
+          course = bearing(a, here);
+          speed = speed ?? gap / Math.max(1, (pos.timestamp - a.t) / 1000);
         }
-        if (!lastRaw.current || distanceM(lastRaw.current, here) >= 4) lastRaw.current = here;
-        const raw: GpsFix = { ...here, accuracy: pos.coords.accuracy, heading, t: pos.timestamp };
+        if (!a || farEnough) anchor.current = { ...here, t: pos.timestamp };
+        const heading = tracker.current.update(course, speed ?? 0, accuracy);
+        const raw: GpsFix = { ...here, accuracy, heading, t: pos.timestamp };
         const next = smoothFix(last.current, raw);
         last.current = next;
         setFix(next);
@@ -687,7 +701,8 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
   // north animates the short way, and ignore tiny wobbles in the heading.
   if (marker?.heading != null) {
     const delta = ((marker.heading - turn.current) % 360 + 540) % 360 - 180;
-    if (Math.abs(delta) >= 4) turn.current += delta;
+    // The heading is already smoothed (see HeadingTracker), so only ignore sub-degree noise.
+    if (Math.abs(delta) >= 1.5) turn.current += delta;
   }
   const rotation = headingUp ? turn.current : 0;
   const tfScreen = fitTransform(cal);
@@ -714,7 +729,7 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
           places={dirView.places}
           offRoad={offRoad}
           // Heading-up shows more of the road ahead: cart sits below the centre.
-          focus={marker && follow ? { pt: marker.pt, zoom: FOLLOW_ZOOM, offsetY: headingUp ? window.innerHeight * 0.18 : 0 } : null}
+          focus={marker && follow ? { pt: marker.pt, zoom: FOLLOW_ZOOM, follow: true, offsetY: headingUp ? window.innerHeight * 0.18 : 0 } : null}
           onUserMove={() => setFollow(false)}
         />
       </div>
@@ -735,7 +750,7 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
         aria-label={headingUp ? 'Show north up' : 'Turn the map with your direction of travel'}
         className="absolute right-3 top-16 z-40 flex flex-col items-center gap-1 rounded-2xl bg-white/95 p-1.5 pb-1.5 shadow-lg ring-1 ring-black/5 backdrop-blur active:scale-95 sm:right-5"
       >
-        <svg viewBox="0 0 48 48" className="h-12 w-12" style={{ transform: `rotate(${-rotation}deg)`, transition: 'transform 0.8s ease-out' }}>
+        <svg viewBox="0 0 48 48" className="h-12 w-12" style={{ transform: `rotate(${-rotation}deg)`, transition: 'transform 0.9s linear' }}>
           <defs>
             <radialGradient id="compass-face" cx="50%" cy="40%" r="60%">
               <stop offset="0" stopColor="#ffffff" />
