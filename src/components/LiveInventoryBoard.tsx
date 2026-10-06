@@ -828,8 +828,8 @@ export function MasterPlanBoard({
               {marker && (() => {
                 const [mx, my] = toScreen(marker.pt);
                 const halo = marker.accuracyPct ? Math.max(14, (marker.accuracyPct / 100) * size.width * zoom) : 0;
-                // Blue on the road, red once the cart has left it.
-                const dot = offRoad ? '#dc2626' : '#1a73e8';
+                // Always Google blue; leaving the road shows on the route line and banner instead.
+                const dot = '#1a73e8';
                 // Google Maps-style "you are here": soft accuracy circle, a light
                 // beam showing which way you're heading, and the dot.
                 return (
