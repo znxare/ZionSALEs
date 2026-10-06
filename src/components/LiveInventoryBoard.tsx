@@ -812,17 +812,19 @@ function MasterPlanImage({ view, loaded, onLoad }: { view: ViewState; loaded: bo
 }
 
 /** Plot outlines drawn on the map (inside the zoomed layer, in % coordinates). */
-function PlotShapes({ plots, highlight, hoverId, selectedId, large }: {
+function PlotShapes({ plots, highlight, hoverId, selectedId, large, neutral }: {
   plots: Plot[];
   highlight: Set<string> | null;
   hoverId: string | null;
   selectedId?: string | null;
   large?: boolean;
+  /** One colour for every plot (public map: outlines only, no availability). */
+  neutral?: boolean;
 }) {
   return (
     <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
       {plots.map((p) => {
-        const c = SHAPE_COLORS[p.status];
+        const c = neutral ? NEUTRAL_SHAPE : SHAPE_COLORS[p.status];
         const dim = highlight !== null && !highlight.has(p.id);
         const glow = highlight !== null && highlight.has(p.id);
         const hot = p.id === hoverId || p.id === selectedId;
@@ -845,10 +847,12 @@ function PlotShapes({ plots, highlight, hoverId, selectedId, large }: {
   );
 }
 
+const NEUTRAL_SHAPE = { fill: '#64748b', stroke: '#334155', label: '' };
+
 export type TourMarker = { pt: [number, number]; accuracyPct?: number; heading?: number | null };
 
 export function MasterPlanBoard({
-  plots, highlight = null, onSelect, large, selectedId, tooltip = 'internal', bare, cover,
+  plots, highlight = null, onSelect, large, selectedId, tooltip = 'internal', bare, cover, neutral,
   marker = null, focus = null, onUserMove, onMapPoint, pins = [], rotation = 0, turnable = false, route = null, places = [], destination = null, offRoad = false,
 }: {
   plots: Plot[];
@@ -864,6 +868,8 @@ export function MasterPlanBoard({
   bare?: boolean;
   /** Fill the parent edge to edge (presentation mode) instead of a map-shaped box. */
   cover?: boolean;
+  /** Public map: plots drawn as plain outlines, hover shows only the plot number. */
+  neutral?: boolean;
   /** Live tour: the cart's position ("You are here"). */
   marker?: TourMarker | null;
   focus?: MapFocus | null;
@@ -920,7 +926,7 @@ export function MasterPlanBoard({
         mapLayer={(view) => (
           <>
             <MasterPlanImage view={view} loaded={loaded} onLoad={() => setLoaded(true)} />
-            {loaded && <PlotShapes plots={plots} highlight={highlight} hoverId={hoverId} selectedId={selectedId} large={large} />}
+            {loaded && <PlotShapes plots={plots} highlight={highlight} hoverId={hoverId} selectedId={selectedId} large={large} neutral={neutral} />}
           </>
         )}
         overlay={({ zoom, pan, size, viewport, rotation: turned }) => {
@@ -1013,9 +1019,9 @@ export function MasterPlanBoard({
               style={{ left: x, top: y - 10 }}
             >
               <div className="text-[12px] font-bold">
-                Plot {hovered.plotNo} · {tooltip === 'buyer' ? SHAPE_COLORS[hovered.status].label : hovered.status}
+                Plot {hovered.plotNo}{!neutral && <> · {tooltip === 'buyer' ? SHAPE_COLORS[hovered.status].label : hovered.status}</>}
               </div>
-              <div className="text-[11px] text-white/70">{hovered.bedrooms}BHK · {hovered.phase} · {formatCr(hovered.cost.totalCostLacs)}</div>
+              {!neutral && <div className="text-[11px] text-white/70">{hovered.bedrooms}BHK · {hovered.phase} · {formatCr(hovered.cost.totalCostLacs)}</div>}
             </div>
             </>
           );

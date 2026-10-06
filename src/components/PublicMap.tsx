@@ -4,6 +4,7 @@ import { MasterPlanBoard, type MapFocus, type TourMarker } from './LiveInventory
 import { DirectionsControls, type DirectionsView } from './Directions';
 import { fitTransform, loadPublicCalibration, smoothFix, type Calibration, type GpsFix } from '@/lib/tour';
 import { findPlace } from '@/lib/directions';
+import { SAMPLE_PLOTS } from '@/lib/inventory';
 
 // The estate map for anyone with the link — opens without a login:
 //
@@ -11,7 +12,8 @@ import { findPlace } from '@/lib/directions';
 //   #/map?to=villa-202    the same, with directions to that place already chosen
 //                         (place ids: villa-202, clubhouse, entry-main, plot-p-606 …)
 //
-// It shows the plan only: no plot status, prices, leads or any CRM data. "Show my
+// It draws the plot outlines in one neutral colour, like the CRM's map, but with no plot
+// status, prices, leads or any CRM data. "Show my
 // location" puts the visitor's own GPS dot on the plan once the team's GPS
 // calibration can be read (see the public_tour_calibration SQL); without it the
 // map and directions still work from a starting place the visitor picks.
@@ -94,11 +96,12 @@ export default function PublicMap({ toId }: { toId?: string }) {
     <div className="fixed inset-0 overflow-hidden bg-[#d4d5c6]" style={{ height: '100dvh' }}>
       <div className="absolute inset-0">
         <MasterPlanBoard
-          plots={[]}
+          plots={SAMPLE_PLOTS}
           onSelect={() => {}}
           large
           bare
           cover
+          neutral
           tooltip="buyer"
           marker={onPlan ? marker : null}
           route={dirView.route}
