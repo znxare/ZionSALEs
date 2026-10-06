@@ -12,6 +12,7 @@ import { WelcomeIntro } from './BuyerWelcome';
 import { VideoModal, TestimonialButton } from './ShowcaseMedia';
 import { loadShowcase, type Showcase, type TourStop } from '@/lib/showcase';
 import { DirectionsControls, type DirectionsView } from './Directions';
+import { metresFromRoad, OFF_ROAD_M, BACK_ON_ROAD_M } from '@/lib/directions';
 
 const FOLLOW_ZOOM = 2.5;
 const SEND_EVERY_MS = 700;
@@ -593,6 +594,16 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
   const own = useGps(mode === 'self', sim, cal);
   const fix = mode === 'self' ? own.fix : remoteFix;
 
+  // The cart has left the road: the dot and route line turn red. Two distances
+  // (out past one, back inside the other) so a wobbly GPS doesn't flicker.
+  const cartX = markerFor(fix, cal)?.pt[0], cartY = markerFor(fix, cal)?.pt[1];
+  const [offRoad, setOffRoad] = useState(false);
+  useEffect(() => {
+    if (cartX === undefined || cartY === undefined) { setOffRoad(false); return; }
+    const m = metresFromRoad([cartX, cartY]);
+    setOffRoad((was) => (was ? m > BACK_ON_ROAD_M : m > OFF_ROAD_M));
+  }, [cartX, cartY]);
+
   useEffect(() => {
     if (mode !== 'self') return;
     let release: (() => void) | undefined;
@@ -704,6 +715,7 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
           route={dirView.route}
           destination={dirView.destination}
           places={dirView.places}
+          offRoad={offRoad}
           // Heading-up shows more of the road ahead: cart sits below the centre.
           focus={marker && follow ? { pt: marker.pt, zoom: FOLLOW_ZOOM, offsetY: headingUp ? window.innerHeight * 0.18 : 0 } : null}
           onUserMove={() => setFollow(false)}
@@ -715,7 +727,7 @@ export function TourScreen({ onExit }: { onExit: () => void }) {
         className="absolute left-3 top-16 z-40 sm:left-5"
         from={marker?.pt ?? null}
         toGps={tfScreen ? (pt) => tfScreen.toGps(pt) : null}
-        spots={(cal?.points ?? []).flatMap((q, i) => (q.label && q.x != null && q.y != null ? [{ id: `spot-${i}`, label: q.label, kind: 'spot' as const, pt: [q.x, q.y] as MapPt }] : []))}
+        offRoad={offRoad}
         onView={setDirView}
       />
 

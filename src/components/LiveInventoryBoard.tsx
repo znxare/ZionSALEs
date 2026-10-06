@@ -286,6 +286,9 @@ type OverlayState = { zoom: number; pan: { x: number; y: number }; size: Size; v
  *  zoom is set as given (it may zoom out); otherwise it only ever zooms in. */
 export type MapFocus = { pt: [number, number]; zoom: number; offsetY?: number; durationMs?: number; nonce?: number; exact?: boolean };
 
+/** Full-screen maps can be dragged this many px past the plan's edge. */
+const EDGE_OVERSCROLL = 120;
+
 function ZoomPanMap({
   mapLayer,
   overlay,
@@ -375,13 +378,26 @@ function ZoomPanMap({
     return [(x / layer.width) * 100, (y / layer.height) * 100];
   }
 
-  /** Keeps the scaled image from being panned past its own edge, so it never leaves empty space in view. */
+  // How far the map may be dragged: until its edge meets the edge of what the
+  // screen shows. When the map is turned, the screen covers a tilted rectangle,
+  // so measure its extent along the map's own axes (not the worst case at every
+  // angle), plus a little extra in full-screen mode so a corner can be dragged
+  // out from under the floating buttons and banners.
+  const absCos = Math.abs(cos), absSin = Math.abs(sin);
+  const halfW = turnable ? (size.width * absCos + size.height * absSin) / 2 : size.width / 2;
+  const halfH = turnable ? (size.width * absSin + size.height * absCos) / 2 : size.height / 2;
+  const overscroll = cover ? EDGE_OVERSCROLL : 0;
+  const panLimit = (z: number) => ({
+    x: Math.max(0, (layer.width * z) / 2 - halfW + overscroll),
+    y: Math.max(0, (layer.height * z) / 2 - halfH + overscroll),
+  });
+
+  /** Keeps the scaled image from being panned past its own edge (plus the overscroll). */
   function clampPan(p: { x: number; y: number }, z: number) {
-    const maxX = Math.max(0, (layer.width * z - reach.width) / 2);
-    const maxY = Math.max(0, (layer.height * z - reach.height) / 2);
+    const { x: maxX, y: maxY } = panLimit(z);
     return { x: Math.min(maxX, Math.max(-maxX, p.x)), y: Math.min(maxY, Math.max(-maxY, p.y)) };
   }
-  const canPan = layer.width * zoom > size.width + 0.5 || layer.height * zoom > size.height + 0.5;
+  const canPan = panLimit(zoom).x > 0.5 || panLimit(zoom).y > 0.5;
 
   // Follow mode: glide the view so the focus point sits in the centre.
   const fx = focus?.pt[0], fy = focus?.pt[1], fz = focus?.zoom, fo = focus?.offsetY ?? 0;
@@ -693,7 +709,7 @@ export type TourMarker = { pt: [number, number]; accuracyPct?: number; heading?:
 
 export function MasterPlanBoard({
   plots, highlight = null, onSelect, large, selectedId, tooltip = 'internal', bare, cover,
-  marker = null, focus = null, onUserMove, onMapPoint, pins = [], rotation = 0, turnable = false, route = null, places = [], destination = null,
+  marker = null, focus = null, onUserMove, onMapPoint, pins = [], rotation = 0, turnable = false, route = null, places = [], destination = null, offRoad = false,
 }: {
   plots: Plot[];
   /** Plots matching the active filters; null = no filter (everything at full colour). */
@@ -725,6 +741,8 @@ export function MasterPlanBoard({
   places?: { pt: [number, number]; label: string; kind?: 'villa' }[];
   /** Where the directions lead (a flag is drawn there). */
   destination?: { pt: [number, number]; label: string } | null;
+  /** The cart has left the road: the dot and the route line turn red. */
+  offRoad?: boolean;
 }) {
   const [loaded, setLoaded] = useState(false);
   const [hoverId, setHoverId] = useState<string | null>(null);
@@ -732,7 +750,7 @@ export function MasterPlanBoard({
 
   const board = (
     <div
-      className={`relative w-full bg-gray-100 ${cover ? 'h-full' : ''} ${bare && !cover ? 'overflow-hidden rounded-xl' : ''}`}
+      className={`relative w-full ${cover ? 'h-full bg-[#d4d5c6]' : 'bg-gray-100'} ${bare && !cover ? 'overflow-hidden rounded-xl' : ''}`}
       style={cover ? undefined : { aspectRatio: '3369.9 / 2383.8' }}
     >
       {!loaded && <div className="skeleton absolute inset-0" />}
@@ -769,7 +787,7 @@ export function MasterPlanBoard({
               {route && route.length > 1 && (
                 <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" style={{ zIndex: 15 }}>
                   <polyline points={route.map((q) => toScreen(q).join(',')).join(' ')} fill="none" stroke="white" strokeWidth={11} strokeLinecap="round" strokeLinejoin="round" />
-                  <polyline points={route.map((q) => toScreen(q).join(',')).join(' ')} fill="none" stroke="#f05a22" strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" />
+                  <polyline points={route.map((q) => toScreen(q).join(',')).join(' ')} fill="none" stroke={offRoad ? '#dc2626' : '#f05a22'} strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" />
                   <polyline points={route.map((q) => toScreen(q).join(',')).join(' ')} fill="none" stroke="white" strokeOpacity={0.7} strokeWidth={2} strokeDasharray="2 10" strokeLinecap="round" className="animate-route-flow" />
                 </svg>
               )}
@@ -810,25 +828,27 @@ export function MasterPlanBoard({
               {marker && (() => {
                 const [mx, my] = toScreen(marker.pt);
                 const halo = marker.accuracyPct ? Math.max(14, (marker.accuracyPct / 100) * size.width * zoom) : 0;
+                // Blue on the road, red once the cart has left it.
+                const dot = offRoad ? '#dc2626' : '#1a73e8';
                 // Google Maps-style "you are here": soft accuracy circle, a light
-                // beam showing which way you're heading, and the blue dot.
+                // beam showing which way you're heading, and the dot.
                 return (
                   <div className="absolute z-30" style={{ left: mx, top: my }}>
                     {halo > 0 && (
-                      <div className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#1a73e8]/25 bg-[#1a73e8]/10" style={{ width: halo * 2, height: halo * 2 }} />
+                      <div className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full border" style={{ width: halo * 2, height: halo * 2, borderColor: `${dot}40`, backgroundColor: `${dot}1a` }} />
                     )}
                     {marker.heading != null && (
                       <svg width="72" height="72" viewBox="-36 -36 72 72" className="absolute -translate-x-1/2 -translate-y-1/2 overflow-visible" style={{ transform: `translate(-50%, -50%) rotate(${marker.heading}deg)` }}>
                         <defs>
                           <radialGradient id="gm-beam" cx="0" cy="0" r="36" gradientUnits="userSpaceOnUse">
-                            <stop offset="0.2" stopColor="#1a73e8" stopOpacity="0.45" />
-                            <stop offset="1" stopColor="#1a73e8" stopOpacity="0" />
+                            <stop offset="0.2" stopColor={dot} stopOpacity="0.45" />
+                            <stop offset="1" stopColor={dot} stopOpacity="0" />
                           </radialGradient>
                         </defs>
                         <path d="M0 0 L-17 -32 A36 36 0 0 1 17 -32 Z" fill="url(#gm-beam)" />
                       </svg>
                     )}
-                    <div className="absolute h-[22px] w-[22px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#1a73e8] shadow-[0_1px_4px_rgba(0,0,0,0.35)] ring-[3px] ring-white" />
+                    <div className="absolute h-[22px] w-[22px] -translate-x-1/2 -translate-y-1/2 rounded-full shadow-[0_1px_4px_rgba(0,0,0,0.35)] ring-[3px] ring-white" style={{ backgroundColor: dot }} />
                   </div>
                 );
               })()}

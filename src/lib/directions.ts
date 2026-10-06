@@ -276,6 +276,17 @@ export function planMetres(points: MapPt[]): number {
   return m;
 }
 
+/** Straight-line metres from a point on the plan to the nearest open road. */
+export function metresFromRoad(pt: MapPt): number {
+  const g = getGraph();
+  const i = nearestRoad(pt);
+  return planMetres([pt, fromGrid(g.xs[i], g.ys[i])]);
+}
+
+/** The cart counts as off the road past this distance, and back on it inside the second (so a wobbly GPS doesn't flicker). */
+export const OFF_ROAD_M = 20;
+export const BACK_ON_ROAD_M = 12;
+
 export interface Yardage { label: string; metres: number; note?: string }
 
 /** By-road distances from a point to the places that matter to a buyer. */

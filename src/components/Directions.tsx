@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Navigation2, X, Search, MapPin, Flag, Home, Layers, CheckCircle2 } from 'lucide-react';
-import { AMENITIES, HOLES, VILLAS, PLOT_PLACES, findRoute, routeMetres, describeDistance, type Place } from '@/lib/directions';
+import { Navigation2, X, Search, MapPin, Home, Layers, CheckCircle2 } from 'lucide-react';
+import { AMENITIES, VILLAS, PLOT_PLACES, findRoute, routeMetres, describeDistance, type Place } from '@/lib/directions';
 import type { MapPt } from '@/lib/tour';
 
 // Directions and map layers, shared by the live tour (from the cart's GPS
@@ -13,12 +13,12 @@ export interface DirectionsView {
   places: { pt: MapPt; label: string; kind?: 'villa' }[];
 }
 
-export function DirectionsControls({ from, toGps, spots = [], onView, className = '', dark = false }: {
+export function DirectionsControls({ from, toGps, offRoad = false, onView, className = '', dark = false }: {
   /** Live position (tour). Leave undefined to let the user pick a starting place. */
   from?: MapPt | null;
   toGps?: ((pt: MapPt) => { lat: number; lng: number }) | null;
-  /** Named spots from the calibration ride. */
-  spots?: Place[];
+  /** Live tour: the cart has left the road (the banner says so). */
+  offRoad?: boolean;
   onView: (v: DirectionsView) => void;
   className?: string;
   dark?: boolean;
@@ -94,11 +94,11 @@ export function DirectionsControls({ from, toGps, spots = [], onView, className 
             </div>
           ) : (
             <div className="flex items-center gap-3">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#f05a22] text-white"><Navigation2 className="h-5 w-5" /></div>
+              <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-white ${live && offRoad ? 'bg-red-600' : 'bg-[#f05a22]'}`}><Navigation2 className="h-5 w-5" /></div>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[15px] font-bold text-gray-900">{dest.label}</div>
-                <div className="truncate text-[13px] text-gray-500">
-                  {!origin ? 'Waiting for your location…' : !route ? 'No road inside the estate — the north side is reached by the existing road (North entry)' : live ? (describeDistance(metres) ?? 'Follow the orange line') : `From ${start.label}${metres != null ? ` · ${describeDistance(metres)}` : ''}`}
+                <div className={`truncate text-[13px] ${live && offRoad ? 'font-semibold text-red-600' : 'text-gray-500'}`}>
+                  {!origin ? 'Waiting for your location…' : !route ? 'No road inside the estate — the north side is reached by the existing road (North entry)' : live && offRoad ? "You've left the road — get back on it" : live ? (describeDistance(metres) ?? 'Follow the orange line') : `From ${start.label}${metres != null ? ` · ${describeDistance(metres)}` : ''}`}
                 </div>
               </div>
               <button onClick={() => setDest(null)} aria-label="End directions" className="rounded-full p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
@@ -112,7 +112,6 @@ export function DirectionsControls({ from, toGps, spots = [], onView, className 
           live={live}
           start={start}
           onStart={setStart}
-          spots={spots}
           onPick={(p) => { setDest(p); setArrived(false); setPicking(false); }}
           onClose={() => setPicking(false)}
         />
@@ -122,13 +121,12 @@ export function DirectionsControls({ from, toGps, spots = [], onView, className 
 }
 
 // Groups shown as a grid of short number buttons rather than a list.
-const GRID_GROUPS = ['Plots', 'Holes', 'Hospitality villas'];
+const GRID_GROUPS = ['Plots', 'Hospitality villas'];
 
-function PlacePicker({ live, start, onStart, spots, onPick, onClose }: {
+function PlacePicker({ live, start, onStart, onPick, onClose }: {
   live: boolean;
   start: Place;
   onStart: (p: Place) => void;
-  spots: Place[];
   onPick: (p: Place) => void;
   onClose: () => void;
 }) {
@@ -138,8 +136,6 @@ function PlacePicker({ live, start, onStart, spots, onPick, onClose }: {
   const groups: { title: string; icon: typeof MapPin; items: Place[] }[] = [
     { title: 'Places', icon: Home, items: AMENITIES.filter(match) },
     { title: 'Hospitality villas', icon: Home, items: VILLAS.filter(match) },
-    { title: 'Holes', icon: Flag, items: HOLES.filter(match) },
-    { title: 'Your named spots', icon: MapPin, items: spots.filter(match) },
     { title: 'Plots', icon: MapPin, items: PLOT_PLACES.filter(match) },
   ].filter((g) => g.items.length > 0);
 
@@ -161,7 +157,7 @@ function PlacePicker({ live, start, onStart, spots, onPick, onClose }: {
         )}
         <div className="mx-5 mb-3 flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2">
           <Search className="h-4 w-4 text-gray-400" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search — clubhouse, hole 9, plot 622, villa 124…" className="w-full bg-transparent text-sm outline-none" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search — clubhouse, plot 622, villa 124…" className="w-full bg-transparent text-sm outline-none" />
         </div>
         <div className="flex-1 overflow-y-auto pb-4">
           {groups.length === 0 && <div className="px-5 py-10 text-center text-sm text-gray-400">Nothing matches.</div>}
