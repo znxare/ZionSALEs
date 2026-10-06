@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Loader2, LocateFixed, Share2 } from 'lucide-react';
 import { MasterPlanBoard, type MapFocus, type TourMarker } from './LiveInventoryBoard';
 import { DirectionsControls, type DirectionsView } from './Directions';
-import { fitTransform, loadPublicCalibration, smoothFix, type Calibration, type GpsFix } from '@/lib/tour';
+import { fitTransform, loadPublicCalibration, smoothFix, bearing, distanceM, HeadingTracker, MIN_HEADING_SPEED, type Calibration, type GpsFix } from '@/lib/tour';
+import Compass from './Compass';
 import { findPlace } from '@/lib/directions';
 import { SAMPLE_PLOTS } from '@/lib/inventory';
 
@@ -31,6 +32,9 @@ export default function PublicMap({ toId }: { toId?: string }) {
   const [dirView, setDirView] = useState<DirectionsView>({ route: null, destination: null, places: [] });
   const [focus, setFocus] = useState<MapFocus | null>(null);
   const [copied, setCopied] = useState(false);
+  // Heading-up like the tour: the map turns so the way you are walking is at the top.
+  const [headingUp, setHeadingUp] = useState(true);
+  const turn = useRef(0);
   const centred = useRef(false);
   const initialDest = useMemo(() => (toId ? findPlace(toId) : undefined), [toId]);
 
@@ -47,9 +51,27 @@ export default function PublicMap({ toId }: { toId?: string }) {
     if (!('geolocation' in navigator)) { setNote("This device can't share its location."); setLocating(false); return; }
     setNote(null);
     let last: GpsFix | null = null;
+    const tracker = new HeadingTracker();
+    let anchor: { lat: number; lng: number; t: number } | null = null;
     const id = navigator.geolocation.watchPosition(
       (pos) => {
-        last = smoothFix(last, { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy, heading: null, t: pos.timestamp });
+        // Same heading logic as the tour: the phone's course when really moving, else the
+        // bearing from a point well behind; held steady when slow or stopped.
+        const here = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        const accuracy = pos.coords.accuracy;
+        let speed = pos.coords.speed != null && !Number.isNaN(pos.coords.speed) ? pos.coords.speed : null;
+        let course: number | null = null;
+        const gap = anchor ? distanceM(anchor, here) : 0;
+        const farEnough = gap >= Math.max(15, accuracy * 1.5);
+        if (pos.coords.heading != null && !Number.isNaN(pos.coords.heading) && (speed ?? 0) >= MIN_HEADING_SPEED) {
+          course = pos.coords.heading;
+        } else if (anchor && farEnough) {
+          course = bearing(anchor, here);
+          speed = speed ?? gap / Math.max(1, (pos.timestamp - anchor.t) / 1000);
+        }
+        if (!anchor || farEnough) anchor = { ...here, t: pos.timestamp };
+        const heading = tracker.update(course, speed ?? 0, accuracy);
+        last = smoothFix(last, { ...here, accuracy, heading, t: pos.timestamp });
         setFix(last);
       },
       (err) => {
@@ -62,10 +84,17 @@ export default function PublicMap({ toId }: { toId?: string }) {
   }, [locating]);
 
   const marker: TourMarker | null = tf && fix
-    ? { pt: tf.toMap(fix.lat, fix.lng), accuracyPct: fix.accuracy / tf.metresPerPct, heading: null }
+    ? { pt: tf.toMap(fix.lat, fix.lng), accuracyPct: fix.accuracy / tf.metresPerPct, heading: fix.heading == null ? null : tf.mapHeading(fix.lat, fix.lng, fix.heading) }
     : null;
   const onPlan = !!marker && marker.pt[0] > -5 && marker.pt[0] < 105 && marker.pt[1] > -5 && marker.pt[1] < 105;
   const markerX = marker?.pt[0], markerY = marker?.pt[1];
+
+  // Keep the turn "unwrapped" (350° → 370°, not back to 10°) so passing north animates the short way.
+  if (marker?.heading != null) {
+    const delta = ((marker.heading - turn.current) % 360 + 540) % 360 - 180;
+    if (Math.abs(delta) >= 1.5) turn.current += delta;
+  }
+  const rotation = headingUp && onPlan ? turn.current : 0;
 
   useEffect(() => {
     if (!locating || !fix || !tf) return;
@@ -108,6 +137,8 @@ export default function PublicMap({ toId }: { toId?: string }) {
           destination={dirView.destination}
           places={dirView.places}
           focus={focus}
+          rotation={rotation}
+          turnable
         />
       </div>
 
@@ -139,6 +170,8 @@ export default function PublicMap({ toId }: { toId?: string }) {
           </button>
         </div>
       </div>
+
+      <Compass rotation={rotation} headingUp={headingUp} onToggle={() => setHeadingUp((v) => !v)} />
 
       <DirectionsControls
         className="absolute left-3 top-16 z-40 sm:left-5"
