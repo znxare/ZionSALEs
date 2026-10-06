@@ -1,6 +1,9 @@
 import { useState, type CSSProperties, type ReactNode } from 'react';
 import { lxEyebrow, lxIvory } from '@/lib/luxury';
-import { FISH_SPOTS } from '@/lib/lakePoints';
+import { FISH_SPOTS, type LakeSpot } from '@/lib/lakePoints';
+import { WATER_BODIES } from '@/lib/waterBodies';
+import { holeGuide } from '@/lib/holes';
+import { useAtmosphere } from '@/lib/mapInfo';
 
 // Life on the public map: groves whose leaves sway and drift, peacocks strolling the 4th green,
 // a small bird circling above it, and parrots round the clubhouse trees. Purely decorative,
@@ -26,7 +29,10 @@ const SPOTS: Record<string, { title: string; text: string }> = {
   egret: { title: 'Egret Lake', text: 'An egret keeps watch over the water, always at a safe distance.' },
   fish: { title: 'Life in the lake', text: 'Fish glide just under the surface — watch for the ripples, and the odd leap.' },
   flock: { title: 'Birds of the course', text: 'Swallows and bulbuls sweep over the fairways from morning to dusk.' },
-  tortoise: { title: 'The tortoise', text: 'A shy tortoise lives among the granite rocks. It tucks into its shell when you come near, and strolls out once all is quiet.' },
+  turtle: { title: 'Lake turtles', text: 'Turtles drift across the lakes and slip under the surface when anyone gets too close.' },
+  kingfisher: { title: 'Kingfisher', text: 'A flash of blue on the bank — it watches the water, then dives for a fish.' },
+  rabbit: { title: 'The rabbit', text: 'A rabbit nibbles beside the bushes and darts back inside at the first footstep.' },
+  sprinkler: { title: 'The greens\u2019 morning drink', text: 'Sprinklers keep the bent-grass greens cool and true. Please stay off while they run.' },
 };
 
 // Small birds that circle over the fairways: [x, y] on the plan, loop size, seconds per loop, colours.
@@ -50,11 +56,26 @@ const FLOCKS: { pt: Pt; sec: number; delay: number }[] = [
   { pt: [46.0, 18.0], sec: 25, delay: -5 },
 ];
 
-// Tortoises among the granite rocks.
-const TORTOISES: { pt: Pt; delay: number }[] = [
-  { pt: [21.9, 57.7], delay: 0 },   // rocks by the 16th green
-  { pt: [45.2, 48.6], delay: -9 },  // rocks beside the 9th
+// More peacocks, beyond the 4th green: under the mango trees by the 12th, and on the 15th.
+const PEACOCKS: { pt: Pt; delay: number; flip?: boolean }[] = [
+  { pt: [50.4, 11.6], delay: -4 },
+  { pt: [19.6, 47.4], delay: -13, flip: true },
 ];
+
+// Greens that are being watered, by hole number; each runs on its own timer.
+const SPRINKLED = [1, 3, 9, 12, 16];
+
+// Kingfishers: perched on a lake bank, watching the water, diving, and back to the perch.
+const KINGFISHERS: { bank: [number, number]; water: [number, number] }[] = (() => {
+  const best = new Map<number, LakeSpot>();
+  for (const f of FISH_SPOTS) if (!best.has(f.lake) || f.room > best.get(f.lake)!.room) best.set(f.lake, f);
+  return [...best.values()].filter((f) => f.room > 1.1).sort((x, y) => y.room - x.room).slice(0, 4).map((f) => {
+    const poly = WATER_BODIES[f.lake];
+    let v = poly[0], bd = Infinity;
+    for (const q of poly) { const d = Math.hypot((q[0] - f.pt[0]) * 1.4, q[1] - f.pt[1]); if (d < bd) { bd = d; v = q; } }
+    return { bank: [v[0], v[1]] as [number, number], water: f.pt };
+  });
+})();
 
 function Tree({ s }: { s: number }) {
   return (
@@ -116,25 +137,89 @@ function Fish({ size, tone }: { size: number; tone: number }) {
   );
 }
 
-/** A tortoise seen from above, facing up; head and legs slip into the shell (scale 0 about its middle). */
-function Tortoise({ size, delay = 0 }: { size: number; delay?: number }) {
-  const out = { transformOrigin: '20px 21px', animation: `zh-peek 22s ease-in-out ${delay}s infinite` } as CSSProperties;
+/** A kingfisher seen from above, facing up: turquoise back, orange head, a long dark beak. */
+function Kingfisher({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className="overflow-visible">
+      <ellipse cx="12" cy="12.5" rx="2.6" ry="5" fill="#1fb3d6" />
+      <ellipse cx="12" cy="11" rx="1.1" ry="3.4" fill="#7fe3f2" opacity="0.8" />
+      <g style={{ transformOrigin: '12px 11px' }}>
+        <ellipse cx="6.2" cy="12" rx="4.2" ry="2" fill="#0f7fa8" />
+        <ellipse cx="17.8" cy="12" rx="4.2" ry="2" fill="#0f7fa8" />
+      </g>
+      <circle cx="12" cy="6.4" r="2.3" fill="#e8873a" />
+      <path d="M11.2 5.4 L12 0.6 L12.8 5.4 Z" fill="#1d1d1d" />
+      <path d="M11 17 L12 21 L13 17 Z" fill="#0c6b8a" />
+    </svg>
+  );
+}
+
+/** A turtle seen from above, swimming up the screen; the flippers paddle. */
+function Turtle({ size }: { size: number }) {
+  const paddle = (d: number) => ({ transformOrigin: '50% 50%', animation: `zh-wag 1.7s ease-in-out ${d}s infinite` }) as CSSProperties;
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" className="overflow-visible">
-      <ellipse cx="20" cy="23" rx="12.5" ry="14" fill="#0b2415" opacity="0.2" transform="translate(1.5 2.5)" />
-      <g style={out}>
-        <ellipse cx="9" cy="14" rx="3.2" ry="2.4" fill="#8a7a3c" transform="rotate(-35 9 14)" />
-        <ellipse cx="31" cy="14" rx="3.2" ry="2.4" fill="#8a7a3c" transform="rotate(35 31 14)" />
-        <ellipse cx="9" cy="30" rx="3.2" ry="2.4" fill="#8a7a3c" transform="rotate(35 9 30)" />
-        <ellipse cx="31" cy="30" rx="3.2" ry="2.4" fill="#8a7a3c" transform="rotate(-35 31 30)" />
-        <ellipse cx="20" cy="5.2" rx="3.4" ry="4.2" fill="#9a8a45" />
-        <circle cx="18.7" cy="4.4" r="0.7" fill="#1b1b1b" /><circle cx="21.3" cy="4.4" r="0.7" fill="#1b1b1b" />
-        <path d="M18.5 37 L20 41 L21.5 37 Z" fill="#8a7a3c" />
-      </g>
-      <ellipse cx="20" cy="21" rx="11" ry="13" fill="#6b5a2e" stroke="#463a1c" strokeWidth="1.2" />
-      <path d="M20 10 L26 14.5 L26 24 L20 28.5 L14 24 L14 14.5 Z" fill="#7d6b36" stroke="#463a1c" strokeWidth="0.9" />
-      <path d="M20 10 V28.5 M14 14.5 L26 24 M26 14.5 L14 24" stroke="#463a1c" strokeWidth="0.6" opacity="0.7" />
-      <ellipse cx="17" cy="15" rx="3" ry="2" fill="#b3a063" opacity="0.5" />
+      <ellipse cx="20" cy="22" rx="12" ry="14" fill="#0b2a3a" opacity="0.18" transform="translate(2 4)" />
+      <ellipse cx="7.5" cy="14" rx="5" ry="2.4" fill="#6f8f4e" transform="rotate(-30 7.5 14)" style={paddle(0)} />
+      <ellipse cx="32.5" cy="14" rx="5" ry="2.4" fill="#6f8f4e" transform="rotate(30 32.5 14)" style={paddle(0.8)} />
+      <ellipse cx="9" cy="29" rx="3.6" ry="2" fill="#6f8f4e" transform="rotate(30 9 29)" />
+      <ellipse cx="31" cy="29" rx="3.6" ry="2" fill="#6f8f4e" transform="rotate(-30 31 29)" />
+      <ellipse cx="20" cy="6" rx="3.3" ry="4.2" fill="#86a95f" />
+      <circle cx="18.7" cy="5" r="0.7" fill="#1b1b1b" /><circle cx="21.3" cy="5" r="0.7" fill="#1b1b1b" />
+      <path d="M19 36 L20 40 L21 36 Z" fill="#6f8f4e" />
+      <ellipse cx="20" cy="21" rx="11" ry="13.5" fill="#46603a" stroke="#2a3b24" strokeWidth="1.1" />
+      <path d="M20 9.5 L26 14 L26 24 L20 28.5 L14 24 L14 14 Z" fill="#587547" stroke="#2a3b24" strokeWidth="0.8" />
+      <path d="M20 9.5 V28.5 M14 14 L26 24 M26 14 L14 24" stroke="#2a3b24" strokeWidth="0.5" opacity="0.6" />
+      <ellipse cx="16.8" cy="15" rx="3" ry="2" fill="#a6c486" opacity="0.4" />
+    </svg>
+  );
+}
+
+/** A rabbit seen from above, facing up. */
+function Rabbit({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 30 30" className="overflow-visible">
+      <ellipse cx="15" cy="18" rx="7.5" ry="9" fill="#0b2415" opacity="0.18" transform="translate(1.5 2)" />
+      <ellipse cx="15" cy="18" rx="6" ry="8" fill="#b9a68a" />
+      <ellipse cx="15" cy="17" rx="3.4" ry="5" fill="#cdbca3" opacity="0.8" />
+      <circle cx="15" cy="26.4" r="2.1" fill="#fbf7ee" />
+      <circle cx="15" cy="9.6" r="3.9" fill="#b9a68a" />
+      <ellipse cx="12.4" cy="3.6" rx="1.5" ry="4.2" fill="#a8947a" transform="rotate(-8 12.4 3.6)" />
+      <ellipse cx="17.6" cy="3.6" rx="1.5" ry="4.2" fill="#a8947a" transform="rotate(8 17.6 3.6)" />
+      <ellipse cx="12.4" cy="3.8" rx="0.6" ry="3" fill="#e7b9b0" /><ellipse cx="17.6" cy="3.8" rx="0.6" ry="3" fill="#e7b9b0" />
+      <circle cx="13.6" cy="9" r="0.7" fill="#1b1b1b" /><circle cx="16.4" cy="9" r="0.7" fill="#1b1b1b" />
+      <circle cx="15" cy="11.4" r="0.7" fill="#c97b74" />
+    </svg>
+  );
+}
+
+function Bush({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" className="overflow-visible">
+      <ellipse cx="20" cy="24" rx="17" ry="12" fill="#0b2415" opacity="0.2" transform="translate(2 3)" />
+      <circle cx="12" cy="22" r="9" fill="#2f7a46" />
+      <circle cx="26" cy="21" r="10" fill="#33854d" />
+      <circle cx="19" cy="15" r="9.5" fill="#3a9355" />
+      <circle cx="16" cy="12" r="3.4" fill="#9ed48f" opacity="0.5" />
+      <circle cx="24" cy="24" r="1.2" fill="#e8553a" /><circle cx="14" cy="24" r="1.1" fill="#e8553a" /><circle cx="21" cy="19" r="1" fill="#e8553a" />
+    </svg>
+  );
+}
+
+/** A sprinkler head with spinning arms of spray and a wet shine on the grass. */
+function Sprinkler({ size }: { size: number }) {
+  const arm = (rot: number) => (
+    <g key={rot} transform={`rotate(${rot})`}>
+      <path d="M0 0 Q 20 -24 38 -6" fill="none" stroke="#e8f6ff" strokeWidth="2.4" strokeLinecap="round" strokeDasharray="0.1 5.4" />
+      <path d="M0 0 Q 15 -16 28 -3" fill="none" stroke="#bfe6ff" strokeWidth="1.8" strokeLinecap="round" strokeDasharray="0.1 4.6" opacity="0.8" />
+    </g>
+  );
+  return (
+    <svg width={size} height={size} viewBox="-44 -44 88 88" className="overflow-visible">
+      <circle r="38" fill="#9ed7ff" opacity="0.2" style={{ animation: 'zh-wet 3.2s ease-in-out infinite' }} />
+      <circle r="38" fill="none" stroke="#e8f6ff" strokeWidth="0.8" opacity="0.5" />
+      <g style={{ animation: 'zh-orbit 2.6s linear infinite' }}>{[0, 120, 240].map(arm)}</g>
+      <circle r="2.6" fill="#8fa2a8" stroke="#fbf7ee" strokeWidth="1" />
     </svg>
   );
 }
@@ -165,6 +250,7 @@ function Peacock({ size }: { size: number }) {
 
 export function WildlifeLayer({ toScreen, zoom, upright, night = 0, safe = null, viewport }: { toScreen: (p: Pt) => number[]; zoom: number; upright?: CSSProperties; night?: number; safe?: { top: number; bottom: number; right: number; left: number } | null; viewport?: { width: number; height: number } }) {
   const [open, setOpen] = useState<string | null>(null);
+  const atm = useAtmosphere();
   if (zoom < 1.35) return null;
   const k = Math.min(2, Math.max(0.9, zoom / 1.6)); // creatures grow a little as you zoom in
   const fade = Math.min(1, (zoom - 1.35) / 0.5);
@@ -196,8 +282,29 @@ export function WildlifeLayer({ toScreen, zoom, upright, night = 0, safe = null,
     </div>
   );
 
+  // The breeze: wind direction and strength from the live weather (a gentle south-westerly if it can't be reached).
+  const windFrom = atm?.windDeg ?? 235;
+  const windKmh = atm?.windKmh ?? 8;
+  const flowDeg = ((windFrom + 180) % 360) - 90; // streaks travel along +x, so turn them to the wind's heading
+  const streakSec = Math.max(7, Math.min(18, 17 - windKmh * 0.55));
+  const STREAKS = [[8, 12], [30, 28], [55, 8], [72, 34], [14, 52], [44, 60], [66, 72], [24, 82], [82, 90], [50, 38]];
+
   return (
     <div className="zh-anim pointer-events-none absolute inset-0" style={{ opacity: fade }}>
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" style={{ opacity: night > 0.5 ? 0.4 : 0.9 }}>
+        {STREAKS.map(([lx, ty], n) => (
+          <div key={n} className="absolute" style={{ left: `${lx}%`, top: `${ty}%`, transform: `rotate(${flowDeg}deg)` }}>
+            <svg width="120" height="14" viewBox="0 0 120 14" className="overflow-visible" style={{ animation: `zh-streak ${streakSec + (n % 4)}s ease-in-out ${-n * 1.9}s infinite` }}>
+              <path d="M0 7 C18 1 32 13 52 7 S92 1 108 7 Q116 10 112 4" fill="none" stroke="#ffffff" strokeOpacity="0.5" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
+          </div>
+        ))}
+        {[[18, 22], [60, 46], [38, 70], [78, 18]].map(([lx, ty], n) => (
+          <div key={`p${n}`} className="absolute" style={{ left: `${lx}%`, top: `${ty}%`, transform: `rotate(${flowDeg}deg)` }}>
+            <span className="block h-2 w-3 rounded-[60%_0_60%_0] bg-[#f6d7e2]" style={{ animation: `zh-petal ${streakSec + 5 + n * 2}s linear ${-n * 3.4}s infinite` }} />
+          </div>
+        ))}
+      </div>
       {/* groves: trees that sway, leaves that drift */}
       {GROVES.map((g) => at(g.pt, (
         <div className="absolute -translate-x-1/2 -translate-y-1/2" style={{ animation: `zh-sway ${4.4 + g.delay}s ease-in-out ${g.delay}s infinite`, transformOrigin: '50% 60%' }}>
@@ -296,17 +403,83 @@ export function WildlifeLayer({ toScreen, zoom, upright, night = 0, safe = null,
         ), `fish-${n}`, 13);
       })}
 
-      {/* tortoises among the granite rocks: out, a stroll, back, and into the shell */}
-      {night <= 0.5 && zoom >= 2 && TORTOISES.map((t, n) => at(t.pt, (
+      {/* more peacocks: mango trees by the 12th, the 15th fairway */}
+      {night <= 0.5 && PEACOCKS.map((pk, n) => at(pk.pt, (
+        <div className="absolute" style={{ animation: `zh-strut ${27 + n * 6}s ease-in-out ${pk.delay}s infinite` }}>
+          <div className="absolute -translate-x-1/2 -translate-y-1/2"><Hit id="peacock" label="Peacock"><Peacock size={46 * k} /></Hit></div>
+        </div>
+      ), `pk-${n}`, 16))}
+
+      {/* kingfishers: perched on the bank, then a dive */}
+      {night <= 0.5 && zoom >= 1.6 && KINGFISHERS.map((kf, n) => {
+        const [x0] = toScreen([50, 50]), [x1] = toScreen([51, 50]);
+        const ppp = Math.abs(x1 - x0);
+        let dx = (kf.water[0] - kf.bank[0]) * ppp, dy = ((kf.water[1] - kf.bank[1]) * ppp) / 1.4137;
+        const len = Math.hypot(dx, dy) || 1, cap = Math.min(len, 36 * k);
+        dx = (dx / len) * cap; dy = (dy / len) * cap;
+        const rot = (Math.atan2(dx, -dy) * 180) / Math.PI;
+        const dur = 15, delay = -n * 4.6;
+        return at(kf.bank, (
+          <>
+            <span className="absolute left-0 top-0 block h-5 w-5 rounded-full border border-white/80" style={{ left: dx, top: dy, animation: `zh-splash ${dur}s ease-out ${delay}s infinite` }} />
+            <div className="absolute left-0 top-0" style={{ ['--dx' as string]: `${dx}px`, ['--dy' as string]: `${dy}px`, animation: `zh-dive ${dur}s ease-in-out ${delay}s infinite` } as CSSProperties}>
+              <div className="absolute -translate-x-1/2 -translate-y-1/2" style={{ transform: `translate(-50%, -50%) rotate(${rot}deg)` }}>
+                <Hit id={`kingfisher-${n}`} label="Kingfisher"><Kingfisher size={22 * k} /></Hit>
+              </div>
+            </div>
+            {open === `kingfisher-${n}` && <div className="absolute left-0 top-0">{bubble(`kingfisher-${n}`, 'kingfisher')}</div>}
+          </>
+        ), `kf-${n}`, 17);
+      })}
+
+      {/* turtles in the lakes: drifting, then under the surface and back up */}
+      {zoom >= 1.7 && FISH_SPOTS.filter((_, i) => i % 3 === 1).map((f, n) => {
+        const [x0] = toScreen([50, 50]), [x1] = toScreen([51, 50]);
+        const r = Math.max(5, Math.min(26, f.room * Math.abs(x1 - x0) * 0.32));
+        const sec = 34 + (n % 4) * 7, cyc = 18, delay = -n * 5.3;
+        return at(f.pt, (
+          <div style={{ opacity: night > 0.5 ? 0.5 : 1 }}>
+            <span className="absolute left-0 top-0 block h-5 w-5 rounded-full border border-white/70" style={{ animation: `zh-splash ${cyc}s ease-out ${delay}s infinite` }} />
+            <div className="absolute" style={{ width: 0, height: 0, animation: `zh-orbit ${sec}s linear ${-n * 7}s ${n % 2 ? 'normal' : 'reverse'} infinite` }}>
+              <div style={{ transform: `translateY(${-r}px) rotate(${n % 2 ? 90 : -90}deg)` }} className="absolute -translate-x-1/2 -translate-y-1/2">
+                <div style={{ animation: `zh-turtle ${cyc}s ease-in-out ${delay}s infinite` }}>
+                  <Hit id={`turtle-${n}`} label="Turtle"><Turtle size={(19 + (n % 3) * 3) * k} /></Hit>
+                </div>
+              </div>
+            </div>
+            {open === `turtle-${n}` && <div className="absolute left-0 top-0">{bubble(`turtle-${n}`, 'turtle')}</div>}
+          </div>
+        ), `turtle-${n}`, 13);
+      })}
+
+      {/* a rabbit by the bushes: out for a nibble, then back inside */}
+      {night <= 0.5 && zoom >= 1.9 && at([46.6, 50.8], (
         <>
-          <div className="absolute" style={{ animation: `zh-crawl 22s ease-in-out ${t.delay}s infinite` }}>
-            <div className="absolute -translate-x-1/2 -translate-y-1/2">
-              <Hit id={`tortoise-${n}`} label="Tortoise"><Tortoise size={30 * k} delay={t.delay} /></Hit>
+          <div className="absolute left-0 top-0" style={{ animation: 'zh-rabbit 22s ease-in-out infinite' }}>
+            <div className="absolute -translate-x-1/2 -translate-y-1/2" style={{ animation: 'zh-rabbit-turn 22s ease-in-out infinite' }}>
+              <div style={{ animation: 'zh-bounce 0.7s ease-in-out infinite' }}>
+                <Hit id="rabbit" label="Rabbit"><Rabbit size={24 * k} /></Hit>
+              </div>
             </div>
           </div>
-          {open === `tortoise-${n}` && <div className="absolute left-0 top-0">{bubble(`tortoise-${n}`, 'tortoise')}</div>}
+          <div className="absolute -translate-x-1/2 -translate-y-1/2" style={{ animation: 'zh-sway 7s ease-in-out infinite', transformOrigin: '50% 60%' }}><Bush size={40 * k} /></div>
+          <div className="absolute left-0 top-0">{bubble('rabbit', 'rabbit')}</div>
         </>
-      ), `tort-${n}`, 15))}
+      ), 'rabbit', 15)}
+
+      {/* greens getting their water */}
+      {zoom >= 1.7 && SPRINKLED.map((hn, n) => {
+        const g = holeGuide(hn)?.green;
+        if (!g) return null;
+        return at(g, (
+          <div style={{ animation: `zh-spray 26s ease-in-out ${-n * 6.5}s infinite` }}>
+            <div className="absolute -translate-x-1/2 -translate-y-1/2">
+              <Hit id={`spr-${n}`} label="Sprinkler"><Sprinkler size={64 * k} /></Hit>
+            </div>
+            {open === `spr-${n}` && <div className="absolute left-0 top-0">{bubble(`spr-${n}`, 'sprinkler')}</div>}
+          </div>
+        ), `spr-${n}`, 15);
+      })}
 
       {night <= 0.5 && at([46.4, 37.4], (
         <>

@@ -32,6 +32,8 @@ export interface Atmosphere {
   code: number;
   isDay: boolean;
   windKmh: number;
+  /** Direction the wind blows FROM, degrees (0 = north). */
+  windDeg?: number;
   sunrise: Date | null;
   sunset: Date | null;
   elevationM: number | null;
@@ -43,7 +45,7 @@ const CACHE = 'zion-atmosphere';
 const FRESH_MS = 15 * 60 * 1000;
 
 async function load(): Promise<Atmosphere | null> {
-  const f = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LNG}&current=temperature_2m,apparent_temperature,relative_humidity_2m,uv_index,cloud_cover,weather_code,wind_speed_10m,is_day&daily=sunrise,sunset,uv_index_max&timezone=Asia%2FKolkata&forecast_days=1`;
+  const f = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LNG}&current=temperature_2m,apparent_temperature,relative_humidity_2m,uv_index,cloud_cover,weather_code,wind_speed_10m,wind_direction_10m,is_day&daily=sunrise,sunset,uv_index_max&timezone=Asia%2FKolkata&forecast_days=1`;
   const a = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${LAT}&longitude=${LNG}&current=us_aqi,pm2_5&timezone=Asia%2FKolkata`;
   const [w, q] = await Promise.all([
     fetch(f).then((r) => (r.ok ? r.json() : null)).catch(() => null),
@@ -56,7 +58,7 @@ async function load(): Promise<Atmosphere | null> {
   return {
     tempC: c.temperature_2m, feelsC: c.apparent_temperature, humidity: c.relative_humidity_2m,
     uv: c.uv_index ?? 0, uvMax: w.daily?.uv_index_max?.[0] ?? null, cloud: c.cloud_cover, code: c.weather_code,
-    isDay: c.is_day === 1, windKmh: c.wind_speed_10m,
+    isDay: c.is_day === 1, windKmh: c.wind_speed_10m, windDeg: c.wind_direction_10m,
     sunrise: ist(w.daily?.sunrise?.[0]), sunset: ist(w.daily?.sunset?.[0]),
     elevationM: typeof w.elevation === 'number' ? Math.round(w.elevation) : null,
     aqi: q?.current?.us_aqi ?? null, pm25: q?.current?.pm2_5 ?? null,

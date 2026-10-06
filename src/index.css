@@ -221,6 +221,55 @@ body {
 .zh-heart { animation: zh-heart 2.6s ease-in-out infinite, zh-glow 2.6s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .zh-radiate, .zh-heart { animation: none; } }
 
+/* ---- Public map: kingfishers, turtles, a rabbit, sprinklers and the breeze (see WildlifeLayer.tsx) ---- */
+@keyframes zh-dive {
+  0%, 56% { transform: translate(0, 0) scale(1); opacity: 1; }
+  63% { transform: translate(var(--dx), var(--dy)) scale(0.9); opacity: 1; }
+  65%, 80% { transform: translate(var(--dx), var(--dy)) scale(0.45); opacity: 0; }
+  88% { transform: translate(calc(var(--dx) * 0.4), calc(var(--dy) * 0.4 - 14px)) scale(1.2); opacity: 1; }
+  96%, 100% { transform: translate(0, 0) scale(1); opacity: 1; }
+}
+@keyframes zh-splash {
+  0%, 62% { opacity: 0; transform: translate(-50%, -50%) scale(0.2); }
+  64% { opacity: 0.9; transform: translate(-50%, -50%) scale(0.35); }
+  82% { opacity: 0; transform: translate(-50%, -50%) scale(3.4); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(3.4); }
+}
+@keyframes zh-turtle {
+  0%, 50% { opacity: 1; transform: scale(1); }
+  58% { opacity: 0.35; transform: scale(0.8); }
+  62%, 80% { opacity: 0; transform: scale(0.6); }
+  88%, 100% { opacity: 1; transform: scale(1); }
+}
+@keyframes zh-rabbit {
+  0%, 26% { opacity: 0; transform: translate(0, 0); }
+  30% { opacity: 1; transform: translate(0, 0); }
+  42%, 58% { transform: translate(15px, 7px); }
+  70%, 80% { transform: translate(26px, -2px); }
+  92% { opacity: 1; transform: translate(0, 0); }
+  96%, 100% { opacity: 0; transform: translate(0, 0); }
+}
+@keyframes zh-rabbit-turn { 0%, 64% { transform: rotate(82deg); } 70%, 100% { transform: rotate(256deg); } }
+@keyframes zh-bounce { 0%, 100% { transform: translateY(0) scale(1, 1); } 50% { transform: translateY(-2.2px) scale(0.96, 1.06); } }
+@keyframes zh-spray {
+  0%, 4% { opacity: 0; }
+  10%, 52% { opacity: 1; }
+  60%, 100% { opacity: 0; }
+}
+@keyframes zh-wet { 0%, 100% { opacity: 0.35; transform: scale(0.96); } 50% { opacity: 0.6; transform: scale(1.04); } }
+@keyframes zh-streak {
+  0% { transform: translateX(-160px); opacity: 0; }
+  12% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: translateX(300px); opacity: 0; }
+}
+@keyframes zh-petal {
+  0% { transform: translate(-120px, 0) rotate(0deg); opacity: 0; }
+  10% { opacity: 0.9; }
+  90% { opacity: 0.9; }
+  100% { transform: translate(300px, 26px) rotate(540deg); opacity: 0; }
+}
+
 /* ---- Public map: fish, tortoises and birds crossing the course (see WildlifeLayer.tsx) ---- */
 @keyframes zh-wag { 0%, 100% { transform: rotate(-16deg); } 50% { transform: rotate(16deg); } }
 @keyframes zh-ripple {
