@@ -54,7 +54,8 @@ export function DirectionsControls({ from, toGps, offRoad = false, onView, class
         ? [
             ...AMENITIES.map((p) => ({ pt: p.pt, label: p.label })),
             // Just the number on the map; the full name shows once picked as a destination.
-            ...VILLAS.map((p) => ({ pt: p.pt, label: p.label.replace('Villa ', ''), kind: 'villa' as const })),
+            // Hidden while a route is showing, so only the destination stands out.
+            ...(dest ? [] : VILLAS).map((p) => ({ pt: p.pt, label: p.label.replace('Villa ', ''), kind: 'villa' as const })),
           ]
         : [],
     });
