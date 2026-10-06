@@ -12,8 +12,8 @@ import { SAMPLE_PLOTS } from '@/lib/inventory';
 //   #/map?to=villa-202    the same, with directions to that place already chosen
 //                         (place ids: villa-202, clubhouse, entry-main, plot-p-606 …)
 //
-// It draws the plot outlines in one neutral colour, like the CRM's map, but with no plot
-// status, prices, leads or any CRM data. "Show my
+// It draws the plots coloured by availability, exactly like the tour map, but shows no
+// prices, leads or any CRM data. "Show my
 // location" puts the visitor's own GPS dot on the plan once the team's GPS
 // calibration can be read (see the public_tour_calibration SQL); without it the
 // map and directions still work from a starting place the visitor picks.
@@ -101,7 +101,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
           large
           bare
           cover
-          neutral
+          publicView
           tooltip="buyer"
           marker={onPlan ? marker : null}
           route={dirView.route}
