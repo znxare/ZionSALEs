@@ -769,7 +769,7 @@ export function MasterPlanBoard({
               {route && route.length > 1 && (
                 <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" style={{ zIndex: 15 }}>
                   <polyline points={route.map((q) => toScreen(q).join(',')).join(' ')} fill="none" stroke="white" strokeWidth={11} strokeLinecap="round" strokeLinejoin="round" />
-                  <polyline points={route.map((q) => toScreen(q).join(',')).join(' ')} fill="none" stroke="#2563eb" strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" />
+                  <polyline points={route.map((q) => toScreen(q).join(',')).join(' ')} fill="none" stroke="#f05a22" strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" />
                   <polyline points={route.map((q) => toScreen(q).join(',')).join(' ')} fill="none" stroke="white" strokeOpacity={0.7} strokeWidth={2} strokeDasharray="2 10" strokeLinecap="round" className="animate-route-flow" />
                 </svg>
               )}

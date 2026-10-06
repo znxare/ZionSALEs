@@ -62,7 +62,7 @@ export function DirectionsControls({ from, toGps, spots = [], onView, className 
   return (
     <>
       <div className={`pointer-events-auto flex items-center gap-2 ${className}`}>
-        <button onClick={() => setPicking(true)} className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold shadow-md backdrop-blur ${dest ? 'bg-blue-600 text-white' : pill}`}>
+        <button onClick={() => setPicking(true)} className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold shadow-md backdrop-blur ${dest ? 'bg-[#f05a22] text-white' : pill}`}>
           <Navigation2 className="h-4 w-4" /> Directions
         </button>
         <button
@@ -88,11 +88,11 @@ export function DirectionsControls({ from, toGps, spots = [], onView, className 
             </div>
           ) : (
             <div className="flex items-center gap-3">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-blue-600 text-white"><Navigation2 className="h-5 w-5" /></div>
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#f05a22] text-white"><Navigation2 className="h-5 w-5" /></div>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[15px] font-bold text-gray-900">{dest.label}</div>
                 <div className="truncate text-[13px] text-gray-500">
-                  {!origin ? 'Waiting for your location…' : live ? (describeDistance(metres) ?? 'Follow the blue line') : `From ${start.label}${metres != null ? ` · ${describeDistance(metres)}` : ''}`}
+                  {!origin ? 'Waiting for your location…' : live ? (describeDistance(metres) ?? 'Follow the orange line') : `From ${start.label}${metres != null ? ` · ${describeDistance(metres)}` : ''}`}
                 </div>
               </div>
               <button onClick={() => setDest(null)} aria-label="End directions" className="rounded-full p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
@@ -160,7 +160,7 @@ function PlacePicker({ live, start, onStart, spots, onPick, onClose }: {
               <div className={g.title === 'Plots' || g.title === 'Holes' ? 'grid grid-cols-3 gap-1.5 px-5' : 'px-2'}>
                 {g.items.map((p) =>
                   g.title === 'Plots' || g.title === 'Holes' ? (
-                    <button key={p.id} onClick={() => onPick(p)} className="truncate rounded-xl bg-gray-50 px-2 py-2 text-[13px] font-semibold text-gray-800 hover:bg-blue-50 hover:text-blue-700">
+                    <button key={p.id} onClick={() => onPick(p)} className="truncate rounded-xl bg-gray-50 px-2 py-2 text-[13px] font-semibold text-gray-800 hover:bg-[#f05a22]/10 hover:text-[#f05a22]">
                       {p.label.replace('Plot ', '')}{g.title === 'Holes' ? '' : ''}
                     </button>
                   ) : (
