@@ -23,7 +23,7 @@ const GROVES: { id: string; pt: Pt; size: number; delay: number }[] = [
 
 const SPOTS: Record<string, { title: string; text: string }> = {
   grove: { title: 'Shade grove', text: 'Mature trees, cool shade and birdsong — a quiet place to pause between holes.' },
-  peacock: { title: 'Peacock Green', text: 'Peacocks wander onto the 4th green at first light. Come and watch them strut.' },
+  peacock: { title: 'Peacocks', text: 'Peacocks wander onto the 4th green at first light. Come and watch them strut.' },
   bird: { title: 'Over the 4th', text: 'Small birds wheel over the green and its trees, all day long.' },
   parrot: { title: 'Parrot perch', text: 'Parrots chatter in the trees around the clubhouse — listen as you arrive.' },
   egret: { title: 'Egret Lake', text: 'An egret keeps watch over the water, always at a safe distance.' },
@@ -329,15 +329,12 @@ export function WildlifeLayer({ toScreen, zoom, upright, night = 0, safe = null,
       {at([83.0, 77.6], (
         <>
           <div className="absolute" style={{ animation: 'zh-strut 24s ease-in-out infinite' }}>
-            <div className="absolute -translate-x-1/2 -translate-y-1/2"><Hit id="peacock" label="Peacock Green"><Peacock size={56 * k} /></Hit></div>
+            <div className="absolute -translate-x-1/2 -translate-y-1/2"><Hit id="peacock" label="Peacocks"><Peacock size={56 * k} /></Hit></div>
           </div>
           <div className="absolute" style={{ animation: 'zh-strut 31s ease-in-out -11s infinite', left: 22 * k, top: 20 * k }}>
-            <div className="absolute -translate-x-1/2 -translate-y-1/2"><Hit id="peacock" label="Peacock Green"><Peacock size={42 * k} /></Hit></div>
+            <div className="absolute -translate-x-1/2 -translate-y-1/2"><Hit id="peacock" label="Peacocks"><Peacock size={42 * k} /></Hit></div>
           </div>
           <div className="absolute left-0 top-0">{bubble('peacock', 'peacock')}</div>
-          {zoom >= 2 && (
-            <div className="pointer-events-none absolute left-1/2 top-9 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#fbf7ee]/[0.9] px-2.5 py-0.5 font-serif text-[13px] font-semibold italic text-[#13261c] ring-1 ring-[#c9a96e]/50">Peacock Green</div>
-          )}
         </>
       ), 'peacocks', 16)}
       {at([83.0, 77.6], (

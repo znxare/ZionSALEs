@@ -19,7 +19,6 @@ KEEP_CLEAR = {
     'legend': (6, 66, 29, 95),
     'credits': (87, 83, 100, 98),
     'compass': (0, 90, 5, 100),
-    'cartouche': (72.5, 30.0, 97.5, 49.5),
     'postcard': (9.0, 3.0, 31.0, 20.5),
 }
 
@@ -95,13 +94,13 @@ h = 1.0 * noise(260) + 0.55 * noise(130) + 0.28 * noise(64) + 0.1 * noise(30)
 h = gauss_fft(h, 6)
 hn = (h - h.min()) / (h.max() - h.min())
 
-levels = np.floor(hn * 16).astype(int)
+levels = np.floor(hn * 9).astype(int)
 edge = (levels != np.roll(levels, -1, 1)) | (levels != np.roll(levels, -1, 0))
 major = ((levels % 4) != (np.roll(levels, -1, 1) % 4)) | ((levels % 4) != (np.roll(levels, -1, 0) % 4))
 major = major & edge
 line = gauss_fft(edge.astype(np.float32), 0.9) * 2.6
 line_major = gauss_fft(dilate(major, 1).astype(np.float32), 0.9) * 2.6
-ac = np.clip(0.17 * line + 0.17 * line_major, 0, 0.36)
+ac = np.clip(0.07 * line + 0.09 * line_major, 0, 0.2)
 
 gy, gx = np.gradient(gauss_fft(h, 5))
 shade = np.clip((-(gx + gy)) * 60, -1, 1)

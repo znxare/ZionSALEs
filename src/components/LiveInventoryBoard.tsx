@@ -15,7 +15,7 @@ import { CartsLayer } from './CartsLayer';
 import { AmbientLayer } from './AmbientLayer';
 import { TerrainLayer } from './TerrainLayer';
 import { SkyLayer } from './SkyLayer';
-import { Cartouche } from './Cartouche';
+import { Postcard } from './Cartouche';
 import { SponsorSigns } from './SponsorSigns';
 import type { Atmosphere } from '@/lib/mapInfo';
 import type { Daylight } from '@/lib/daylight';
@@ -997,7 +997,7 @@ export function MasterPlanBoard({
                   <polyline points={routePts.map((q) => toScreen(q).join(',')).join(' ')} fill="none" stroke="white" strokeOpacity={0.7} strokeWidth={2} strokeDasharray="2 10" strokeLinecap="round" className="animate-route-flow" />
                 </svg>
               )}
-              {ambient && scenery && <Cartouche toScreen={toScreen} zoom={zoom} layerWidth={size.width} upright={upright} turned={turned} atmosphere={atmosphere} night={night} />}
+              {ambient && scenery && <Postcard toScreen={toScreen} zoom={zoom} layerWidth={size.width} upright={upright} atmosphere={atmosphere} night={night} />}
               {ambient && publicView && <SponsorSigns toScreen={toScreen} zoom={zoom} upright={upright} safe={safe} viewport={viewport} />}
               {ambient && <AmbientLayer toScreen={toScreen} zoom={zoom} upright={upright} sun={1 - night} safe={safe} viewport={viewport} />}
               {wildlife && zoom >= 1.8 && <WildlifeLayer toScreen={toScreen} zoom={zoom} upright={upright} night={night} safe={safe} viewport={viewport} />}
