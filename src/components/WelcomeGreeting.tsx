@@ -1,17 +1,8 @@
 import { useEffect, useState } from 'react';
-import { lxEyebrow } from '@/lib/luxury';
 
-// The opening line of the public map: a greeting that follows the time of day (estate time), fading in over
-// the map as it glides in to the main gate, and again when a visitor actually arrives.
-
-/** "Good morning", "Good afternoon" or "Good evening" for estate time. */
-export function greetingFor(now: Date = new Date()): string {
-  let hour = now.getHours();
-  try { hour = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: 'Asia/Kolkata' }).format(now)); } catch { /* the phone's own clock */ }
-  if (hour >= 5 && hour < 12) return 'Good morning';
-  if (hour >= 12 && hour < 17) return 'Good afternoon';
-  return 'Good evening';
-}
+// A welcome in the Zion Hills way: an orange pennant, like the flag in the logo, that slides in from the edge of
+// the screen, stays a few seconds and slides away. Used for a named guest (#/map?guest=Name) and when someone
+// really arrives at the gate. Nothing pops up for an ordinary visit: the logo opening is the welcome.
 
 /** A guest's name from the link (#/map?guest=Rao), kept to plain letters. */
 export function guestFromLink(): string | null {
@@ -31,15 +22,16 @@ export function WelcomeGreeting({ eyebrow, title, onDone, ms = 5200 }: { eyebrow
   }, [ms, onDone]);
   if (gone) return null;
   return (
-    <div
-      className="pointer-events-none absolute inset-x-0 top-[24%] z-[58] flex justify-center px-6"
-      style={{ animation: `zh-welcome ${ms}ms ease-in-out both` }}
-      role="status"
-    >
-      <div className="rounded-[26px] bg-[#0f2118]/[0.82] px-7 py-5 text-center text-[#f3ead3] shadow-[0_24px_60px_-16px_rgba(5,14,9,0.7)] ring-1 ring-[#c9a96e]/[0.55] backdrop-blur-xl">
-        <div className={`${lxEyebrow} text-[#e3c98d]`}>{eyebrow}</div>
-        <div className="mx-auto my-2 h-px w-14 bg-gradient-to-r from-transparent via-[#c9a96e] to-transparent" />
-        <div className="font-serif text-[34px] font-semibold leading-[1.05] sm:text-[40px]">{title}</div>
+    <div className="pointer-events-none absolute left-0 top-[7.4rem] z-[58] sm:top-[8.2rem]" style={{ animation: `zh-pennant ${ms}ms cubic-bezier(.22,.8,.2,1) both` }} role="status">
+      <div className="flex items-stretch drop-shadow-[0_8px_14px_rgba(38,35,31,0.3)]">
+        <div className="w-[4px] rounded-full bg-[#26231f]" />
+        <div
+          className="bg-[#f05a22] py-2.5 pl-3.5 pr-9 text-white"
+          style={{ clipPath: 'polygon(0 0, 100% 0, calc(100% - 16px) 50%, 100% 100%, 0 100%)' }}
+        >
+          <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/85">{eyebrow}</div>
+          <div className="text-[19px] font-bold leading-tight tracking-tight">{title}</div>
+        </div>
       </div>
     </div>
   );

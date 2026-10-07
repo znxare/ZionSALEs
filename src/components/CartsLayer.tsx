@@ -36,9 +36,9 @@ function Cart({ night }: { night: number }) {
   return (
     <g>
       {night > 0.05 && <polygon points="3.6,-1.4 16,-6 16,6 3.6,1.4" fill="url(#cart-beam)" opacity={Math.min(1, night)} />}
-      <rect x="-3.7" y="-1.9" width="7.4" height="3.8" rx="1.1" fill="#0f2118" stroke="#c9a96e" strokeWidth="0.35" />
-      <rect x="-2.6" y="-1.55" width="4.2" height="3.1" rx="0.7" fill="#fbf7ee" />
-      <rect x="-2.6" y="-0.25" width="4.2" height="0.5" fill="#c9a96e" />
+      <rect x="-3.7" y="-1.9" width="7.4" height="3.8" rx="1.1" fill="#1f2a24" stroke="#e3d8c2" strokeWidth="0.35" />
+      <rect x="-2.6" y="-1.55" width="4.2" height="3.1" rx="0.7" fill="#fbf8f1" />
+      <rect x="-2.6" y="-0.25" width="4.2" height="0.5" fill="#e3d8c2" />
       <rect x="1.9" y="-1.4" width="1.3" height="2.8" rx="0.4" fill="#9fc7d8" opacity="0.85" />
     </g>
   );

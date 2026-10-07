@@ -16,13 +16,14 @@ import { useDaylight } from '@/lib/daylight';
 import { useAtmosphere } from '@/lib/mapInfo';
 import { rainLevel } from '@/lib/sky';
 import { RainOverlay } from './RainOverlay';
-import { WelcomeGreeting, greetingFor, guestFromLink } from './WelcomeGreeting';
+import { WelcomeGreeting, guestFromLink } from './WelcomeGreeting';
+import { useKeepAwake } from '@/lib/wake';
 import { useWaterCaution, WaterCautionBanner } from './WaterCaution';
 import { findPlace, planMetres } from '@/lib/directions';
 import { SAMPLE_PLOTS } from '@/lib/inventory';
 import { centroidOf } from '@/lib/plotMap';
 import { SPONSORS } from '@/lib/mapInfo';
-import { lxEyebrow, lxGlass, lxIvory, lxOrange } from '@/lib/luxury';
+import { lxEyebrow, lxFab, lxGlass, lxIvory, lxOrange } from '@/lib/luxury';
 import { Navigation2, X } from 'lucide-react';
 
 // The estate map for anyone with the link — opens without a login:
@@ -41,9 +42,9 @@ const LOGO = '/zion-hills-logo.svg';
 const FOLLOW_ZOOM = 2.2;
 const NAV_ZOOM = 2.6;
 
-const menuItem = `flex items-center gap-2.5 whitespace-nowrap rounded-full py-2.5 pl-3.5 pr-4 text-[13px] font-semibold tracking-wide transition active:scale-95 ${lxGlass}`;
+const menuItem = `flex items-center gap-2.5 whitespace-nowrap rounded-full py-2.5 pl-3.5 pr-4 text-[13px] font-semibold tracking-wide transition active:scale-95 ${lxFab}`;
 
-const fab = `pointer-events-auto grid h-12 w-12 place-items-center rounded-[17px] text-[#e9d8aa] transition active:scale-95 sm:h-14 sm:w-14 sm:rounded-[20px] ${lxGlass}`;
+const fab = `pointer-events-auto grid h-12 w-12 place-items-center rounded-[17px] transition active:scale-95 sm:h-14 sm:w-14 sm:rounded-[20px] ${lxFab}`;
 
 
 export default function PublicMap({ toId }: { toId?: string }) {
@@ -63,6 +64,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
   const [adSel, setAdSel] = useState<string | null>(null);
   const [pickerSignal, setPickerSignal] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  useKeepAwake(); // the screen stays on while the map is open
   const [ready, setReady] = useState(false);
   // The hole layer: numbered badges; tap one for its card. When the visitor is on a hole, only that hole shows.
   const [holesOn, setHolesOn] = useState(false);
@@ -215,7 +217,8 @@ export default function PublicMap({ toId }: { toId?: string }) {
     if (toId) return; // a shared destination goes straight to its route
     try { if (sessionStorage.getItem('zion-welcomed')) return; sessionStorage.setItem('zion-welcomed', '1'); } catch { /* no storage */ }
     const guest = guestFromLink();
-    setGreet({ eyebrow: greetingFor(), title: guest ? `Welcome, ${guest}` : 'Welcome to Zion Hills' });
+    // an ordinary visit gets the logo opening and nothing more; a named guest gets the pennant
+    if (guest) setGreet({ eyebrow: 'Zion Hills Golf County', title: `Welcome, ${guest}` });
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
     const gate = findPlace('entry-main');
     const t = window.setTimeout(() => { if (gate) setFocus({ pt: gate.pt, zoom: 2.1, exact: true, durationMs: 3200, nonce: Date.now() }); }, 900);
@@ -340,16 +343,16 @@ export default function PublicMap({ toId }: { toId?: string }) {
           className={`pointer-events-auto absolute left-3 top-[3.9rem] z-40 flex items-center gap-2 rounded-full py-2 pl-3.5 pr-4 text-left transition active:scale-[0.98] sm:left-5 sm:top-[4.4rem] ${lxIvory}`}
           style={{ width: 'min(58vw, 15rem)' }}
         >
-          <Search className="h-4 w-4 shrink-0 text-[#7a6830]" strokeWidth={2} />
-          <span className="font-serif text-[17px] italic text-[#5b5a4c]">Where to?</span>
+          <Search className="h-4 w-4 shrink-0 text-[#8a6a4a]" strokeWidth={2} />
+          <span className="text-[15px] font-medium text-[#6b665c]">Where to?</span>
         </button>
       )}
 
       {!navigating && (
       <div className="pointer-events-none absolute inset-x-0 top-0 z-40 flex items-start justify-between gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5">
         <div className="pointer-events-auto flex items-center gap-2.5 py-1 pl-1 pr-3">
-          <img src={LOGO} alt="Zion Hills Golf County" className="h-9 w-auto drop-shadow-[0_0_5px_rgba(255,252,240,0.95)] sm:h-10" />
-          <span className="hidden font-serif text-[17px] font-semibold italic tracking-wide text-[#13261c] [text-shadow:0_0_6px_rgba(255,252,240,0.95),0_0_2px_rgba(255,252,240,0.9)] sm:inline">The Estate Map</span>
+          <img id="map-logo" src={LOGO} alt="Zion Hills Golf County" className="h-9 w-auto drop-shadow-[0_0_5px_rgba(255,252,240,0.95)] sm:h-10" />
+          <span className="hidden text-[15px] font-bold tracking-tight text-[#26231f] [text-shadow:0_0_6px_rgba(255,252,240,0.95),0_0_2px_rgba(255,252,240,0.9)] sm:inline">The Estate Map</span>
         </div>
         <div className="flex items-center gap-2">
           <EmergencyButton
@@ -403,7 +406,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
           ) : locating && fix && follow ? (
             <Navigation className="h-6 w-6 fill-[#f26a35] text-[#f26a35]" />
           ) : (
-            <CompassIcon className={`h-6 w-6 sm:h-7 sm:w-7 ${locating ? 'text-[#f1d9a6]' : ''}`} strokeWidth={1.8} />
+            <CompassIcon className={`h-6 w-6 sm:h-7 sm:w-7 ${locating ? 'text-[#f05a22]' : ''}`} strokeWidth={1.8} />
           )}
         </button>
       </div>
@@ -445,9 +448,9 @@ export default function PublicMap({ toId }: { toId?: string }) {
           onClick={() => openHole(near.hole.n)}
           className={`pointer-events-auto absolute bottom-[5.6rem] left-3 right-[4.5rem] z-40 flex animate-slide-up items-center gap-3 rounded-[20px] px-3.5 py-2 text-left sm:left-24 sm:right-auto sm:w-[26rem] ${lxIvory}`}
         >
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#0f2118] font-serif text-[22px] font-bold text-[#f1d9a6] ring-1 ring-[#c9a96e]">{near.hole.n}</span>
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#1f2a24] font-serif text-[22px] font-bold text-[#ffd9bf] ring-1 ring-[#e3d8c2]">{near.hole.n}</span>
           <span className="min-w-0 flex-1">
-            <span className="block font-serif text-[18px] font-semibold leading-tight text-[#13261c]">You&rsquo;re on Hole {near.hole.n} &middot; Par {near.hole.par}</span>
+            <span className="block font-serif text-[18px] font-semibold leading-tight text-[#26231f]">You&rsquo;re on Hole {near.hole.n} &middot; Par {near.hole.par}</span>
             <span className="block text-[12px] text-[#5b5a4c]">{Math.round(near.yards)} yards to the green &middot; tap for the hole</span>
           </span>
         </button>
@@ -458,10 +461,10 @@ export default function PublicMap({ toId }: { toId?: string }) {
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
               <div className={`${lxEyebrow} text-[#d9480f]`}>Vacant &middot; available now</div>
-              <div className="font-serif text-[26px] font-semibold leading-tight text-[#13261c]">Plot {adPlot.plotNo} can be yours</div>
+              <div className="font-serif text-[26px] font-semibold leading-tight text-[#26231f]">Plot {adPlot.plotNo} can be yours</div>
               <div className="text-[13px] leading-snug text-[#5b5a4c]">{adPlot.bedrooms} BHK villa &middot; {Math.round(adPlot.landAreaSft).toLocaleString('en-IN')} sq ft plot &middot; {Math.round(adPlot.builtUpSft).toLocaleString('en-IN')} sq ft built-up &middot; {adPlot.phase}</div>
             </div>
-            <button onClick={() => setAdSel(null)} aria-label="Close" className="rounded-full p-1.5 text-[#6f5f2f] hover:bg-[#c9a96e]/[0.15]"><X className="h-4 w-4" /></button>
+            <button onClick={() => setAdSel(null)} aria-label="Close" className="rounded-full p-1.5 text-[#8a6a4a] hover:bg-[#e3d8c2]/[0.15]"><X className="h-4 w-4" /></button>
           </div>
           <button
             onClick={() => { const dest = findPlace(`plot-${adPlot.id}`); setAdSel(null); setExitDest(dest); }}

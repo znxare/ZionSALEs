@@ -75,7 +75,7 @@ export function WaterCautionBanner({ alert, top = 'top-[9.75rem]' }: { alert: Wa
       role="alert"
       className={`pointer-events-none absolute left-3 right-[4.75rem] sm:right-3 ${top} z-50 mx-auto flex max-w-md animate-slide-up items-center gap-3 rounded-[20px] px-4 py-3 ${lxCrimson}`}
     >
-      <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#f1d9a6]/20 ring-1 ring-[#f1d9a6]/50 ${danger ? 'animate-pulse' : ''}`}>
+      <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#ffd9bf]/20 ring-1 ring-[#ffd9bf]/50 ${danger ? 'animate-pulse' : ''}`}>
         {danger || night ? <AlertTriangle className="h-6 w-6" /> : <Waves className="h-6 w-6" />}
       </div>
       <div className="min-w-0">

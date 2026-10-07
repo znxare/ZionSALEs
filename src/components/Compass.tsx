@@ -8,39 +8,28 @@ export default function Compass({ rotation, headingUp, onToggle, top = 'top-16',
   const shown = useSmoothedAngle(rotation);
   return (
     <button
-      onClick={onToggle}
+      onClick={() => { try { navigator.vibrate?.(8); } catch { /* not supported */ } onToggle(); }}
       aria-label={headingUp ? 'Show north up' : 'Turn the map with your direction of travel'}
       className={`absolute right-3 ${top} z-40 flex flex-col items-center gap-0.5 p-1 pb-1.5 sm:gap-1 sm:p-1.5 active:scale-95 sm:right-5`}
     >
       <svg viewBox="0 0 48 48" className="h-10 w-10 sm:h-12 sm:w-12" style={{ transform: `rotate(${-shown}deg)` }}>
-        <defs>
-          <radialGradient id="compass-face" cx="50%" cy="40%" r="60%">
-            <stop offset="0" stopColor="#fffcf4" stopOpacity="0.5" />
-            <stop offset="1" stopColor="#ece1c6" stopOpacity="0.3" />
-          </radialGradient>
-          <linearGradient id="compass-north" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0.5" stopColor="#f26a35" />
-            <stop offset="0.5" stopColor="#c2410c" />
-          </linearGradient>
-          <linearGradient id="compass-south" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0.5" stopColor="#3b4a3f" />
-            <stop offset="0.5" stopColor="#13261c" />
-          </linearGradient>
-        </defs>
-        <circle cx="24" cy="24" r="22.5" fill="url(#compass-face)" stroke="#c9a96e" strokeWidth="1.2" />
-        {/* Ticks every 30°, longer at E/S/W (north has its letter). */}
-        {Array.from({ length: 12 }, (_, i) => i).filter((i) => i !== 0).map((i) => {
-          const major = i % 3 === 0;
-          const a = (i * 30 * Math.PI) / 180;
-          const r1 = 20.5, r2 = major ? 17 : 18.8;
-          return <line key={i} x1={24 + r1 * Math.sin(a)} y1={24 - r1 * Math.cos(a)} x2={24 + r2 * Math.sin(a)} y2={24 - r2 * Math.cos(a)} stroke={major ? '#8a7a52' : '#d6c79c'} strokeWidth={major ? 1.4 : 1} strokeLinecap="round" />;
+        <circle cx="24" cy="24" r="22.4" fill="#fbf8f1" fillOpacity="0.42" stroke="#26231f" strokeOpacity="0.5" strokeWidth="1.1" />
+        <circle cx="24" cy="24" r="19" fill="none" stroke="#26231f" strokeOpacity="0.12" strokeWidth="0.7" />
+        {Array.from({ length: 24 }, (_, i) => i).filter((i) => i % 6 !== 0).map((i) => {
+          const a = (i * 15 * Math.PI) / 180;
+          const long = i % 2 === 0;
+          const r1 = 22.4, r2 = long ? 19.6 : 20.9;
+          return <line key={i} x1={24 + r1 * Math.sin(a)} y1={24 - r1 * Math.cos(a)} x2={24 + r2 * Math.sin(a)} y2={24 - r2 * Math.cos(a)} stroke="#26231f" strokeOpacity={long ? 0.55 : 0.3} strokeWidth={long ? 1 : 0.7} strokeLinecap="round" />;
         })}
-        <text x="24" y="10.6" textAnchor="middle" fontSize="7.5" fontWeight="800" fill="#d9480f">N</text>
-        <path d="M24 12.5 L27.2 24 L20.8 24 Z" fill="url(#compass-north)" />
-        <path d="M24 35.5 L27.2 24 L20.8 24 Z" fill="url(#compass-south)" />
-        <circle cx="24" cy="24" r="2.3" fill="#fbf7ee" stroke="#13261c" strokeWidth="1.2" />
+        <text x="24" y="10.4" textAnchor="middle" fontSize="7" fontWeight="800" fill="#d9480f" fontFamily="Plus Jakarta Sans, sans-serif">N</text>
+        <text x="40.4" y="26.6" textAnchor="middle" fontSize="5.4" fontWeight="700" fill="#26231f" fillOpacity="0.7" fontFamily="Plus Jakarta Sans, sans-serif">E</text>
+        <text x="24" y="42.6" textAnchor="middle" fontSize="5.4" fontWeight="700" fill="#26231f" fillOpacity="0.7" fontFamily="Plus Jakarta Sans, sans-serif">S</text>
+        <text x="7.6" y="26.6" textAnchor="middle" fontSize="5.4" fontWeight="700" fill="#26231f" fillOpacity="0.7" fontFamily="Plus Jakarta Sans, sans-serif">W</text>
+        <path d="M24 13.4 L27 24 L21 24 Z" fill="#f05a22" />
+        <path d="M24 34.6 L27 24 L21 24 Z" fill="#26231f" fillOpacity="0.85" />
+        <circle cx="24" cy="24" r="2.2" fill="#fbf8f1" stroke="#26231f" strokeWidth="1.1" />
       </svg>
-      <span className="px-1 text-[9px] font-bold uppercase leading-tight tracking-[0.14em] text-[#13261c] [text-shadow:0_0_6px_rgba(255,252,240,0.95),0_0_2px_rgba(255,252,240,0.9)] sm:text-[10px] sm:tracking-[0.16em]">{headingUp ? 'Heading up' : 'North up'}</span>
+      <span className="px-1 text-[9px] font-bold uppercase leading-tight tracking-[0.14em] text-[#26231f] [text-shadow:0_0_6px_rgba(255,252,240,0.95),0_0_2px_rgba(255,252,240,0.9)] sm:text-[10px] sm:tracking-[0.16em]">{headingUp ? 'Heading up' : 'North up'}</span>
       {facing != null && <span className="text-[10px] font-bold leading-none tracking-wide text-[#c2410c] [text-shadow:0_0_6px_rgba(255,252,240,0.95),0_0_2px_rgba(255,252,240,0.9)]">Facing {cardinal(facing)} {Math.round(((facing % 360) + 360) % 360)}°</span>}
       {weak && <span className="max-w-[84px] text-center text-[8.5px] font-semibold leading-tight text-[#a3241c] [text-shadow:0_0_6px_rgba(255,252,240,0.95),0_0_2px_rgba(255,252,240,0.9)]">Wave phone in a figure 8</span>}
     </button>

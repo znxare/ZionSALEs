@@ -10,11 +10,11 @@ const CLUBHOUSE: Pt = [40.05, 58.1];
 function Flag({ size }: { size: number }) {
   return (
     <svg width={size * 0.7} height={size} viewBox="0 0 21 30" className="overflow-visible drop-shadow">
-      <line x1="4" y1="28" x2="4" y2="3" stroke="#f1d9a6" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="4" y1="28" x2="4" y2="3" stroke="#ffd9bf" strokeWidth="1.5" strokeLinecap="round" />
       <g style={{ transformOrigin: '4px 8px', animation: 'zh-wave 2.6s ease-in-out infinite' }}>
-        <path d="M4.5 3 L18 6.5 L4.5 11 Z" fill="#f05a22" stroke="#fbf7ee" strokeWidth="0.8" strokeLinejoin="round" />
+        <path d="M4.5 3 L18 6.5 L4.5 11 Z" fill="#f05a22" stroke="#fbf8f1" strokeWidth="0.8" strokeLinejoin="round" />
       </g>
-      <circle cx="4" cy="28.3" r="2" fill="#0f2118" stroke="#f1d9a6" strokeWidth="0.9" />
+      <circle cx="4" cy="28.3" r="2" fill="#1f2a24" stroke="#ffd9bf" strokeWidth="0.9" />
     </svg>
   );
 }

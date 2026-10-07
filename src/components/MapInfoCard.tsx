@@ -80,7 +80,7 @@ export function MapInfoCard({ onShowPlace, className = '' }: { onShowPlace: (pla
 
   if (closed || slides.length === 0) return null;
   const s = slides[i % slides.length];
-  const tile = s.tone === 'ad' ? `${lxOrange}` : s.tone === 'warn' ? 'bg-gradient-to-br from-[#a3241c] to-[#7a1712] text-white ring-1 ring-[#f1d9a6]/50' : 'bg-[#13261c] text-[#e3c98d] ring-1 ring-[#c9a96e]/50';
+  const tile = s.tone === 'ad' ? `${lxOrange}` : s.tone === 'warn' ? 'bg-gradient-to-br from-[#a3241c] to-[#7a1712] text-white ring-1 ring-[#ffd9bf]/50' : 'bg-[#26231f] text-[#ffc9a3] ring-1 ring-[#e3d8c2]/50';
 
   return (
     <div
@@ -93,8 +93,8 @@ export function MapInfoCard({ onShowPlace, className = '' }: { onShowPlace: (pla
         <div key={s.key} className="flex animate-slide-up items-center gap-2.5 py-2 pl-2 pr-1 sm:gap-3 sm:py-2.5 sm:pl-2.5">
           <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-[13px] sm:h-11 sm:w-11 sm:rounded-[14px] ${tile}`}>{s.icon}</div>
           <button type="button" onClick={() => setI((n) => n + 1)} className="min-w-0 flex-1 text-left" aria-label="Next">
-            <div className={`${lxEyebrow} mb-0.5 hidden sm:block ${s.tone === 'ad' ? 'text-[#d9480f]' : s.tone === 'warn' ? 'text-[#a3241c]' : 'text-[#7a6830]'}`}>{s.tone === 'ad' ? 'Available now' : s.tone === 'warn' ? 'For your safety' : 'Zion Hills'}</div>
-            <div className="truncate font-serif text-[17px] font-semibold leading-tight text-[#13261c] sm:text-[18px]">{s.title}</div>
+            <div className={`${lxEyebrow} mb-0.5 hidden sm:block ${s.tone === 'ad' ? 'text-[#d9480f]' : s.tone === 'warn' ? 'text-[#a3241c]' : 'text-[#8a6a4a]'}`}>{s.tone === 'ad' ? 'Available now' : s.tone === 'warn' ? 'For your safety' : 'Zion Hills'}</div>
+            <div className="truncate font-serif text-[17px] font-semibold leading-tight text-[#26231f] sm:text-[18px]">{s.title}</div>
             <div className="line-clamp-1 text-[12px] leading-snug text-[#5b5a4c] sm:line-clamp-2">{s.text}</div>
           </button>
           {s.cta ? (
@@ -102,10 +102,10 @@ export function MapInfoCard({ onShowPlace, className = '' }: { onShowPlace: (pla
               <span className="hidden sm:inline">{s.cta.label}</span> <ChevronRight className="h-5 w-5 sm:h-4 sm:w-4" />
             </button>
           ) : null}
-          <button onClick={() => setClosed(true)} aria-label="Hide these tips" className="shrink-0 self-start rounded-full p-1 text-[#b7a574] hover:bg-[#c9a96e]/[0.15] hover:text-[#6f5f2f]"><X className="h-4 w-4" /></button>
+          <button onClick={() => setClosed(true)} aria-label="Hide these tips" className="shrink-0 self-start rounded-full p-1 text-[#b7a574] hover:bg-[#e3d8c2]/[0.15] hover:text-[#8a6a4a]"><X className="h-4 w-4" /></button>
         </div>
-        <div className="h-[2px] w-full bg-[#c9a96e]/[0.18]">
-          <div key={`${s.key}-${i}`} className="h-full origin-left bg-[#c9a96e]" style={{ animation: `zh-progress ${ROTATE_MS}ms linear`, animationPlayState: paused ? 'paused' : 'running' }} />
+        <div className="h-[2px] w-full bg-[#e3d8c2]/[0.18]">
+          <div key={`${s.key}-${i}`} className="h-full origin-left bg-[#e3d8c2]" style={{ animation: `zh-progress ${ROTATE_MS}ms linear`, animationPlayState: paused ? 'paused' : 'running' }} />
         </div>
       </div>
     </div>

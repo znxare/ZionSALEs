@@ -32,8 +32,8 @@ export function SponsorSigns({ toScreen, zoom, upright, safe, viewport }: {
 
   const bubble = (id: string, title: string, line: string) => open === id && (
     <div className={`absolute bottom-full left-1/2 z-10 mb-2 w-48 -translate-x-1/2 rounded-2xl p-3 text-left ${lxIvory}`} style={{ animation: 'zh-bubble .25s ease-out both' }}>
-      <div className={`${lxEyebrow} text-[#7a6830]`}>Course sponsor</div>
-      <div className="font-serif text-[19px] font-semibold leading-tight text-[#13261c]">{title}</div>
+      <div className={`${lxEyebrow} text-[#8a6a4a]`}>Course sponsor</div>
+      <div className="font-serif text-[19px] font-semibold leading-tight text-[#26231f]">{title}</div>
       <div className="mt-0.5 text-[12px] leading-snug text-[#5b5a4c]">{line}</div>
     </div>
   );
@@ -58,12 +58,12 @@ export function SponsorSigns({ toScreen, zoom, upright, safe, viewport }: {
                 className="pointer-events-auto relative block"
               >
                 {bubble(s.id, s.name, `Presents hole ${s.hole}.`)}
-                <span className="block rounded-[5px] bg-[#0f2118] p-[2.5px] shadow-[0_6px_10px_-4px_rgba(5,14,9,0.7)] ring-[1px] ring-[#c9a96e]" style={{ width: w, height: h }}>
-                  <span className="grid h-full w-full place-items-center rounded-[3px] bg-[#fbf7ee]" style={{ padding: 3 * k }}>
+                <span className="block rounded-[5px] bg-[#1f2a24] p-[2.5px] shadow-[0_6px_10px_-4px_rgba(5,14,9,0.7)] ring-[1px] ring-[#e3d8c2]" style={{ width: w, height: h }}>
+                  <span className="grid h-full w-full place-items-center rounded-[3px] bg-[#fbf8f1]" style={{ padding: 3 * k }}>
                     <Logo s={s} w={w - 12 * k} h={h - 12 * k} />
                   </span>
                 </span>
-                <span className="mx-auto block h-[9px] w-[2px] bg-[#c9a96e]" style={{ height: 9 * k }} />
+                <span className="mx-auto block h-[9px] w-[2px] bg-[#e3d8c2]" style={{ height: 9 * k }} />
                 <span className="mx-auto block h-[4px] w-[10px] rounded-full bg-black/25 blur-[1px]" />
               </button>
             </div>
@@ -76,19 +76,19 @@ export function SponsorSigns({ toScreen, zoom, upright, safe, viewport }: {
           <div className="absolute -translate-x-1/2 -translate-y-full" style={{ marginTop: 2 }}>
             <button type="button" aria-label="Course sponsors" {...press('board')} className="pointer-events-auto relative block text-left">
               {bubble('board', 'Our course sponsors', COURSE_SPONSORS.map((s) => s.name).join(' · '))}
-              <span className="block rounded-[6px] bg-[#0f2118] p-[3px] shadow-[0_10px_14px_-6px_rgba(5,14,9,0.7)] ring-[1px] ring-[#c9a96e]" style={{ width: 150 * k }}>
-                <span className="block text-center font-semibold uppercase text-[#e3c98d]" style={{ fontSize: 6.2 * k, letterSpacing: '0.24em', padding: `${2.5 * k}px 0 ${3 * k}px` }}>Course sponsors</span>
-                <span className="grid grid-cols-2 gap-[2px] rounded-[3px] bg-[#c9a96e]/[0.5] p-[2px]">
+              <span className="block rounded-[6px] bg-[#1f2a24] p-[3px] shadow-[0_10px_14px_-6px_rgba(5,14,9,0.7)] ring-[1px] ring-[#e3d8c2]" style={{ width: 150 * k }}>
+                <span className="block text-center font-semibold uppercase text-[#ffc9a3]" style={{ fontSize: 6.2 * k, letterSpacing: '0.24em', padding: `${2.5 * k}px 0 ${3 * k}px` }}>Course sponsors</span>
+                <span className="grid grid-cols-2 gap-[2px] rounded-[3px] bg-[#e3d8c2]/[0.5] p-[2px]">
                   {COURSE_SPONSORS.map((s) => (
-                    <span key={s.id} className="grid place-items-center rounded-[2px] bg-[#fbf7ee]" style={{ height: 24 * k, padding: 2.5 * k }}>
+                    <span key={s.id} className="grid place-items-center rounded-[2px] bg-[#fbf8f1]" style={{ height: 24 * k, padding: 2.5 * k }}>
                       <Logo s={s} w={64 * k} h={19 * k} />
                     </span>
                   ))}
                 </span>
               </span>
               <span className="mx-auto flex justify-between" style={{ width: 100 * k }}>
-                <span className="block w-[2px] bg-[#c9a96e]" style={{ height: 8 * k }} />
-                <span className="block w-[2px] bg-[#c9a96e]" style={{ height: 8 * k }} />
+                <span className="block w-[2px] bg-[#e3d8c2]" style={{ height: 8 * k }} />
+                <span className="block w-[2px] bg-[#e3d8c2]" style={{ height: 8 * k }} />
               </span>
             </button>
           </div>

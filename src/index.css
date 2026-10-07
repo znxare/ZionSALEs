@@ -303,7 +303,7 @@ body {
 
 /* ---- Public map: swaying groves, birds and peacocks (see WildlifeLayer.tsx) ---- */
 @keyframes zh-orbit { to { transform: rotate(360deg); } }
-@keyframes zh-flap { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(0.42); } }
+@keyframes zh-flap { 0% { transform: scaleX(1); } 38% { transform: scaleX(0.36); } 100% { transform: scaleX(1); } }
 @keyframes zh-sway { 0%, 100% { transform: rotate(-2.2deg) scale(1); } 50% { transform: rotate(2.2deg) scale(1.045); } }
 @keyframes zh-fan { 0%, 55% { transform: scale(1, 0.38); } 68%, 90% { transform: scale(1, 1); } 100% { transform: scale(1, 0.38); } }
 @keyframes zh-strut {
@@ -341,6 +341,7 @@ body {
 @keyframes zh-rain { from { background-position: 0 0; } to { background-position: 0 120px; } }
 @keyframes zh-rain-b { from { background-position: 40px 20px; } to { background-position: 40px 104px; } }
 @keyframes zh-ripple { 0% { opacity: 0.9; transform: scale(0.15); } 100% { opacity: 0; transform: scale(1.6); } }
+@keyframes zh-pennant { 0% { transform: translateX(-110%); } 10%, 86% { transform: translateX(0); } 100% { transform: translateX(-110%); } }
 @keyframes zh-bubble { 0% { opacity: 0; transform: translateY(4px) scale(0.96); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
 @media (prefers-reduced-motion: reduce) {
   .zh-anim, .zh-anim * { animation: none !important; }

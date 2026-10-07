@@ -43,7 +43,7 @@ function Moon({ cycle }: { cycle: number }) {
       <circle r={r * 2.6} fill="url(#sky-moon-glow)" />
       <circle r={r} fill="#2a3552" opacity={0.7} />
       <g transform={cycle > 0.5 ? 'scale(-1 1)' : undefined}><path d={lit} fill="#f6efd9" /></g>
-      <circle r={r} fill="none" stroke="#f1d9a6" strokeWidth={0.5} opacity={0.6} />
+      <circle r={r} fill="none" stroke="#ffd9bf" strokeWidth={0.5} opacity={0.6} />
     </g>
   );
 }
@@ -74,9 +74,23 @@ function Cloud({ s = 1 }: { s?: number }) {
   );
 }
 
-function Bird({ delay }: { delay: number }) {
+const WING_UP = 'M 0 0 C -3 -1.4 -6 -5 -10 -6.8 C -7 -3.4 -4 -1.4 0 0.9 C 4 -1.4 7 -3.4 10 -6.8 C 6 -5 3 -1.4 0 0 Z';
+const WING_MID = 'M 0 0 C -3 -0.6 -6 -1.7 -10 -1.6 C -7 0.1 -4 0.9 0 1.1 C 4 0.9 7 0.1 10 -1.6 C 6 -1.7 3 -0.6 0 0 Z';
+const WING_DOWN = 'M 0 0 C -3 0.9 -6 3.1 -10 4.8 C -7 2.3 -4 1.2 0 1.2 C 4 1.2 7 2.3 10 4.8 C 6 3.1 3 0.9 0 0 Z';
+const FLAP_VALUES = `${WING_UP};${WING_MID};${WING_DOWN};${WING_MID};${WING_UP}`;
+const FLAP_SPLINES = '.42 0 .58 1;.42 0 .58 1;.42 0 .58 1;.42 0 .58 1';
+
+/** A bird in flight, seen from the side: the wings morph smoothly through up, level and down. */
+function Bird({ delay, scale = 1 }: { delay: number; scale?: number }) {
   return (
-    <path d="M -5 0 Q -2.5 -4 0 0 Q 2.5 -4 5 0" fill="none" stroke="#2c2a22" strokeWidth={1.2} strokeLinecap="round" style={{ transformOrigin: '0 0', animation: `zh-flapy 0.5s ease-in-out ${delay}s infinite` }} />
+    <g transform={`scale(${scale})`}>
+      <path d={WING_MID} fill="#2c2a22" opacity="0.12" transform="translate(5 11)" />
+      <path d={WING_MID} fill="#2c2a22" opacity="0.92">
+        <animate attributeName="d" values={FLAP_VALUES} dur={`${0.95 + delay * 0.2}s`} begin={`${-delay}s`} repeatCount="indefinite" calcMode="spline" keySplines={FLAP_SPLINES} keyTimes="0;.28;.5;.78;1" />
+      </path>
+      <ellipse cx="0" cy="0.5" rx="2.3" ry="0.95" fill="#2c2a22" />
+      <path d="M 1.8 0.3 L 4.6 0.9 L 1.8 1 Z" fill="#2c2a22" />
+    </g>
   );
 }
 
@@ -87,7 +101,7 @@ function Kite({ x, y, colours, delay }: { x: number; y: number; colours: [string
       <g style={{ transformOrigin: '0 14px', animation: `zh-kite 6s ease-in-out ${delay}s infinite alternate` }}>
         <polygon points="0,-10 6,0 0,14 -6,0" fill={colours[0]} />
         <polygon points="0,-10 6,0 0,14" fill={colours[1]} />
-        <path d="M 0 14 q 4 6 0 12 q -4 6 1 12 q 4 5 -1 10" fill="none" stroke="#f1d9a6" strokeWidth={1.1} strokeLinecap="round" />
+        <path d="M 0 14 q 4 6 0 12 q -4 6 1 12 q 4 5 -1 10" fill="none" stroke="#ffd9bf" strokeWidth={1.1} strokeLinecap="round" />
       </g>
     </g>
   );
@@ -131,9 +145,9 @@ function SkyLayerBase({ night, cloud, sunrise, sunset }: { night: number; cloud:
         </defs>
 
         {/* the arc and whichever of sun or moon is up */}
-        <path d={arcD} fill="none" stroke="#c9a96e" strokeWidth={1.2} strokeDasharray="1.5 7" strokeLinecap="round" opacity={0.75} />
-        <circle cx={ARC.p0[0]} cy={ARC.p0[1]} r={2.4} fill="#c9a96e" opacity={0.8} />
-        <circle cx={ARC.p2[0]} cy={ARC.p2[1]} r={2.4} fill="#c9a96e" opacity={0.8} />
+        <path d={arcD} fill="none" stroke="#b9a27c" strokeWidth={1.2} strokeDasharray="1.5 7" strokeLinecap="round" opacity={0.75} />
+        <circle cx={ARC.p0[0]} cy={ARC.p0[1]} r={2.4} fill="#e3d8c2" opacity={0.8} />
+        <circle cx={ARC.p2[0]} cy={ARC.p2[1]} r={2.4} fill="#e3d8c2" opacity={0.8} />
         <g transform={`translate(${bx} ${by})`} style={{ transition: 'opacity 2s ease' }}>
           {moon ? <Moon cycle={cycle} /> : <Sun />}
         </g>
@@ -148,13 +162,14 @@ function SkyLayerBase({ night, cloud, sunrise, sunset }: { night: number; cloud:
         )}
         {!lite && (
         <g opacity={day} style={{ transition: 'opacity 3s ease' }}>
-          <g style={{ animation: 'zh-flock 70s linear -12s infinite' }}>
-            {[[0, 0], [-16, 9], [-14, -10], [-32, 18], [-30, -18]].map(([dx, dy], i) => (
-              <g key={i} transform={`translate(${dx} ${dy})`}><Bird delay={i * 0.11} /></g>
+          <g>
+            <animateMotion dur="68s" begin="-14s" repeatCount="indefinite" rotate="auto" path="M -120 250 C 260 120, 620 340, 980 200 S 1420 120, 1580 150" />
+            {[[0, 0, 1], [-17, 9, 0.9], [-15, -10, 0.92], [-34, 19, 0.8], [-31, -19, 0.82]].map(([dx, dy, sc], i) => (
+              <g key={i} transform={`translate(${dx} ${dy})`}><Bird delay={i * 0.17} scale={sc} /></g>
             ))}
           </g>
-          <Kite x={6.2} y={61} colours={['#f05a22', '#c9a96e']} delay={0} />
-          <Kite x={10.6} y={53} colours={['#2f8a5a', '#f1d9a6']} delay={-2.4} />
+          <Kite x={6.2} y={61} colours={['#f05a22', '#e3d8c2']} delay={0} />
+          <Kite x={10.6} y={53} colours={['#2f8a5a', '#ffd9bf']} delay={-2.4} />
         </g>
         )}
 

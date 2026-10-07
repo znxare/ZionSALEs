@@ -15,7 +15,6 @@ import { CartsLayer } from './CartsLayer';
 import { AmbientLayer } from './AmbientLayer';
 import { TerrainLayer } from './TerrainLayer';
 import { SkyLayer } from './SkyLayer';
-import { Postcard } from './Cartouche';
 import { SponsorSigns } from './SponsorSigns';
 import type { Atmosphere } from '@/lib/mapInfo';
 import type { Daylight } from '@/lib/daylight';
@@ -464,6 +463,28 @@ function ZoomPanMap({
   const pinch = useRef<{ startDist: number; startZoom: number; d0: { x: number; y: number }; m: { x: number; y: number } } | null>(null);
   const dragStart = useRef<{ x: number; y: number } | null>(null);
   const dragged = useRef(false);
+  // A flick of the finger keeps the map gliding and slowing down; a double tap zooms in around the tap.
+  const samples = useRef<{ t: number; x: number; y: number }[]>([]);
+  const inertia = useRef(0);
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  const lastTap = useRef<{ t: number; x: number; y: number } | null>(null);
+  function stopInertia() {
+    if (inertia.current) { window.cancelAnimationFrame(inertia.current); inertia.current = 0; setInteracting(false); }
+  }
+  function startInertia(vx: number, vy: number) {
+    let last = performance.now();
+    const step = (now: number) => {
+      const dt = Math.min(48, now - last);
+      last = now;
+      setPan((p) => clampPan({ x: p.x + vx * dt, y: p.y + vy * dt }, zoomRef.current));
+      const decay = Math.exp(-dt / 330);
+      vx *= decay; vy *= decay;
+      if (Math.hypot(vx, vy) > 0.02) inertia.current = window.requestAnimationFrame(step);
+      else { inertia.current = 0; setInteracting(false); }
+    };
+    inertia.current = window.requestAnimationFrame(step);
+  }
   const DRAG_THRESHOLD = 6;
 
   useEffect(() => {
@@ -580,6 +601,8 @@ function ZoomPanMap({
   }
 
   function onPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
+    stopInertia();
+    samples.current = [];
     e.currentTarget.setPointerCapture(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.current.size === 1) {
@@ -617,6 +640,8 @@ function ZoomPanMap({
       // A drag moves the map under the finger, whichever way the map is turned.
       const { x: dx, y: dy } = unturn(e.movementX, e.movementY);
       if (dx || dy) {
+        samples.current.push({ t: performance.now(), x: dx, y: dy });
+        if (samples.current.length > 12) samples.current.shift();
         setPan((p) => clampPan({ x: p.x + dx, y: p.y + dy }, zoom));
         if (dragStart.current) {
           const traveled = Math.hypot(e.clientX - dragStart.current.x, e.clientY - dragStart.current.y);
@@ -631,12 +656,40 @@ function ZoomPanMap({
     if (pointers.current.size < 2) pinch.current = null;
     if (pointers.current.size === 0) {
       dragStart.current = null;
+      const wasDrag = dragged.current;
+      const now = performance.now();
+      if (!wasDrag) {
+        const prev = lastTap.current;
+        if (prev && now - prev.t < 320 && Math.hypot(e.clientX - prev.x, e.clientY - prev.y) < 28 && layer.width > 0) {
+          // double tap: in around the tapped point (or back out if already close)
+          lastTap.current = null;
+          const z2 = zoomRef.current >= 3 ? 1.6 : clampZoom(zoomRef.current * 2.2);
+          const r = viewportRef.current?.getBoundingClientRect();
+          const d0 = unturn(e.clientX - (r?.left ?? 0) - size.width / 2, e.clientY - (r?.top ?? 0) - size.height / 2);
+          const m = { x: layer.width / 2 + (d0.x - pan.x) / zoom, y: layer.height / 2 + (d0.y - pan.y) / zoom };
+          dragged.current = true; // the second tap is not a tap on the map
+          onUserMove?.();
+          setZoom(z2);
+          setPan(clampPan({ x: d0.x - z2 * (m.x - layer.width / 2), y: d0.y - z2 * (m.y - layer.height / 2) }, z2));
+        } else {
+          lastTap.current = { t: now, x: e.clientX, y: e.clientY };
+        }
+      }
+      const recent = samples.current.filter((q) => now - q.t < 90);
+      samples.current = [];
+      if (wasDrag && recent.length >= 2) {
+        const dt = Math.max(16, recent[recent.length - 1].t - recent[0].t + 16);
+        const vx = recent.reduce((a, q) => a + q.x, 0) / dt;
+        const vy = recent.reduce((a, q) => a + q.y, 0) / dt;
+        if (Math.hypot(vx, vy) > 0.15) { startInertia(vx, vy); return; }
+      }
       setInteracting(false);
     }
   }
 
   function onWheel(e: ReactWheelEvent<HTMLDivElement>) {
     e.preventDefault();
+    stopInertia();
     setZoomClamped((z) => z * Math.exp(-e.deltaY * 0.0018));
   }
 
@@ -653,6 +706,7 @@ function ZoomPanMap({
   }
 
   function zoomBy(delta: number) {
+    stopInertia();
     // a steady proportional step (about 1.6x), whatever the current zoom
     setZoomClamped((z) => z * (delta > 0 ? 1.6 : 1 / 1.6));
   }
@@ -710,18 +764,18 @@ function ZoomPanMap({
       </div>
 
       {/* Zoom controls */}
-      <div className={`absolute bottom-3 left-3 z-30 flex flex-col overflow-hidden ${luxury ? 'max-sm:hidden rounded-[16px] bg-[#0f2118]/[0.92] ring-1 ring-[#c9a96e]/[0.45] shadow-[0_12px_28px_-10px_rgba(5,14,9,0.6)]' : 'rounded-xl border border-black/5 bg-white/95 shadow backdrop-blur'} ${controlsClassName}`}>
-        <button onClick={() => zoomBy(0.6)} aria-label="Zoom in" className={luxury ? 'p-2.5 text-[#e9d8aa] hover:bg-white/10 active:bg-white/[0.15]' : 'p-2.5 text-gray-600 hover:bg-gray-50 active:bg-gray-100'}>
+      <div className={`absolute bottom-3 left-3 z-30 flex flex-col overflow-hidden ${luxury ? 'max-sm:hidden rounded-[16px] bg-[#1f2a24]/[0.92] ring-1 ring-[#e3d8c2]/[0.45] shadow-[0_12px_28px_-10px_rgba(5,14,9,0.6)]' : 'rounded-xl border border-black/5 bg-white/95 shadow backdrop-blur'} ${controlsClassName}`}>
+        <button onClick={() => zoomBy(0.6)} aria-label="Zoom in" className={luxury ? 'p-2.5 text-[#ffc9a3] hover:bg-white/10 active:bg-white/[0.15]' : 'p-2.5 text-gray-600 hover:bg-gray-50 active:bg-gray-100'}>
           <Plus className="h-4 w-4" />
         </button>
-        <div className={luxury ? 'h-px bg-[#c9a96e]/30' : 'h-px bg-gray-100'} />
-        <button onClick={() => zoomBy(-0.6)} aria-label="Zoom out" className={luxury ? 'p-2.5 text-[#e9d8aa] hover:bg-white/10 active:bg-white/[0.15]' : 'p-2.5 text-gray-600 hover:bg-gray-50 active:bg-gray-100'}>
+        <div className={luxury ? 'h-px bg-[#e3d8c2]/30' : 'h-px bg-gray-100'} />
+        <button onClick={() => zoomBy(-0.6)} aria-label="Zoom out" className={luxury ? 'p-2.5 text-[#ffc9a3] hover:bg-white/10 active:bg-white/[0.15]' : 'p-2.5 text-gray-600 hover:bg-gray-50 active:bg-gray-100'}>
           <Minus className="h-4 w-4" />
         </button>
         {!isReset && (
           <>
-            <div className={luxury ? 'h-px bg-[#c9a96e]/30' : 'h-px bg-gray-100'} />
-            <button onClick={reset} aria-label="Reset zoom" className={luxury ? 'p-2.5 text-[#e9d8aa] hover:bg-white/10 active:bg-white/[0.15]' : 'p-2.5 text-gray-600 hover:bg-gray-50 active:bg-gray-100'}>
+            <div className={luxury ? 'h-px bg-[#e3d8c2]/30' : 'h-px bg-gray-100'} />
+            <button onClick={reset} aria-label="Reset zoom" className={luxury ? 'p-2.5 text-[#ffc9a3] hover:bg-white/10 active:bg-white/[0.15]' : 'p-2.5 text-gray-600 hover:bg-gray-50 active:bg-gray-100'}>
               <RotateCcw className="h-3.5 w-3.5" />
             </button>
           </>
@@ -997,7 +1051,6 @@ export function MasterPlanBoard({
                   <polyline points={routePts.map((q) => toScreen(q).join(',')).join(' ')} fill="none" stroke="white" strokeOpacity={0.7} strokeWidth={2} strokeDasharray="2 10" strokeLinecap="round" className="animate-route-flow" />
                 </svg>
               )}
-              {ambient && scenery && <Postcard toScreen={toScreen} zoom={zoom} layerWidth={size.width} upright={upright} atmosphere={atmosphere} night={night} />}
               {ambient && publicView && <SponsorSigns toScreen={toScreen} zoom={zoom} upright={upright} safe={safe} viewport={viewport} />}
               {ambient && <AmbientLayer toScreen={toScreen} zoom={zoom} upright={upright} sun={1 - night} safe={safe} viewport={viewport} />}
               {wildlife && zoom >= 1.8 && <WildlifeLayer toScreen={toScreen} zoom={zoom} upright={upright} night={night} safe={safe} viewport={viewport} />}
@@ -1006,8 +1059,8 @@ export function MasterPlanBoard({
                 const d = `M ${t[0]} ${t[1]} Q ${m[0] * 2 - (t[0] + g[0]) / 2} ${m[1] * 2 - (t[1] + g[1]) / 2} ${g[0]} ${g[1]}`;
                 return (
                   <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" style={{ zIndex: 14 }}>
-                    <path d={d} fill="none" stroke="#0f2118" strokeOpacity={0.55} strokeWidth={7} strokeLinecap="round" />
-                    <path d={d} fill="none" stroke="#f1d9a6" strokeWidth={3.5} strokeLinecap="round" strokeDasharray="1 9" />
+                    <path d={d} fill="none" stroke="#1f2a24" strokeOpacity={0.55} strokeWidth={7} strokeLinecap="round" />
+                    <path d={d} fill="none" stroke="#ffd9bf" strokeWidth={3.5} strokeLinecap="round" strokeDasharray="1 9" />
                   </svg>
                 );
               })()}
@@ -1017,11 +1070,11 @@ export function MasterPlanBoard({
                 return (
                   <>
                     <div className="absolute z-20" style={{ left: tx, top: ty, ...upright, transformOrigin: '0 0' }}>
-                      <div className="absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full bg-[#0f2118] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#f1d9a6] shadow-lg ring-1 ring-[#c9a96e]">Tee</div>
+                      <div className="absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full bg-[#1f2a24] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#ffd9bf] shadow-lg ring-1 ring-[#e3d8c2]">Tee</div>
                     </div>
                     <div className="absolute z-20" style={{ left: gx, top: gy, ...upright, transformOrigin: '0 0' }}>
                       <div className="absolute -translate-x-1/2 -translate-y-full">
-                        <svg width="26" height="30" viewBox="0 0 26 30" className="drop-shadow-lg"><path d="M5 28V3" stroke="#f1d9a6" strokeWidth="2" strokeLinecap="round" /><path d="M5 3l15 5.5L5 14z" fill="#f05a22" stroke="#fbf7ee" strokeWidth="1.2" strokeLinejoin="round" /><circle cx="5" cy="28" r="2.6" fill="#0f2118" stroke="#f1d9a6" strokeWidth="1.2" /></svg>
+                        <svg width="26" height="30" viewBox="0 0 26 30" className="drop-shadow-lg"><path d="M5 28V3" stroke="#ffd9bf" strokeWidth="2" strokeLinecap="round" /><path d="M5 3l15 5.5L5 14z" fill="#f05a22" stroke="#fbf8f1" strokeWidth="1.2" strokeLinejoin="round" /><circle cx="5" cy="28" r="2.6" fill="#1f2a24" stroke="#ffd9bf" strokeWidth="1.2" /></svg>
                       </div>
                     </div>
                   </>
@@ -1037,7 +1090,7 @@ export function MasterPlanBoard({
                       onPointerDown={(e) => e.stopPropagation()}
                       onClick={(e) => { e.stopPropagation(); onHoleTap?.(h.n); }}
                       aria-label={`Hole ${h.n}`}
-                      className={`pointer-events-auto absolute grid h-9 w-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full font-serif text-[19px] font-bold leading-none shadow-[0_8px_16px_-6px_rgba(5,14,9,0.7)] ring-[1.5px] transition ${picked ? 'scale-110 bg-gradient-to-br from-[#f7733f] to-[#d9480f] text-white ring-[#f1d9a6]' : 'bg-[#0f2118] text-[#f1d9a6] ring-[#c9a96e]'}`}
+                      className={`pointer-events-auto absolute grid h-9 w-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full font-serif text-[19px] font-bold leading-none shadow-[0_8px_16px_-6px_rgba(5,14,9,0.7)] ring-[1.5px] transition ${picked ? 'scale-110 bg-gradient-to-br from-[#f7733f] to-[#d9480f] text-white ring-[#ffd9bf]' : 'bg-[#1f2a24] text-[#ffd9bf] ring-[#e3d8c2]'}`}
                     >
                       {h.n}
                     </button>
@@ -1062,15 +1115,15 @@ export function MasterPlanBoard({
                       className="pointer-events-auto absolute flex -translate-x-1/2 -translate-y-full flex-col items-center"
                     >
                       {picked || (ad.featured && zoom >= 2.4) ? (
-                        <span className={`relative flex items-center gap-1 whitespace-nowrap rounded-full px-3 py-1 text-[11px] font-semibold tracking-wide text-white shadow-[0_8px_18px_-6px_rgba(120,40,8,0.7)] ring-[1.5px] ring-[#f1d9a6] ${sponsor ? 'bg-gradient-to-br from-[#1d3a2b] to-[#0f2118]' : 'bg-gradient-to-br from-[#f7733f] to-[#d9480f]'} ${picked ? 'scale-110' : ''}`}>
+                        <span className={`relative flex items-center gap-1 whitespace-nowrap rounded-full px-3 py-1 text-[11px] font-semibold tracking-wide text-white shadow-[0_8px_18px_-6px_rgba(120,40,8,0.7)] ring-[1.5px] ring-[#ffd9bf] ${sponsor ? 'bg-gradient-to-br from-[#1d3a2b] to-[#1f2a24]' : 'bg-gradient-to-br from-[#f7733f] to-[#d9480f]'} ${picked ? 'scale-110' : ''}`}>
                           {!sponsor && <span className="absolute -inset-1 -z-10 animate-ping rounded-full bg-[#f05a22]/[0.35]" />}
                           {ad.label}
                         </span>
                       ) : (
-                        <span className="h-3 w-3 rounded-full bg-gradient-to-br from-[#f7733f] to-[#d9480f] opacity-90 shadow ring-[1.5px] ring-[#f1d9a6]" />
+                        <span className="h-3 w-3 rounded-full bg-gradient-to-br from-[#f7733f] to-[#d9480f] opacity-90 shadow ring-[1.5px] ring-[#ffd9bf]" />
                       )}
-                      {(picked || (ad.featured && zoom >= 2.4)) && <span className={`h-2 w-px ${sponsor ? 'bg-[#c9a96e]' : 'bg-[#f1d9a6]'}`} />}
-                      {(picked || (ad.featured && zoom >= 2.4)) && <span className={`h-2 w-2 rounded-full ring-[1.5px] ring-[#f1d9a6] ${sponsor ? 'bg-[#0f2118]' : 'bg-[#e0541c]'}`} />}
+                      {(picked || (ad.featured && zoom >= 2.4)) && <span className={`h-2 w-px ${sponsor ? 'bg-[#e3d8c2]' : 'bg-[#ffd9bf]'}`} />}
+                      {(picked || (ad.featured && zoom >= 2.4)) && <span className={`h-2 w-2 rounded-full ring-[1.5px] ring-[#ffd9bf] ${sponsor ? 'bg-[#1f2a24]' : 'bg-[#e0541c]'}`} />}
                     </button>
                   </div>
                 );

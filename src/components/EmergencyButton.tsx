@@ -78,10 +78,10 @@ export function EmergencyButton({ position, onPlan, locating, onLocate, onRouteT
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className={`${lxEyebrow} text-[#a3241c]`}>Zion Hills · Guest safety</div>
-                <h2 className="mt-0.5 flex items-center gap-2 font-serif text-[28px] font-semibold leading-none text-[#13261c]"><Siren className="h-6 w-6 text-[#a3241c]" /> Emergency help</h2>
+                <h2 className="mt-0.5 flex items-center gap-2 font-serif text-[28px] font-semibold leading-none text-[#26231f]"><Siren className="h-6 w-6 text-[#a3241c]" /> Emergency help</h2>
                 <p className="mt-1.5 text-[13px] leading-snug text-[#5b5a4c]">If someone is hurt, call first. Stay where you are unless it isn&rsquo;t safe.</p>
               </div>
-              <button onClick={() => setOpen(false)} aria-label="Close" className="rounded-full p-2 text-[#6f5f2f] hover:bg-[#c9a96e]/[0.15]"><X className="h-5 w-5" /></button>
+              <button onClick={() => setOpen(false)} aria-label="Close" className="rounded-full p-2 text-[#8a6a4a] hover:bg-[#e3d8c2]/[0.15]"><X className="h-5 w-5" /></button>
             </div>
 
             <div className="mt-4 space-y-2.5">
@@ -94,27 +94,27 @@ export function EmergencyButton({ position, onPlan, locating, onLocate, onRouteT
                 <span className="flex-1"><span className="block font-serif text-[20px] font-semibold leading-tight">Call {AMBULANCE.phone}</span><span className="block text-[12px] font-medium text-[#8f1d17]/80">{AMBULANCE.label}</span></span>
               </a>
               {SITE_CONTACT && (
-                <a href={`tel:${SITE_CONTACT.phone}`} className={`${call} bg-[#13261c] text-[#f3ead3] ring-1 ring-[#c9a96e]/[0.45]`}>
+                <a href={`tel:${SITE_CONTACT.phone}`} className={`${call} bg-[#26231f] text-[#f3ead3] ring-1 ring-[#e3d8c2]/[0.45]`}>
                   <Phone className="h-5 w-5 shrink-0" />
                   <span className="flex-1"><span className="block text-[16px] leading-tight">Call {SITE_CONTACT.label}</span><span className="block text-[12px] font-medium text-white/70">{SITE_CONTACT.phone}</span></span>
                 </a>
               )}
             </div>
 
-            <div className="mt-4 rounded-2xl bg-[#f3ecda] p-4 ring-1 ring-[#c9a96e]/[0.35]">
-              <div className={`flex items-center gap-2 ${lxEyebrow} text-[#6f5f2f]`}><MapPin className="h-4 w-4" /> Where you are</div>
+            <div className="mt-4 rounded-2xl bg-[#f3ecda] p-4 ring-1 ring-[#e3d8c2]/[0.35]">
+              <div className={`flex items-center gap-2 ${lxEyebrow} text-[#8a6a4a]`}><MapPin className="h-4 w-4" /> Where you are</div>
               {position ? (
                 <>
-                  <p className="mt-1.5 font-serif text-[20px] font-semibold text-[#13261c]">{near ? `You are ${near}` : onPlan ? 'You are on the estate' : 'Your location is ready to send'}</p>
+                  <p className="mt-1.5 font-serif text-[20px] font-semibold text-[#26231f]">{near ? `You are ${near}` : onPlan ? 'You are on the estate' : 'Your location is ready to send'}</p>
                   <p className="text-[12px] tabular-nums text-[#7a7358]">{position.lat.toFixed(5)}, {position.lng.toFixed(5)}</p>
-                  <button onClick={share} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#13261c] py-3 text-[15px] font-semibold text-[#f3ead3] ring-1 ring-[#c9a96e]/[0.45] active:scale-[0.98]">
+                  <button onClick={share} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#26231f] py-3 text-[15px] font-semibold text-[#f3ead3] ring-1 ring-[#e3d8c2]/[0.45] active:scale-[0.98]">
                     {shared ? <><Check className="h-4 w-4" /> Copied — paste it into a message</> : <><Share2 className="h-4 w-4" /> Send my location</>}
                   </button>
                 </>
               ) : (
                 <>
                   <p className="mt-1.5 text-[14px] text-[#5b5a4c]">Share your position so someone can find you.</p>
-                  <button onClick={onLocate} disabled={locating} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#13261c] py-3 text-[15px] font-semibold text-[#f3ead3] ring-1 ring-[#c9a96e]/[0.45] disabled:opacity-70 active:scale-[0.98]">
+                  <button onClick={onLocate} disabled={locating} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#26231f] py-3 text-[15px] font-semibold text-[#f3ead3] ring-1 ring-[#e3d8c2]/[0.45] disabled:opacity-70 active:scale-[0.98]">
                     {locating ? <><Loader2 className="h-4 w-4 animate-spin" /> Finding you…</> : <><MapPin className="h-4 w-4" /> Find my location</>}
                   </button>
                 </>
@@ -131,7 +131,7 @@ export function EmergencyButton({ position, onPlan, locating, onLocate, onRouteT
                 <span className="block text-[12px] font-medium text-white/[0.85]">{toGate != null ? `${distanceWords(toGate)} by road · show the route` : 'Show directions to the gate'}</span>
               </span>
             </button>
-            <p className="mt-3 text-center text-[12px] text-[#6f5f2f]">Tell the operator your plot or villa number, or the nearest landmark on the map.</p>
+            <p className="mt-3 text-center text-[12px] text-[#8a6a4a]">Tell the operator your plot or villa number, or the nearest landmark on the map.</p>
           </div>
         </div>,
         document.body,

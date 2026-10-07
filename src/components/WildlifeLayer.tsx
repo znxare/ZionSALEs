@@ -104,16 +104,19 @@ function Leaf({ dx, dy, delay, dur }: { dx: number; dy: number; delay: number; d
 
 /** A bird seen from above, facing up. wings/body colours differ per species. */
 function Bird({ body, wing, head, beak, size, tail }: { body: string; wing: string; head: string; beak: string; size: number; tail?: string }) {
+  // Wings are tapered, feather-tipped shapes beating from the shoulder; a faint shadow gives the bird some height.
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" className="overflow-visible">
-      {tail && <path d="M10.6 15 L12 23 L13.4 15 Z" fill={tail} />}
-      <ellipse cx="12" cy="12" rx="2.3" ry="5.2" fill={body} />
-      <g style={{ transformOrigin: '12px 11px', animation: 'zh-flap 0.34s ease-in-out infinite' }}>
-        <ellipse cx="5" cy="11" rx="5.4" ry="2.1" fill={wing} />
-        <ellipse cx="19" cy="11" rx="5.4" ry="2.1" fill={wing} />
+      <ellipse cx="14.2" cy="15.6" rx="4.4" ry="2.6" fill="#1b2a1f" opacity="0.1" />
+      {tail && <path d="M10.4 14.6 L12 23.6 L13.6 14.6 Z" fill={tail} />}
+      <path d="M12 6.6 C10.3 8.6 10 13.4 10.9 16.4 C11.2 17.4 12.8 17.4 13.1 16.4 C14 13.4 13.7 8.6 12 6.6 Z" fill={body} />
+      <g style={{ transformOrigin: '12px 11px', animation: 'zh-flap 0.46s ease-in-out infinite' }}>
+        <path d="M11.3 10 C8.6 7.9 4.1 8.1 0.4 11.1 C0.9 11.5 1.7 11.5 2.4 11.4 C3.2 12.1 4.1 12.1 4.9 11.9 C5.9 12.8 6.9 12.9 7.9 12.7 C9 13.1 10.3 13 11.4 12.4 Z" fill={wing} />
+        <path d="M12.7 10 C15.4 7.9 19.9 8.1 23.6 11.1 C23.1 11.5 22.3 11.5 21.6 11.4 C20.8 12.1 19.9 12.1 19.1 11.9 C18.1 12.8 17.1 12.9 16.1 12.7 C15 13.1 13.7 13 12.6 12.4 Z" fill={wing} />
       </g>
-      <circle cx="12" cy="6.2" r="2" fill={head} />
-      <path d="M11.2 4.6 L12 2.6 L12.8 4.6 Z" fill={beak} />
+      <circle cx="12" cy="6.3" r="1.9" fill={head} />
+      <circle cx="12.7" cy="5.8" r="0.35" fill="#fff" opacity="0.85" />
+      <path d="M11.3 4.8 L12 2.7 L12.7 4.8 Z" fill={beak} />
     </svg>
   );
 }
