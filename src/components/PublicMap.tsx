@@ -227,6 +227,18 @@ export default function PublicMap({ toId }: { toId?: string }) {
     }
   }, [markerX, markerY, onPlan]);
 
+  // Full screen by default on touch devices: browsers only allow it from a tap, so the first touch asks for it.
+  useEffect(() => {
+    const root = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> };
+    if (!window.matchMedia?.('(pointer: coarse)').matches || document.fullscreenElement) return;
+    const ask = () => {
+      try { void (root.requestFullscreen?.({ navigationUI: 'hide' }) ?? root.webkitRequestFullscreen?.()); } catch { /* not allowed here */ }
+      window.removeEventListener('pointerup', ask);
+    };
+    window.addEventListener('pointerup', ask, { once: true });
+    return () => window.removeEventListener('pointerup', ask);
+  }, []);
+
   // Messages fade away on their own.
   useEffect(() => {
     if (!note) return;
@@ -310,9 +322,9 @@ export default function PublicMap({ toId }: { toId?: string }) {
 
       {!navigating && (
       <div className="pointer-events-none absolute inset-x-0 top-0 z-40 flex items-start justify-between gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5">
-        <div className={`pointer-events-auto flex items-center gap-2.5 rounded-full py-1.5 pl-3 pr-4 ${lxIvory}`}>
-          <img src={LOGO} alt="Zion Hills Golf County" className="h-7 w-auto" />
-          <span className="hidden font-serif text-[17px] font-semibold italic tracking-wide text-[#13261c] sm:inline">The Estate Map</span>
+        <div className="pointer-events-auto flex items-center gap-2.5 py-1 pl-1 pr-3">
+          <img src={LOGO} alt="Zion Hills Golf County" className="h-9 w-auto drop-shadow-[0_0_5px_rgba(255,252,240,0.95)] sm:h-10" />
+          <span className="hidden font-serif text-[17px] font-semibold italic tracking-wide text-[#13261c] [text-shadow:0_0_6px_rgba(255,252,240,0.95),0_0_2px_rgba(255,252,240,0.9)] sm:inline">The Estate Map</span>
         </div>
         <div className="flex items-center gap-2">
           <EmergencyButton

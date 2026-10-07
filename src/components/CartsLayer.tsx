@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { AMENITIES, findRoute, planMetres } from '@/lib/directions';
 import { HOLE_GUIDE } from '@/lib/holes';
 
@@ -44,7 +44,7 @@ function Cart({ night }: { night: number }) {
   );
 }
 
-export function CartsLayer({ night }: { night: number }) {
+function CartsLayerBase({ night }: { night: number }) {
   const routes = useMemo(routesForCarts, []);
   if (routes.length === 0) return null;
   return (
@@ -64,3 +64,5 @@ export function CartsLayer({ night }: { night: number }) {
     </svg>
   );
 }
+
+export const CartsLayer = memo(CartsLayerBase);

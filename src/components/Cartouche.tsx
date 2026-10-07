@@ -88,7 +88,7 @@ export function Cartouche({ toScreen, zoom, layerWidth, upright, turned, atmosph
   const times = A?.sunrise && A?.sunset ? { rise: clockText(A.sunrise), set: clockText(A.sunset) } : null;
 
   return (
-    <div className="pointer-events-none absolute inset-0" style={{ zIndex: 12, filter: night > 0.05 ? `brightness(${(1 - 0.38 * night).toFixed(2)})` : undefined, transition: 'filter 3s ease' }}>
+    <div className="pointer-events-none absolute inset-0" style={{ zIndex: 12, opacity: 1 - 0.22 * night, transition: 'opacity 3s ease' }}>
       {kC >= 0.42 && (
         <div className="absolute" style={{ left: cx, top: cy, ...upright, transformOrigin: '0 0' }}>
           <div style={{ width: 330, transform: `scale(${kC})`, transformOrigin: '0 0' }} className="relative">

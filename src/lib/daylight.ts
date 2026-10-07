@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAtmosphere } from './mapInfo';
 
 // How the light feels at the estate right now, from the same sunrise / sunset the night mode uses:
@@ -33,10 +33,6 @@ export function useDaylight(night: number): Daylight {
   }, []);
 
   const forced = forcedLight();
-  if (forced === 'golden') return { golden: 1, mist: 0, shimmer: 1 };
-  if (forced === 'mist') return { golden: 0, mist: 1, shimmer: 0.6 };
-  if (forced === 'day') return { golden: 0, mist: 0, shimmer: 1 };
-
   const day = istDay(now);
   const sunset = (atmosphere?.sunset ?? new Date(`${day}T18:15:00+05:30`)).getTime();
   const sunrise = (atmosphere?.sunrise ?? new Date(`${day}T06:15:00+05:30`)).getTime();
@@ -56,5 +52,9 @@ export function useDaylight(night: number): Daylight {
   // sparkle by day; at night a little moonlight on the water (the layer tints it silver)
   const sunUp = t > sunrise + 20 * MIN && t < sunset - 5 * MIN;
   const k = 1 - night;
-  return { golden: golden * k, mist: mist * k, shimmer: night > 0.5 ? 0.5 : sunUp || night < 0.5 ? 1 : 0.7 };
+  const shimmer = night > 0.5 ? 0.5 : sunUp || night < 0.5 ? 1 : 0.7;
+  const r = (v: number) => Math.round(v * 50) / 50;
+  const [g2, m2, s2] = forced === 'golden' ? [1, 0, 1] : forced === 'mist' ? [0, 1, 0.6] : forced === 'day' ? [0, 0, 1] : [r(golden * k), r(mist * k), shimmer];
+  // rounded and memoised: a new object only when something visibly changes
+  return useMemo(() => ({ golden: g2, mist: m2, shimmer: s2 }), [g2, m2, s2]);
 }

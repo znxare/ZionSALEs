@@ -328,7 +328,8 @@ const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 
 type Ease = (t: number) => number;
 /** How the next pan/zoom change should animate (set just before the change, used once). */
 type GlideSpec = { ms: number; ease: Ease; at: number };
-const DEFAULT_GLIDE: Omit<GlideSpec, 'at'> = { ms: 260, ease: easeOutCubic };
+const easeOutQuint = (t: number) => 1 - (1 - t) ** 5;
+const DEFAULT_GLIDE: Omit<GlideSpec, 'at'> = { ms: 420, ease: easeOutQuint };
 
 /** An angle that never jumps through 0/360: 350° → 10° becomes 350° → 370°, so it can be animated. */
 function useUnwrappedAngle(deg: number | null): number | null {
@@ -571,7 +572,8 @@ function ZoomPanMap({
   function setZoomClamped(next: number | ((z: number) => number)) {
     setZoom((prevZoom) => {
       const z = clampZoom(typeof next === 'function' ? next(prevZoom) : next);
-      setPan((p) => clampPan(p, z));
+      // keep whatever is in the middle of the screen in the middle while zooming
+      setPan((p) => clampPan({ x: (p.x * z) / prevZoom, y: (p.y * z) / prevZoom }, z));
       return z;
     });
   }
@@ -634,7 +636,7 @@ function ZoomPanMap({
 
   function onWheel(e: ReactWheelEvent<HTMLDivElement>) {
     e.preventDefault();
-    setZoomClamped((z) => z - e.deltaY * 0.0015);
+    setZoomClamped((z) => z * Math.exp(-e.deltaY * 0.0018));
   }
 
   function onClickCapture(e: ReactMouseEvent<HTMLDivElement>) {
@@ -650,7 +652,8 @@ function ZoomPanMap({
   }
 
   function zoomBy(delta: number) {
-    setZoomClamped((z) => z + delta);
+    // a steady proportional step (about 1.6x), whatever the current zoom
+    setZoomClamped((z) => z * (delta > 0 ? 1.6 : 1 / 1.6));
   }
 
   function reset() {
@@ -706,7 +709,7 @@ function ZoomPanMap({
       </div>
 
       {/* Zoom controls */}
-      <div className={`absolute bottom-3 left-3 z-30 flex flex-col overflow-hidden ${luxury ? 'max-sm:hidden rounded-[16px] bg-[#0f2118]/[0.92] ring-1 ring-[#c9a96e]/[0.45] shadow-[0_12px_28px_-10px_rgba(5,14,9,0.6)] backdrop-blur-xl' : 'rounded-xl border border-black/5 bg-white/95 shadow backdrop-blur'} ${controlsClassName}`}>
+      <div className={`absolute bottom-3 left-3 z-30 flex flex-col overflow-hidden ${luxury ? 'max-sm:hidden rounded-[16px] bg-[#0f2118]/[0.92] ring-1 ring-[#c9a96e]/[0.45] shadow-[0_12px_28px_-10px_rgba(5,14,9,0.6)]' : 'rounded-xl border border-black/5 bg-white/95 shadow backdrop-blur'} ${controlsClassName}`}>
         <button onClick={() => zoomBy(0.6)} aria-label="Zoom in" className={luxury ? 'p-2.5 text-[#e9d8aa] hover:bg-white/10 active:bg-white/[0.15]' : 'p-2.5 text-gray-600 hover:bg-gray-50 active:bg-gray-100'}>
           <Plus className="h-4 w-4" />
         </button>

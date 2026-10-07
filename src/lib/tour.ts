@@ -1,3 +1,4 @@
+import { BUNDLED_CALIBRATION } from './publicCalibration';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 
@@ -209,18 +210,18 @@ export async function loadCalibration(): Promise<Calibration | null> {
 
 /**
  * The same calibration for someone who isn't logged in (the public map). It comes
- * through a database function, so it only works once public_tour_calibration has
- * been added (see supabase/migrations); without it this is just null and the
- * public map hides "Show my location". A GET, so a viewer's write block never applies.
+ * through a database function once public_tour_calibration has been added (see
+ * supabase/migrations), so it follows the team's saved spots; until then (or if it can't
+ * be read) the bundled 5 Oct 2026 calibration is used. A GET, so a viewer's write block never applies.
  */
 export async function loadPublicCalibration(): Promise<Calibration | null> {
   try {
     const { data, error } = await supabase.rpc('public_tour_calibration', {}, { get: true });
-    if (error || !data) return null;
+    if (error || !data) return BUNDLED_CALIBRATION;
     const v = data as Calibration;
-    return Array.isArray(v.points) ? v : null;
+    return Array.isArray(v.points) && v.points.length >= 3 ? v : BUNDLED_CALIBRATION;
   } catch {
-    return null;
+    return BUNDLED_CALIBRATION;
   }
 }
 

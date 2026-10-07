@@ -10,13 +10,13 @@ export default function Compass({ rotation, headingUp, onToggle, top = 'top-16',
     <button
       onClick={onToggle}
       aria-label={headingUp ? 'Show north up' : 'Turn the map with your direction of travel'}
-      className={`absolute right-3 ${top} z-40 flex flex-col items-center gap-0.5 rounded-[18px] bg-[#fbf7ee]/[0.97] p-1 pb-1.5 sm:gap-1 sm:rounded-[20px] sm:p-1.5 shadow-[0_14px_30px_-10px_rgba(70,48,12,0.45)] ring-1 ring-[#c9a96e]/[0.55] backdrop-blur-xl active:scale-95 sm:right-5`}
+      className={`absolute right-3 ${top} z-40 flex flex-col items-center gap-0.5 p-1 pb-1.5 sm:gap-1 sm:p-1.5 active:scale-95 sm:right-5`}
     >
       <svg viewBox="0 0 48 48" className="h-10 w-10 sm:h-12 sm:w-12" style={{ transform: `rotate(${-shown}deg)` }}>
         <defs>
           <radialGradient id="compass-face" cx="50%" cy="40%" r="60%">
-            <stop offset="0" stopColor="#fffcf4" />
-            <stop offset="1" stopColor="#ece1c6" />
+            <stop offset="0" stopColor="#fffcf4" stopOpacity="0.5" />
+            <stop offset="1" stopColor="#ece1c6" stopOpacity="0.3" />
           </radialGradient>
           <linearGradient id="compass-north" x1="0" y1="0" x2="1" y2="0">
             <stop offset="0.5" stopColor="#f26a35" />
@@ -40,9 +40,9 @@ export default function Compass({ rotation, headingUp, onToggle, top = 'top-16',
         <path d="M24 35.5 L27.2 24 L20.8 24 Z" fill="url(#compass-south)" />
         <circle cx="24" cy="24" r="2.3" fill="#fbf7ee" stroke="#13261c" strokeWidth="1.2" />
       </svg>
-      <span className="rounded-full bg-[#13261c] px-1.5 py-0.5 text-[8px] font-semibold uppercase leading-tight tracking-[0.12em] text-[#e9d8aa] sm:px-2 sm:text-[9px] sm:tracking-[0.14em]">{headingUp ? 'Heading up' : 'North up'}</span>
-      {facing != null && <span className="text-[10px] font-bold leading-none tracking-wide text-[#d9480f]">Facing {cardinal(facing)} {Math.round(((facing % 360) + 360) % 360)}°</span>}
-      {weak && <span className="max-w-[84px] text-center text-[8.5px] font-semibold leading-tight text-[#a3241c]">Wave phone in a figure 8</span>}
+      <span className="px-1 text-[8px] font-bold uppercase leading-tight tracking-[0.14em] text-[#13261c] [text-shadow:0_0_6px_rgba(255,252,240,0.95),0_0_2px_rgba(255,252,240,0.9)] sm:text-[9px] sm:tracking-[0.16em]">{headingUp ? 'Heading up' : 'North up'}</span>
+      {facing != null && <span className="text-[10px] font-bold leading-none tracking-wide text-[#c2410c] [text-shadow:0_0_6px_rgba(255,252,240,0.95),0_0_2px_rgba(255,252,240,0.9)]">Facing {cardinal(facing)} {Math.round(((facing % 360) + 360) % 360)}°</span>}
+      {weak && <span className="max-w-[84px] text-center text-[8.5px] font-semibold leading-tight text-[#a3241c] [text-shadow:0_0_6px_rgba(255,252,240,0.95),0_0_2px_rgba(255,252,240,0.9)]">Wave phone in a figure 8</span>}
     </button>
   );
 }
