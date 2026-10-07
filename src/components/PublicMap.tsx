@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Moon, Sun, Compass as CompassIcon, CornerUpRight, Flag, Loader2, Navigation, Share2 } from 'lucide-react';
+import { Check, Moon, Sun, Compass as CompassIcon, CornerUpRight, Flag, Loader2, Navigation, Share2, Search, MoreHorizontal, X as CloseIcon } from 'lucide-react';
 import { MasterPlanBoard, type AdPin, type HolePin, type HoleTrail, type MapFocus, type TourMarker } from './LiveInventoryBoard';
 import { HoleCard } from './HoleCard';
 import { HOLE_GUIDE, holeGuide } from '@/lib/holes';
@@ -10,6 +10,7 @@ import { fitTransform, loadPublicCalibration, smoothFix, bearing, distanceM, Hea
 import Compass from './Compass';
 import { EmergencyButton } from './EmergencyButton';
 import { MapInfoCard } from './MapInfoCard';
+import { LoadingSplash } from './LoadingSplash';
 import { useNightControl } from '@/lib/night';
 import { useDaylight } from '@/lib/daylight';
 import { useAtmosphere } from '@/lib/mapInfo';
@@ -40,6 +41,8 @@ const LOGO = '/zion-hills-logo.svg';
 const FOLLOW_ZOOM = 2.2;
 const NAV_ZOOM = 2.6;
 
+const menuItem = `flex items-center gap-2.5 whitespace-nowrap rounded-full py-2.5 pl-3.5 pr-4 text-[13px] font-semibold tracking-wide transition active:scale-95 ${lxGlass}`;
+
 const fab = `pointer-events-auto grid h-12 w-12 place-items-center rounded-[17px] text-[#e9d8aa] transition active:scale-95 sm:h-14 sm:w-14 sm:rounded-[20px] ${lxGlass}`;
 
 
@@ -59,6 +62,8 @@ export default function PublicMap({ toId }: { toId?: string }) {
   // Adverts drawn on the map: a few vacant plots as "can be yours" flags (more appear as dots once zoomed in).
   const [adSel, setAdSel] = useState<string | null>(null);
   const [pickerSignal, setPickerSignal] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [ready, setReady] = useState(false);
   // The hole layer: numbered badges; tap one for its card. When the visitor is on a hole, only that hole shows.
   const [holesOn, setHolesOn] = useState(false);
   const [holeSel, setHoleSel] = useState<number | null>(null);
@@ -304,6 +309,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
           night={night}
           daylight={daylight}
           scenery
+          onReady={() => setReady(true)}
           atmosphere={atmosphere}
           rain={rain}
           ambient={phase === 'idle'}
@@ -319,6 +325,25 @@ export default function PublicMap({ toId }: { toId?: string }) {
           }}
         />
       </div>
+
+      {!navigating && (
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 z-30 h-36"
+          style={{ background: night > 0.5 ? 'linear-gradient(to bottom, rgba(8,19,41,0.72), rgba(8,19,41,0))' : 'linear-gradient(to bottom, rgba(251,247,238,0.86), rgba(251,247,238,0.5) 45%, rgba(251,247,238,0))', transition: 'background 1s ease' }}
+        />
+      )}
+
+      {phase === 'idle' && (
+        <button
+          onClick={() => setPickerSignal((n) => n + 1)}
+          aria-label="Directions"
+          className={`pointer-events-auto absolute left-3 top-[3.9rem] z-40 flex items-center gap-2 rounded-full py-2 pl-3.5 pr-4 text-left transition active:scale-[0.98] sm:left-5 sm:top-[4.4rem] ${lxIvory}`}
+          style={{ width: 'min(58vw, 15rem)' }}
+        >
+          <Search className="h-4 w-4 shrink-0 text-[#7a6830]" strokeWidth={2} />
+          <span className="font-serif text-[17px] italic text-[#5b5a4c]">Where to?</span>
+        </button>
+      )}
 
       {!navigating && (
       <div className="pointer-events-none absolute inset-x-0 top-0 z-40 flex items-start justify-between gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5">
@@ -338,8 +363,9 @@ export default function PublicMap({ toId }: { toId?: string }) {
       </div>
       )}
 
-      {/* Square buttons, bottom right (like Google Maps): share, my location, directions. */}
-      <div className="pointer-events-none absolute right-3 z-40 flex flex-col gap-2.5 sm:right-5 sm:gap-3" style={{ bottom: dock > 0 ? dock + 12 : 'max(1.25rem, env(safe-area-inset-bottom))' }}>
+      {/* Bottom right: two buttons only. "More" holds hole-by-hole, share and the day / night switch. */}
+      {menuOpen && <div className="absolute inset-0 z-[39]" onClick={() => setMenuOpen(false)} />}
+      <div className="pointer-events-none absolute right-3 z-40 flex flex-col items-end gap-2.5 sm:right-5 sm:gap-3" style={{ bottom: dock > 0 ? dock + 12 : 'max(1.25rem, env(safe-area-inset-bottom))' }}>
         {navigating && (
           <div className="self-end">
             <EmergencyButton
@@ -352,14 +378,24 @@ export default function PublicMap({ toId }: { toId?: string }) {
           </div>
         )}
         {phase === 'idle' && (
-          <button onClick={() => { setHolesOn((v) => !v); setHoleSel(null); }} aria-label="Hole by hole" aria-pressed={holesOn} className={`${fab} ${holesOn ? '!text-[#f26a35] !ring-[#f26a35]/[0.7]' : ''}`}>
-            <Flag className="h-6 w-6" strokeWidth={1.8} />
-          </button>
-        )}
-        {phase === 'idle' && (
-          <button onClick={share} aria-label="Share this map" className={fab}>
-            {copied ? <Check className="h-6 w-6 text-[#e3c98d]" /> : <Share2 className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={1.8} />}
-          </button>
+          <div className="relative">
+            {menuOpen && (
+              <div className="pointer-events-auto absolute bottom-full right-0 mb-2.5 flex flex-col items-end gap-2" style={{ animation: 'zh-bubble .2s ease-out both' }}>
+                <button onClick={() => { setHolesOn((v) => !v); setHoleSel(null); setMenuOpen(false); }} aria-label="Hole by hole" aria-pressed={holesOn} className={`${menuItem} ${holesOn ? '!text-[#f26a35]' : ''}`}>
+                  <Flag className="h-4 w-4" strokeWidth={1.8} /> Hole by hole
+                </button>
+                <button onClick={() => { void share(); setMenuOpen(false); }} aria-label="Share this map" className={menuItem}>
+                  <Share2 className="h-4 w-4" strokeWidth={1.8} /> Share this map
+                </button>
+                <button onClick={() => { toggleNight(); setMenuOpen(false); }} aria-label={isNight ? 'Switch to day view' : 'Switch to night view'} className={menuItem}>
+                  {isNight ? <Sun className="h-4 w-4" strokeWidth={1.8} /> : <Moon className="h-4 w-4" strokeWidth={1.8} />} {isNight ? 'Day view' : 'Night view'}
+                </button>
+              </div>
+            )}
+            <button onClick={() => setMenuOpen((v) => !v)} aria-label="More" aria-expanded={menuOpen} className={fab}>
+              {menuOpen ? <CloseIcon className="h-6 w-6" strokeWidth={1.8} /> : <MoreHorizontal className="h-6 w-6" strokeWidth={1.8} />}
+            </button>
+          </div>
         )}
         <button onClick={onLocateTap} aria-label={locating ? 'Centre the map on my location' : 'Show my location'} className={fab}>
           {locating && !fix ? (
@@ -370,22 +406,9 @@ export default function PublicMap({ toId }: { toId?: string }) {
             <CompassIcon className={`h-6 w-6 sm:h-7 sm:w-7 ${locating ? 'text-[#f1d9a6]' : ''}`} strokeWidth={1.8} />
           )}
         </button>
-        {phase === 'idle' && (
-          <button onClick={() => setPickerSignal((n) => n + 1)} aria-label="Directions" className={`${fab} !bg-none ${lxOrange}`}>
-            <span className="grid h-7 w-7 rotate-45 place-items-center rounded-[7px] bg-[#fbf7ee] sm:h-8 sm:w-8 sm:rounded-[8px]"><CornerUpRight className="h-[18px] w-[18px] -rotate-45 text-[#f05a22]" strokeWidth={3.2} /></span>
-          </button>
-        )}
       </div>
 
       <WaterCautionBanner alert={waterAlert} top={navigating ? 'top-[10rem]' : undefined} />
-
-      <button
-        onClick={toggleNight}
-        aria-label={isNight ? 'Switch to day view' : 'Switch to night view'}
-        className={`pointer-events-auto absolute right-3 z-40 grid h-10 w-10 place-items-center rounded-full text-[#e9d8aa] transition active:scale-95 sm:right-5 sm:h-11 sm:w-11 ${lxGlass} ${navigating ? 'top-[14.6rem] sm:top-[15.9rem]' : 'top-[8.7rem] sm:top-[9.9rem]'}`}
-      >
-        {isNight ? <Sun className="h-5 w-5" strokeWidth={1.8} /> : <Moon className="h-5 w-5" strokeWidth={1.8} />}
-      </button>
 
       <Compass rotation={rotation} facing={locating ? facing : null} weak={locating && compass.weak} headingUp={headingUp} onToggle={() => setHeadingUp((v) => !v)} top={navigating ? 'top-[9.6rem]' : undefined} />
 
@@ -438,7 +461,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
               <div className="font-serif text-[26px] font-semibold leading-tight text-[#13261c]">Plot {adPlot.plotNo} can be yours</div>
               <div className="text-[13px] leading-snug text-[#5b5a4c]">{adPlot.bedrooms} BHK villa &middot; {Math.round(adPlot.landAreaSft).toLocaleString('en-IN')} sq ft plot &middot; {Math.round(adPlot.builtUpSft).toLocaleString('en-IN')} sq ft built-up &middot; {adPlot.phase}</div>
             </div>
-            <button onClick={() => setAdSel(null)} aria-label="Close" className="rounded-full p-1.5 text-[#8a7a52] hover:bg-[#c9a96e]/[0.15]"><X className="h-4 w-4" /></button>
+            <button onClick={() => setAdSel(null)} aria-label="Close" className="rounded-full p-1.5 text-[#6f5f2f] hover:bg-[#c9a96e]/[0.15]"><X className="h-4 w-4" /></button>
           </div>
           <button
             onClick={() => { const dest = findPlace(`plot-${adPlot.id}`); setAdSel(null); setExitDest(dest); }}
@@ -455,11 +478,12 @@ export default function PublicMap({ toId }: { toId?: string }) {
       )}
 
       <RainOverlay level={rain} />
+      <LoadingSplash done={ready} />
 
       {greet && <WelcomeGreeting eyebrow={greet.eyebrow} title={greet.title} onDone={() => setGreet(null)} />}
 
       {note && (
-        <div className={`pointer-events-none absolute left-3 right-[5.6rem] z-[60] rounded-2xl sm:left-5 sm:right-auto sm:max-w-sm ${navigating ? 'top-[9.5rem]' : 'top-[3.9rem]'}`}>
+        <div className={`pointer-events-none absolute left-3 right-[5.6rem] z-[60] rounded-2xl sm:left-5 sm:right-auto sm:max-w-sm ${navigating ? 'top-[9.5rem]' : 'top-[6.7rem] sm:top-[7.3rem]'}`}>
           <div className={`rounded-2xl px-4 py-2.5 text-center text-[13px] font-medium ${lxGlass}`}>{note}</div>
         </div>
       )}

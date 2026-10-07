@@ -40,7 +40,7 @@ export default function Compass({ rotation, headingUp, onToggle, top = 'top-16',
         <path d="M24 35.5 L27.2 24 L20.8 24 Z" fill="url(#compass-south)" />
         <circle cx="24" cy="24" r="2.3" fill="#fbf7ee" stroke="#13261c" strokeWidth="1.2" />
       </svg>
-      <span className="px-1 text-[8px] font-bold uppercase leading-tight tracking-[0.14em] text-[#13261c] [text-shadow:0_0_6px_rgba(255,252,240,0.95),0_0_2px_rgba(255,252,240,0.9)] sm:text-[9px] sm:tracking-[0.16em]">{headingUp ? 'Heading up' : 'North up'}</span>
+      <span className="px-1 text-[9px] font-bold uppercase leading-tight tracking-[0.14em] text-[#13261c] [text-shadow:0_0_6px_rgba(255,252,240,0.95),0_0_2px_rgba(255,252,240,0.9)] sm:text-[10px] sm:tracking-[0.16em]">{headingUp ? 'Heading up' : 'North up'}</span>
       {facing != null && <span className="text-[10px] font-bold leading-none tracking-wide text-[#c2410c] [text-shadow:0_0_6px_rgba(255,252,240,0.95),0_0_2px_rgba(255,252,240,0.9)]">Facing {cardinal(facing)} {Math.round(((facing % 360) + 360) % 360)}°</span>}
       {weak && <span className="max-w-[84px] text-center text-[8.5px] font-semibold leading-tight text-[#a3241c] [text-shadow:0_0_6px_rgba(255,252,240,0.95),0_0_2px_rgba(255,252,240,0.9)]">Wave phone in a figure 8</span>}
     </button>

@@ -216,8 +216,8 @@ function PlacePicker({ live, start, onStart, onPick, onClose }: {
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-[#07120c]/[0.55] backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
       <div className={`flex max-h-[85dvh] w-full max-w-md animate-slide-up flex-col overflow-hidden rounded-t-[28px] sm:rounded-[28px] ${lxIvory}`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 pb-2 pt-4">
-          <div><div className={`${lxEyebrow} text-[#9a8450]`}>Zion Hills Golf County</div><h2 className="font-serif text-[30px] font-semibold leading-none text-[#13261c]">Where to?</h2></div>
-          <button onClick={onClose} className="rounded-full p-2 text-[#8a7a52] hover:bg-[#c9a96e]/[0.15]"><X className="h-5 w-5" /></button>
+          <div><div className={`${lxEyebrow} text-[#7a6830]`}>Zion Hills Golf County</div><h2 className="font-serif text-[30px] font-semibold leading-none text-[#13261c]">Where to?</h2></div>
+          <button onClick={onClose} className="rounded-full p-2 text-[#6f5f2f] hover:bg-[#c9a96e]/[0.15]"><X className="h-5 w-5" /></button>
         </div>
         {!live && (
           <label className="mx-5 mb-2 flex items-center gap-2 rounded-xl bg-[#f3ecda] px-3 py-2 text-[13px] text-[#5b5a4c]">
@@ -228,14 +228,14 @@ function PlacePicker({ live, start, onStart, onPick, onClose }: {
           </label>
         )}
         <div className="mx-5 mb-3 flex items-center gap-2 rounded-xl border border-[#c9a96e]/50 bg-white/60 px-3 py-2">
-          <Search className="h-4 w-4 text-[#9a8450]" />
+          <Search className="h-4 w-4 text-[#7a6830]" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search — clubhouse, plot 622, villa 124…" className="w-full bg-transparent text-sm outline-none" />
         </div>
         <div className="flex-1 overflow-y-auto pb-4">
           {groups.length === 0 && <div className="px-5 py-10 text-center text-sm text-gray-400">Nothing matches.</div>}
           {groups.map((g) => (
             <div key={g.title} className="mb-2">
-              <div className={`px-5 pb-1 pt-2 ${lxEyebrow} text-[#9a8450]`}>{g.title}</div>
+              <div className={`px-5 pb-1 pt-2 ${lxEyebrow} text-[#7a6830]`}>{g.title}</div>
               <div className={GRID_GROUPS.includes(g.title) ? 'grid grid-cols-3 gap-1.5 px-5' : 'px-2'}>
                 {g.items.map((p) =>
                   GRID_GROUPS.includes(g.title) ? (
@@ -296,7 +296,7 @@ function GuidedPanels({ phase, dest, live, origin, start, route, guide, next, of
         <div className="flex items-start gap-3">
           <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-[14px] ${lxOrange}`}><Navigation2 className="h-5 w-5" /></div>
           <div className="min-w-0 flex-1">
-            <div className={`${lxEyebrow} text-[#9a8450]`}>Your route</div>
+            <div className={`${lxEyebrow} text-[#7a6830]`}>Your route</div>
             <div className="truncate font-serif text-[22px] font-semibold leading-tight text-[#13261c] sm:text-[24px]">{dest.label}</div>
             <div className="truncate text-[13px] text-[#5b5a4c]">
               {!route ? 'No road inside the estate to here' : total != null ? `${mins} min \u00b7 ${distanceWords(total)}` : ''}
@@ -304,7 +304,7 @@ function GuidedPanels({ phase, dest, live, origin, start, route, guide, next, of
             </div>
             {water}
           </div>
-          <button onClick={onEnd} aria-label="Close directions" className="rounded-full p-2 text-[#8a7a52] hover:bg-[#c9a96e]/[0.15]"><X className="h-5 w-5" /></button>
+          <button onClick={onEnd} aria-label="Close directions" className="rounded-full p-2 text-[#6f5f2f] hover:bg-[#c9a96e]/[0.15]"><X className="h-5 w-5" /></button>
         </div>
         <button
           onClick={onStart}
@@ -313,7 +313,7 @@ function GuidedPanels({ phase, dest, live, origin, start, route, guide, next, of
         >
           <Navigation2 className="h-5 w-5" /> Start
         </button>
-        {!live && <p className="mt-1.5 hidden text-center text-[12px] text-[#8a7a52] [@media(min-height:700px)]:block">Start uses your location to guide you turn by turn.</p>}
+        {!live && <p className="mt-1.5 hidden text-center text-[12px] text-[#6f5f2f] [@media(min-height:700px)]:block">Start uses your location to guide you turn by turn.</p>}
       </div>
     );
   }

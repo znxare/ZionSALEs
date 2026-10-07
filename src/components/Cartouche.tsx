@@ -94,7 +94,7 @@ export function Cartouche({ toScreen, zoom, layerWidth, upright, turned, atmosph
           <div style={{ width: 330, transform: `scale(${kC})`, transformOrigin: '0 0' }} className="relative">
             <div className="rounded-[4px] bg-[#f8f0da]/[0.93] p-[5px] shadow-[0_16px_34px_-14px_rgba(60,40,10,0.55)] ring-[1.5px] ring-[#b8924f]">
               <div className="rounded-[2px] border border-[#c9a96e] px-5 pb-3 pt-3">
-                <div className={`${lxEyebrow} text-center text-[#9a8450]`}>&mdash; Master Plan &mdash;</div>
+                <div className={`${lxEyebrow} text-center text-[#7a6830]`}>&mdash; Master Plan &mdash;</div>
                 <div className="text-center font-serif text-[44px] font-semibold leading-[0.95] text-[#13261c]">Zion Hills</div>
                 <div className="mt-0.5 text-center text-[11px] font-semibold uppercase tracking-[0.46em] text-[#d9480f]">Golf County</div>
                 <div className="my-2 flex items-center gap-2"><span className="h-px flex-1 bg-gradient-to-r from-transparent to-[#c9a96e]" /><span className="h-1.5 w-1.5 rotate-45 bg-[#c9a96e]" /><span className="h-px flex-1 bg-gradient-to-l from-transparent to-[#c9a96e]" /></div>
@@ -113,7 +113,7 @@ export function Cartouche({ toScreen, zoom, layerWidth, upright, turned, atmosph
                     <div className="absolute bottom-0 left-0 top-0 w-px bg-[#13261c]" /><div className="absolute bottom-0 right-0 top-0 w-px bg-[#13261c]" /><div className="absolute bottom-0 left-1/2 top-[2px] w-px bg-[#13261c]" />
                   </div>
                   <span className="text-[10.5px] font-semibold tabular-nums text-[#13261c]">{barMetres >= 1000 ? `${barMetres / 1000} km` : `${barMetres} m`}</span>
-                  <span className="ml-auto text-[10px] italic text-[#8a7a52]">north up</span>
+                  <span className="ml-auto text-[10px] italic text-[#6f5f2f]">north up</span>
                 </div>
               </div>
             </div>
@@ -128,7 +128,7 @@ export function Cartouche({ toScreen, zoom, layerWidth, upright, turned, atmosph
             <span className="absolute -top-2 right-10 h-4 w-12 rotate-3 bg-[#e3c98d]/[0.7]" />
             <div className="relative rounded-[3px] bg-gradient-to-br from-[#fffaf0] to-[#f2e8cf] px-4 pb-3 pt-3.5 shadow-[0_18px_34px_-14px_rgba(60,40,10,0.6)] ring-1 ring-[#d9c79b]">
               <div className="absolute right-3 top-3 grid h-11 w-11 rotate-6 place-items-center rounded-[3px] border-2 border-dashed border-[#b8924f] text-center font-serif text-[10px] font-semibold leading-tight text-[#9a6b2a]">Zion<br />Hills</div>
-              <div className={`${lxEyebrow} text-[#9a8450]`}>Today at</div>
+              <div className={`${lxEyebrow} text-[#7a6830]`}>Today at</div>
               <div className="font-serif text-[27px] font-semibold italic leading-none text-[#13261c]">Zion Hills</div>
               <div className="mt-2 flex items-end gap-3">
                 <div className="font-serif text-[52px] font-semibold leading-[0.85] text-[#13261c]">{A ? `${Math.round(A.tempC)}°` : '—'}</div>

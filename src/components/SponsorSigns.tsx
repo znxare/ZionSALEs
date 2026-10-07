@@ -32,7 +32,7 @@ export function SponsorSigns({ toScreen, zoom, upright, safe, viewport }: {
 
   const bubble = (id: string, title: string, line: string) => open === id && (
     <div className={`absolute bottom-full left-1/2 z-10 mb-2 w-48 -translate-x-1/2 rounded-2xl p-3 text-left ${lxIvory}`} style={{ animation: 'zh-bubble .25s ease-out both' }}>
-      <div className={`${lxEyebrow} text-[#9a8450]`}>Course sponsor</div>
+      <div className={`${lxEyebrow} text-[#7a6830]`}>Course sponsor</div>
       <div className="font-serif text-[19px] font-semibold leading-tight text-[#13261c]">{title}</div>
       <div className="mt-0.5 text-[12px] leading-snug text-[#5b5a4c]">{line}</div>
     </div>

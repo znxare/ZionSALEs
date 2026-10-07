@@ -17,4 +17,4 @@ export const lxOrange = 'bg-gradient-to-br from-[#f7733f] via-[#ee5a22] to-[#d94
 export const lxCrimson = 'bg-gradient-to-br from-[#a3241c] to-[#7a1712] text-white ring-1 ring-[#f1d9a6]/[0.55] shadow-[0_14px_30px_-10px_rgba(122,23,18,0.7)]';
 
 /** Small caps label above a title. */
-export const lxEyebrow = 'text-[10px] font-semibold uppercase tracking-[0.22em]';
+export const lxEyebrow = 'text-[10.5px] font-semibold uppercase tracking-[0.22em]';

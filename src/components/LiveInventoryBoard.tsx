@@ -868,7 +868,7 @@ export type HoleTrail = { n: number; tee: [number, number]; mid: [number, number
 export type TourMarker = { pt: [number, number]; accuracyPct?: number; heading?: number | null };
 
 export function MasterPlanBoard({
-  plots, highlight = null, onSelect, large, selectedId, tooltip = 'internal', bare, cover, publicView, waterAlert = null, wildlife = false, night = 0, daylight = null, ambient = false, scenery = false, atmosphere = null, rain = 0, adPins = [], selectedAdId = null, onAdTap, holePins = [], holeTrail = null, onHoleTap,
+  plots, highlight = null, onSelect, large, selectedId, tooltip = 'internal', bare, cover, publicView, waterAlert = null, wildlife = false, night = 0, daylight = null, ambient = false, scenery = false, onReady, atmosphere = null, rain = 0, adPins = [], selectedAdId = null, onAdTap, holePins = [], holeTrail = null, onHoleTap,
   marker = null, focus = null, onUserMove, onMapPoint, pins = [], rotation = 0, turnable = false, route = null, places = [], destination = null, offRoad = false,
 }: {
   plots: Plot[];
@@ -890,6 +890,8 @@ export function MasterPlanBoard({
   night?: number;
   /** The light of the day: golden hour, dawn mist, sparkle on the water. */
   daylight?: Daylight | null;
+  /** Called once the plan picture has drawn. */
+  onReady?: () => void;
   /** The ground and sky around the estate: contours, cloud shadows, sun / moon, stars, birds, kites. */
   scenery?: boolean;
   atmosphere?: Atmosphere | null;
@@ -930,6 +932,7 @@ export function MasterPlanBoard({
   offRoad?: boolean;
 }) {
   const [loaded, setLoaded] = useState(false);
+  useEffect(() => { if (loaded) onReady?.(); }, [loaded]); // eslint-disable-line react-hooks/exhaustive-deps
   const [hoverId, setHoverId] = useState<string | null>(null);
   const hovered = hoverId ? plots.find((p) => p.id === hoverId) ?? null : null;
 
@@ -971,7 +974,7 @@ export function MasterPlanBoard({
             {loaded && night > 0.001 && <NightLayer level={night} />}
             {loaded && scenery && <SkyLayer night={night} cloud={(atmosphere?.cloud ?? 30) / 100} sunrise={atmosphere?.sunrise ?? null} sunset={atmosphere?.sunset ?? null} />}
             {loaded && daylight && <DaylightLayer light={daylight} night={night} rain={rain} />}
-            {loaded && ambient && view.zoom >= 1.25 && <CartsLayer night={night} />}
+            {loaded && ambient && view.zoom >= 1.7 && <CartsLayer night={night} />}
             {loaded && <PlotShapes plots={plots} highlight={highlight} hoverId={hoverId} selectedId={selectedId} large={large} waterAlert={waterAlert} />}
           </>
         )}
@@ -997,7 +1000,7 @@ export function MasterPlanBoard({
               {ambient && scenery && <Cartouche toScreen={toScreen} zoom={zoom} layerWidth={size.width} upright={upright} turned={turned} atmosphere={atmosphere} night={night} />}
               {ambient && publicView && <SponsorSigns toScreen={toScreen} zoom={zoom} upright={upright} safe={safe} viewport={viewport} />}
               {ambient && <AmbientLayer toScreen={toScreen} zoom={zoom} upright={upright} sun={1 - night} safe={safe} viewport={viewport} />}
-              {wildlife && <WildlifeLayer toScreen={toScreen} zoom={zoom} upright={upright} night={night} safe={safe} viewport={viewport} />}
+              {wildlife && zoom >= 1.8 && <WildlifeLayer toScreen={toScreen} zoom={zoom} upright={upright} night={night} safe={safe} viewport={viewport} />}
               {holeTrail && (() => {
                 const [t, m, g] = [toScreen(holeTrail.tee), toScreen(holeTrail.mid), toScreen(holeTrail.green)];
                 const d = `M ${t[0]} ${t[1]} Q ${m[0] * 2 - (t[0] + g[0]) / 2} ${m[1] * 2 - (t[1] + g[1]) / 2} ${g[0]} ${g[1]}`;
@@ -1058,16 +1061,16 @@ export function MasterPlanBoard({
                       aria-label={`${ad.label}${ad.sub ? ` — ${ad.sub}` : ''}`}
                       className="pointer-events-auto absolute flex -translate-x-1/2 -translate-y-full flex-col items-center"
                     >
-                      {ad.featured || picked ? (
+                      {picked || (ad.featured && zoom >= 2.4) ? (
                         <span className={`relative flex items-center gap-1 whitespace-nowrap rounded-full px-3 py-1 text-[11px] font-semibold tracking-wide text-white shadow-[0_8px_18px_-6px_rgba(120,40,8,0.7)] ring-[1.5px] ring-[#f1d9a6] ${sponsor ? 'bg-gradient-to-br from-[#1d3a2b] to-[#0f2118]' : 'bg-gradient-to-br from-[#f7733f] to-[#d9480f]'} ${picked ? 'scale-110' : ''}`}>
                           {!sponsor && <span className="absolute -inset-1 -z-10 animate-ping rounded-full bg-[#f05a22]/[0.35]" />}
                           {ad.label}
                         </span>
                       ) : (
-                        <span className="h-3.5 w-3.5 rounded-full bg-gradient-to-br from-[#f7733f] to-[#d9480f] shadow ring-[1.5px] ring-[#f1d9a6]" />
+                        <span className="h-3 w-3 rounded-full bg-gradient-to-br from-[#f7733f] to-[#d9480f] opacity-90 shadow ring-[1.5px] ring-[#f1d9a6]" />
                       )}
-                      {(ad.featured || picked) && <span className={`h-2 w-px ${sponsor ? 'bg-[#c9a96e]' : 'bg-[#f1d9a6]'}`} />}
-                      {(ad.featured || picked) && <span className={`h-2 w-2 rounded-full ring-[1.5px] ring-[#f1d9a6] ${sponsor ? 'bg-[#0f2118]' : 'bg-[#e0541c]'}`} />}
+                      {(picked || (ad.featured && zoom >= 2.4)) && <span className={`h-2 w-px ${sponsor ? 'bg-[#c9a96e]' : 'bg-[#f1d9a6]'}`} />}
+                      {(picked || (ad.featured && zoom >= 2.4)) && <span className={`h-2 w-2 rounded-full ring-[1.5px] ring-[#f1d9a6] ${sponsor ? 'bg-[#0f2118]' : 'bg-[#e0541c]'}`} />}
                     </button>
                   </div>
                 );

@@ -24,43 +24,13 @@ function weatherSlides(a: Atmosphere): Slide[] {
   out.push({
     key: 'weather', tone: 'info', icon: <ThermometerSun className="h-5 w-5" />,
     title: `${Math.round(a.tempC)}°C · ${feelsWord(a.feelsC)}`,
-    text: `${skyWord(a.code, a.isDay)}. Feels like ${Math.round(a.feelsC)}°, humidity ${Math.round(a.humidity)}%, breeze ${Math.round(a.windKmh)} km/h.`,
+    text: `${skyWord(a.code, a.isDay)}. Feels like ${Math.round(a.feelsC)}°, breeze ${Math.round(a.windKmh)} km/h.`,
   });
-  if (a.aqi != null) {
-    const { word } = aqiWord(a.aqi);
-    out.push({
-      key: 'aqi', tone: 'info', icon: <Wind className="h-5 w-5" />,
-      title: `Air quality ${Math.round(a.aqi)} · ${word}`,
-      text: a.aqi <= 50 ? 'Fresh, clean air out on the course.' : a.aqi <= 100 ? 'Acceptable air — fine for a walk or a round.' : 'Sensitive visitors may want to take it easy outdoors.',
-    });
-  }
-  const now = new Date();
-  if (a.isDay) {
-    const { word, advice } = uvWord(a.uv);
-    out.push({
-      key: 'uv', tone: 'info', icon: <Sun className="h-5 w-5" />,
-      title: `Sun rays: UV ${a.uv.toFixed(a.uv < 10 ? 1 : 0)} · ${word}`,
-      text: a.sunset ? `${advice} Sunset at ${clockTime(a.sunset)}.` : advice,
-    });
-  } else if (a.sunrise && a.sunset) {
+  if (!a.isDay && a.sunrise && a.sunset) {
     out.push({
       key: 'night', tone: 'info', icon: <Sunset className="h-5 w-5" />,
       title: `Sunset was ${clockTime(a.sunset)}`,
       text: `Sunrise tomorrow around ${clockTime(a.sunrise)}. Lakes are out of bounds after 6 PM.`,
-    });
-  }
-  if (a.isDay && a.sunset && a.sunset.getTime() - now.getTime() < 90 * 60 * 1000 && a.sunset.getTime() > now.getTime()) {
-    out.push({
-      key: 'golden', tone: 'info', icon: <Sunset className="h-5 w-5" />,
-      title: 'Golden hour on the course',
-      text: `Soft, warm light until sunset at ${clockTime(a.sunset)} — the best time for photos.`,
-    });
-  }
-  if (a.elevationM != null) {
-    out.push({
-      key: 'elev', tone: 'info', icon: <Landmark className="h-5 w-5" />,
-      title: `${a.elevationM} m above sea level`,
-      text: 'The altitude keeps the estate pleasantly cool.',
     });
   }
   return out;
@@ -123,7 +93,7 @@ export function MapInfoCard({ onShowPlace, className = '' }: { onShowPlace: (pla
         <div key={s.key} className="flex animate-slide-up items-center gap-2.5 py-2 pl-2 pr-1 sm:gap-3 sm:py-2.5 sm:pl-2.5">
           <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-[13px] sm:h-11 sm:w-11 sm:rounded-[14px] ${tile}`}>{s.icon}</div>
           <button type="button" onClick={() => setI((n) => n + 1)} className="min-w-0 flex-1 text-left" aria-label="Next">
-            <div className={`${lxEyebrow} mb-0.5 hidden sm:block ${s.tone === 'ad' ? 'text-[#d9480f]' : s.tone === 'warn' ? 'text-[#a3241c]' : 'text-[#9a8450]'}`}>{s.tone === 'ad' ? 'Available now' : s.tone === 'warn' ? 'For your safety' : 'Zion Hills'}</div>
+            <div className={`${lxEyebrow} mb-0.5 hidden sm:block ${s.tone === 'ad' ? 'text-[#d9480f]' : s.tone === 'warn' ? 'text-[#a3241c]' : 'text-[#7a6830]'}`}>{s.tone === 'ad' ? 'Available now' : s.tone === 'warn' ? 'For your safety' : 'Zion Hills'}</div>
             <div className="truncate font-serif text-[17px] font-semibold leading-tight text-[#13261c] sm:text-[18px]">{s.title}</div>
             <div className="line-clamp-1 text-[12px] leading-snug text-[#5b5a4c] sm:line-clamp-2">{s.text}</div>
           </button>
@@ -132,7 +102,7 @@ export function MapInfoCard({ onShowPlace, className = '' }: { onShowPlace: (pla
               <span className="hidden sm:inline">{s.cta.label}</span> <ChevronRight className="h-5 w-5 sm:h-4 sm:w-4" />
             </button>
           ) : null}
-          <button onClick={() => setClosed(true)} aria-label="Hide these tips" className="shrink-0 self-start rounded-full p-1 text-[#b7a574] hover:bg-[#c9a96e]/[0.15] hover:text-[#8a7a52]"><X className="h-4 w-4" /></button>
+          <button onClick={() => setClosed(true)} aria-label="Hide these tips" className="shrink-0 self-start rounded-full p-1 text-[#b7a574] hover:bg-[#c9a96e]/[0.15] hover:text-[#6f5f2f]"><X className="h-4 w-4" /></button>
         </div>
         <div className="h-[2px] w-full bg-[#c9a96e]/[0.18]">
           <div key={`${s.key}-${i}`} className="h-full origin-left bg-[#c9a96e]" style={{ animation: `zh-progress ${ROTATE_MS}ms linear`, animationPlayState: paused ? 'paused' : 'running' }} />

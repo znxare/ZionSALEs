@@ -81,7 +81,7 @@ export function EmergencyButton({ position, onPlan, locating, onLocate, onRouteT
                 <h2 className="mt-0.5 flex items-center gap-2 font-serif text-[28px] font-semibold leading-none text-[#13261c]"><Siren className="h-6 w-6 text-[#a3241c]" /> Emergency help</h2>
                 <p className="mt-1.5 text-[13px] leading-snug text-[#5b5a4c]">If someone is hurt, call first. Stay where you are unless it isn&rsquo;t safe.</p>
               </div>
-              <button onClick={() => setOpen(false)} aria-label="Close" className="rounded-full p-2 text-[#8a7a52] hover:bg-[#c9a96e]/[0.15]"><X className="h-5 w-5" /></button>
+              <button onClick={() => setOpen(false)} aria-label="Close" className="rounded-full p-2 text-[#6f5f2f] hover:bg-[#c9a96e]/[0.15]"><X className="h-5 w-5" /></button>
             </div>
 
             <div className="mt-4 space-y-2.5">
@@ -102,7 +102,7 @@ export function EmergencyButton({ position, onPlan, locating, onLocate, onRouteT
             </div>
 
             <div className="mt-4 rounded-2xl bg-[#f3ecda] p-4 ring-1 ring-[#c9a96e]/[0.35]">
-              <div className={`flex items-center gap-2 ${lxEyebrow} text-[#8a7a52]`}><MapPin className="h-4 w-4" /> Where you are</div>
+              <div className={`flex items-center gap-2 ${lxEyebrow} text-[#6f5f2f]`}><MapPin className="h-4 w-4" /> Where you are</div>
               {position ? (
                 <>
                   <p className="mt-1.5 font-serif text-[20px] font-semibold text-[#13261c]">{near ? `You are ${near}` : onPlan ? 'You are on the estate' : 'Your location is ready to send'}</p>
@@ -131,7 +131,7 @@ export function EmergencyButton({ position, onPlan, locating, onLocate, onRouteT
                 <span className="block text-[12px] font-medium text-white/[0.85]">{toGate != null ? `${distanceWords(toGate)} by road · show the route` : 'Show directions to the gate'}</span>
               </span>
             </button>
-            <p className="mt-3 text-center text-[12px] text-[#8a7a52]">Tell the operator your plot or villa number, or the nearest landmark on the map.</p>
+            <p className="mt-3 text-center text-[12px] text-[#6f5f2f]">Tell the operator your plot or villa number, or the nearest landmark on the map.</p>
           </div>
         </div>,
         document.body,
