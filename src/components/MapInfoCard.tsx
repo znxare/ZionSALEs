@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Home, Sun, Wind, ThermometerSun, Sunset, Landmark, Waves, Smile, Sparkles, X, ChevronRight } from 'lucide-react';
 import { SAMPLE_PLOTS } from '@/lib/inventory';
 import { lxEyebrow, lxIvory, lxOrange } from '@/lib/luxury';
+import { COURSE_SPONSORS } from '@/lib/sponsors';
 import { aqiWord, clockTime, ESTATE_FACTS, feelsWord, skyWord, SPONSORS, useAtmosphere, uvWord, type Atmosphere } from '@/lib/mapInfo';
 
 // A small rotating card on the public map: vacant plots ("can be yours"), the weather and air
@@ -82,6 +83,7 @@ export function MapInfoCard({ onShowPlace, className = '' }: { onShowPlace: (pla
       ...(atmosphere ? weatherSlides(atmosphere) : []),
       ...ESTATE_FACTS.map((f, n): Slide => ({ key: `fact-${n}`, tone: 'info', icon: n === 1 ? <Waves className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />, title: f.title, text: f.text })),
       ...SPONSORS.map((s, n): Slide => ({ key: `sp-${n}`, tone: 'info', icon: s.logo ? <img src={s.logo} alt="" className="h-6 w-6 object-contain" /> : <Sparkles className="h-5 w-5" />, title: s.name, text: s.tagline })),
+      { key: 'sponsors', tone: 'info', icon: <Sparkles className="h-5 w-5" />, title: 'Our course sponsors', text: COURSE_SPONSORS.map((s) => s.name).join(' \u00b7 ') },
       { key: 'kids', tone: 'info', icon: <Smile className="h-5 w-5" />, title: "Kids' corner", text: 'Stay with a grown-up, keep away from the lakes, and spot the flags on the greens!' },
       { key: 'lake', tone: 'warn', icon: <Waves className="h-5 w-5" />, title: 'Lakes are out of bounds after 6 PM', text: 'The water is deep. Please keep to the roads and paths.' },
     ];

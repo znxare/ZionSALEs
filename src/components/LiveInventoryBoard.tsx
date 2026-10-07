@@ -16,6 +16,7 @@ import { AmbientLayer } from './AmbientLayer';
 import { TerrainLayer } from './TerrainLayer';
 import { SkyLayer } from './SkyLayer';
 import { Cartouche } from './Cartouche';
+import { SponsorSigns } from './SponsorSigns';
 import type { Atmosphere } from '@/lib/mapInfo';
 import type { Daylight } from '@/lib/daylight';
 import { BUDGETS, inBudget, outlineOf, centroidOf, plotAt, SHAPE_COLORS, plotShareLink, type BudgetId } from '@/lib/plotMap';
@@ -994,6 +995,7 @@ export function MasterPlanBoard({
                 </svg>
               )}
               {ambient && scenery && <Cartouche toScreen={toScreen} zoom={zoom} layerWidth={size.width} upright={upright} turned={turned} atmosphere={atmosphere} night={night} />}
+              {ambient && publicView && <SponsorSigns toScreen={toScreen} zoom={zoom} upright={upright} safe={safe} viewport={viewport} />}
               {ambient && <AmbientLayer toScreen={toScreen} zoom={zoom} upright={upright} sun={1 - night} safe={safe} viewport={viewport} />}
               {wildlife && <WildlifeLayer toScreen={toScreen} zoom={zoom} upright={upright} night={night} safe={safe} viewport={viewport} />}
               {holeTrail && (() => {
