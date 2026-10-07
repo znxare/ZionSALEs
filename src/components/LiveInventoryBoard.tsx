@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type WheelEvent as ReactWheelEvent } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type WheelEvent as ReactWheelEvent } from 'react';
 import {
   Search, X, List as ListIcon, Map as MapIcon, ChevronDown,
   BedDouble, CheckCircle2, Trash2, Receipt, Tag, Clock3, Plus, Minus, RotateCcw,
@@ -420,6 +420,9 @@ function ZoomPanMap({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [size, setSize] = useState<Size>({ width: 0, height: 0 });
   const [interacting, setInteracting] = useState(false);
+  // True while the plan is being dragged, pinched or gliding: the moving extras (clouds, birds, twinkles) pause so
+  // the phone spends every frame on the map itself.
+  const [gliding, setGliding] = useState(false);
 
   // What is drawn. The target pan/zoom above change instantly; the picture eases
   // towards them here, in one loop that also drives the route, labels and dot, so
@@ -435,12 +438,14 @@ function ZoomPanMap({
     window.cancelAnimationFrame(panRaf.current);
     const to = { zoom, pan };
     const from = shownRef.current;
-    if (interacting) { shownRef.current = to; return; }   // a finger is on the map: follow it exactly
+    if (interacting) { shownRef.current = to; setGliding(false); return; }   // a finger is on the map: follow it exactly
     const spec = performance.now() - glide.current.at < 200 ? glide.current : { ...DEFAULT_GLIDE, at: 0 };
     glide.current = { ...DEFAULT_GLIDE, at: 0 };
     const settled = Math.abs(from.zoom - to.zoom) < 1e-4 && Math.abs(from.pan.x - to.pan.x) < 0.05 && Math.abs(from.pan.y - to.pan.y) < 0.05;
-    if (settled || spec.ms <= 0) { shownRef.current = to; setShown(to); return; }
+    if (settled || spec.ms <= 0) { shownRef.current = to; setShown(to); setGliding(false); return; }
     const start = performance.now();
+    setGliding(true);
+    const safety = window.setTimeout(() => setGliding(false), spec.ms + 300); // never leave the extras paused
     const step = (now: number) => {
       const k = Math.min(1, (now - start) / spec.ms);
       const e = spec.ease(k);
@@ -448,11 +453,18 @@ function ZoomPanMap({
       shownRef.current = cur;
       setShown(cur);
       if (k < 1) panRaf.current = window.requestAnimationFrame(step);
+      else setGliding(false);
     };
     panRaf.current = window.requestAnimationFrame(step);
-    return () => window.cancelAnimationFrame(panRaf.current);
+    return () => { window.cancelAnimationFrame(panRaf.current); window.clearTimeout(safety); };
   }, [zoom, pan.x, pan.y, interacting]); // eslint-disable-line react-hooks/exhaustive-deps
 
+
+  const moving = interacting || gliding;
+  useEffect(() => {
+    // SVG animations (<animate>, <animateMotion>) are paused too; CSS ones are paused by the data-moving rule.
+    viewportRef.current?.querySelectorAll('svg').forEach((el) => { try { if (moving) el.pauseAnimations(); else el.unpauseAnimations(); } catch { /* not supported */ } });
+  }, [moving]);
 
   // Drawn values (the targets themselves while a finger is on the map).
   const vz = interacting ? zoom : shown.zoom;
@@ -466,6 +478,22 @@ function ZoomPanMap({
   // A flick of the finger keeps the map gliding and slowing down; a double tap zooms in around the tap.
   const samples = useRef<{ t: number; x: number; y: number }[]>([]);
   const inertia = useRef(0);
+  const frame = useRef(0);
+  const panAcc = useRef({ x: 0, y: 0 });
+  const pinchNext = useRef<(() => void) | null>(null);
+  function flushFrame() {
+    frame.current = 0;
+    const a = panAcc.current;
+    if (a.x || a.y) {
+      panAcc.current = { x: 0, y: 0 };
+      setPan((p) => clampPan({ x: p.x + a.x, y: p.y + a.y }, zoomRef.current));
+    }
+    const f = pinchNext.current;
+    if (f) { pinchNext.current = null; f(); }
+  }
+  function queueFrame() { if (!frame.current) frame.current = window.requestAnimationFrame(flushFrame); }
+  function flushNow() { if (frame.current) window.cancelAnimationFrame(frame.current); flushFrame(); }
+  useEffect(() => () => { if (frame.current) window.cancelAnimationFrame(frame.current); if (inertia.current) window.cancelAnimationFrame(inertia.current); }, []);
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
   const lastTap = useRef<{ t: number; x: number; y: number } | null>(null);
@@ -602,6 +630,10 @@ function ZoomPanMap({
 
   function onPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
     stopInertia();
+    if (frame.current) window.cancelAnimationFrame(frame.current);
+    frame.current = 0;
+    panAcc.current = { x: 0, y: 0 };
+    pinchNext.current = null;
     samples.current = [];
     e.currentTarget.setPointerCapture(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -633,8 +665,11 @@ function ZoomPanMap({
         onUserMove?.();
         const { d0, m, startZoom, startDist } = pinch.current;
         const z = clampZoom(startZoom * (dist / startDist));
-        setZoom(z);
-        setPan(clampPan({ x: d0.x - z * (m.x - layer.width / 2), y: d0.y - z * (m.y - layer.height / 2) }, z));
+        pinchNext.current = () => {
+          setZoom(z);
+          setPan(clampPan({ x: d0.x - z * (m.x - layer.width / 2), y: d0.y - z * (m.y - layer.height / 2) }, z));
+        };
+        queueFrame();
       }
     } else if (pts.length === 1 && canPan) {
       // A drag moves the map under the finger, whichever way the map is turned.
@@ -642,7 +677,9 @@ function ZoomPanMap({
       if (dx || dy) {
         samples.current.push({ t: performance.now(), x: dx, y: dy });
         if (samples.current.length > 12) samples.current.shift();
-        setPan((p) => clampPan({ x: p.x + dx, y: p.y + dy }, zoom));
+        panAcc.current.x += dx;
+        panAcc.current.y += dy;
+        queueFrame();
         if (dragStart.current) {
           const traveled = Math.hypot(e.clientX - dragStart.current.x, e.clientY - dragStart.current.y);
           if (traveled > DRAG_THRESHOLD) { dragged.current = true; onUserMove?.(); }
@@ -652,6 +689,7 @@ function ZoomPanMap({
   }
 
   function endPointer(e: ReactPointerEvent<HTMLDivElement>) {
+    flushNow();
     pointers.current.delete(e.pointerId);
     if (pointers.current.size < 2) pinch.current = null;
     if (pointers.current.size === 0) {
@@ -721,6 +759,7 @@ function ZoomPanMap({
   return (
     <div
       ref={viewportRef}
+      data-moving={interacting || gliding ? '1' : undefined}
       className="absolute inset-0 touch-none select-none overflow-hidden"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -864,7 +903,7 @@ function MasterPlanImage({ view, loaded, onLoad }: { view: ViewState; loaded: bo
 }
 
 /** Plot outlines drawn on the map (inside the zoomed layer, in % coordinates). */
-function PlotShapes({ plots, highlight, hoverId, selectedId, large, waterAlert }: {
+function PlotShapesBase({ plots, highlight, hoverId, selectedId, large, waterAlert }: {
   plots: Plot[];
   highlight: Set<string> | null;
   hoverId: string | null;
@@ -911,6 +950,8 @@ function PlotShapes({ plots, highlight, hoverId, selectedId, large, waterAlert }
     </svg>
   );
 }
+
+const PlotShapes = memo(PlotShapesBase);
 
 /** An advert drawn on the map itself: a vacant plot ("can be yours") or a sponsor's board. */
 export type AdPin = { id: string; pt: [number, number]; label: string; sub?: string; featured?: boolean; kind?: 'plot' | 'sponsor' };
