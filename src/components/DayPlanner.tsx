@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  CalendarClock, Plus, Trash2, Check, X, Loader2, ListTodo, ArrowRight, MapPin,
+  CalendarClock, Plus, Trash2, Check, Loader2, ListTodo, ArrowRight, MapPin,
 } from 'lucide-react';
 import type { Lead, Todo } from '@/lib/supabase';
 import {
@@ -35,19 +35,20 @@ export default function DayPlanner({ leads, onOpenLead }: Props) {
 
   useEffect(() => { load(); }, [load]);
 
-  // Next to contact: leads with upcoming or overdue follow-ups
+  // Next to contact: every overdue and due-today lead (never cut off — a busy
+  // day must not silently hide anyone), then upcoming ones up to 15 in total.
   const nextToContact = useMemo(() => {
     const active = leads.filter(
-      (l) => l.status !== 'Dead' && l.status !== 'Junk' && !l.booked_at
+      (l) => l.status !== 'Dead' && l.status !== 'Junk' && !l.booked_at && l.next_followup_at
     );
-    return active
-      .sort((a, b) => {
-        const ao = isOverdue(a.next_followup_at) ? 0 : isToday(a.next_followup_at) ? 1 : 2;
-        const bo = isOverdue(b.next_followup_at) ? 0 : isToday(b.next_followup_at) ? 1 : 2;
-        if (ao !== bo) return ao - bo;
-        return new Date(a.next_followup_at ?? 0).getTime() - new Date(b.next_followup_at ?? 0).getTime();
-      })
-      .slice(0, 15);
+    const rank = (l: Lead) => (isOverdue(l.next_followup_at) && !isToday(l.next_followup_at) ? 0 : isToday(l.next_followup_at) ? 1 : 2);
+    const sorted = active.sort((a, b) => {
+      const ao = rank(a), bo = rank(b);
+      if (ao !== bo) return ao - bo;
+      return new Date(a.next_followup_at ?? 0).getTime() - new Date(b.next_followup_at ?? 0).getTime();
+    });
+    const due = sorted.filter((l) => rank(l) < 2);
+    return [...due, ...sorted.filter((l) => rank(l) === 2).slice(0, Math.max(0, 15 - due.length))];
   }, [leads]);
 
   const todayCount = nextToContact.filter((l) => isToday(l.next_followup_at)).length;
