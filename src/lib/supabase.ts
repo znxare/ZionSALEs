@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, processLock } from '@supabase/supabase-js';
 import { getAccess } from './access';
 
 export const url = import.meta.env.VITE_SUPABASE_URL as string;
@@ -27,11 +27,32 @@ const guardedFetch: typeof fetch = (input, init) => {
       return Promise.resolve(blocked('Only an admin can delete leads.'));
     }
   }
+  // No database/login request may hang for ever on a bad connection: give up
+  // after 30 s with a clear, retryable error (file uploads are left alone).
+  if (!init?.signal && (href.includes('/rest/v1/') || href.includes('/auth/v1/'))) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+    return fetch(input, { ...init, signal: ctrl.signal })
+      .catch((e) => {
+        if (ctrl.signal.aborted) throw new Error('The connection timed out — check your internet and try again.');
+        throw e;
+      })
+      .finally(() => clearTimeout(timer));
+  }
   return fetch(input, init);
 };
+const REQUEST_TIMEOUT_MS = 30000;
+
+// The login session is guarded by a lock. Supabase's default lock is shared by
+// every CRM tab in the browser, so a tab the phone/browser has frozen in the
+// background can hold it for ever — and every save and sign-in in the open tab
+// then waits for ever too ("it hangs sometimes"). Lock per tab instead, and
+// never wait more than 12 s for it.
+const tabLock = <R,>(name: string, acquireTimeout: number, fn: () => Promise<R>): Promise<R> =>
+  processLock(name, acquireTimeout < 0 ? 12000 : acquireTimeout, fn);
 
 export const supabase = createClient(url, anonKey, {
-  auth: { persistSession: true, autoRefreshToken: true },
+  auth: { persistSession: true, autoRefreshToken: true, lock: tabLock },
   global: { fetch: guardedFetch },
 });
 

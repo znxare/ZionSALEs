@@ -31,11 +31,13 @@ async function loadProfile(session: Session): Promise<CurrentUser> {
     access: resolveAccess(session.user.email, null),
   };
   try {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', session.user.id)
-      .maybeSingle();
+    // Time-limited: a stalled profile lookup right after signing in must not
+    // leave the person stuck on the login screen — the fallback above is used.
+    const { data, error } = await withTimeout(
+      supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle(),
+      8000,
+      () => { throw new Error('profile lookup timed out'); },
+    );
     if (error) throw error;
     const profile = data as Profile | null;
     // Keep profiles.email filled in so the admin's user list can show it
