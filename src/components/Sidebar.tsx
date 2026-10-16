@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import {
   LayoutDashboard, Users, MapPin, Megaphone, Landmark, CalendarCheck, Snowflake, Upload,
-  Menu, X, History, LayoutGrid, Settings, FileBarChart,
+  Menu, X, History, LayoutGrid, Settings, FileBarChart, UserCheck,
 } from 'lucide-react';
 import ConnectionStatus from '@/components/ConnectionStatus';
 import { useModuleAccess } from '@/lib/access';
 
 export type NavId =
-  | 'dashboard' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner'
+  | 'dashboard' | 'myleads' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner'
   | 'reactivation' | 'activitylog' | 'inventory' | 'settings' | 'reports'
   | 'hospitality-leads' | 'hospitality-leadbank';
 
@@ -25,6 +25,7 @@ const NAV: NavEntry[] = [
     kind: 'group',
     label: 'Real Estate',
     children: [
+      { id: 'myleads', label: 'My Leads', icon: UserCheck },
       { id: 'leads', label: 'All Leads', icon: Users },
       { id: 'leadbank', label: 'Lead Bank', icon: Landmark },
       { id: 'sitevisits', label: 'Site Visit', icon: MapPin },
@@ -53,6 +54,7 @@ const NAV: NavEntry[] = [
 // Hospitality items use a rose/fuchsia family to read as a distinct division from Real Estate.
 const TAB_COLORS: Record<NavId, { bg: string; text: string; ring: string; icon: string; border: string }> = {
   dashboard: { bg: 'bg-orange-50', text: 'text-orange-700', ring: 'ring-orange-200/60', icon: 'text-orange-600', border: 'border-orange-500' },
+  myleads: { bg: 'bg-orange-50', text: 'text-orange-700', ring: 'ring-orange-200/60', icon: 'text-orange-600', border: 'border-orange-500' },
   leads: { bg: 'bg-slate-100', text: 'text-slate-700', ring: 'ring-slate-200/60', icon: 'text-slate-600', border: 'border-slate-400' },
   leadbank: { bg: 'bg-violet-50', text: 'text-violet-700', ring: 'ring-violet-200/60', icon: 'text-violet-600', border: 'border-violet-500' },
   import: { bg: 'bg-teal-50', text: 'text-teal-700', ring: 'ring-teal-200/60', icon: 'text-teal-600', border: 'border-teal-500' },

@@ -41,6 +41,7 @@ export function permissionsFor(level: AccessLevel): Permissions {
 // Pages the admin can show/hide for Team and Viewer. Dashboard and Settings
 // are always visible; the admin always sees everything.
 export const CONFIGURABLE_MODULES: { id: string; label: string; group: string }[] = [
+  { id: 'myleads', label: 'My Leads', group: 'Real Estate' },
   { id: 'leads', label: 'All Leads', group: 'Real Estate' },
   { id: 'leadbank', label: 'Lead Bank', group: 'Real Estate' },
   { id: 'sitevisits', label: 'Site Visits', group: 'Real Estate' },

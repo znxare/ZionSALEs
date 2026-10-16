@@ -35,6 +35,8 @@ interface Props {
   profiles: Profile[];
   onOpenLead: (id: string) => void;
   onChanged: () => void;
+  /** Page title (e.g. My Leads); All Leads has none. */
+  heading?: { title: string; subtitle: string };
 }
 
 interface FilterState {
@@ -113,7 +115,7 @@ function getRange(preset: DateRangePreset, customStart: string, customEnd: strin
   }
 }
 
-export default function LeadManagement({ leads, campaigns, profiles, onOpenLead, onChanged }: Props) {
+export default function LeadManagement({ leads, campaigns, profiles, onOpenLead, onChanged, heading }: Props) {
   const can = usePermissions();
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search, 200);
@@ -401,6 +403,12 @@ export default function LeadManagement({ leads, campaigns, profiles, onOpenLead,
 
   return (
     <div className="animate-fade-in space-y-5">
+      {heading && (
+        <div>
+          <h1 className="font-display text-2xl font-bold tracking-tight text-gray-900">{heading.title}</h1>
+          <p className="text-[13px] text-gray-500">{heading.subtitle}</p>
+        </div>
+      )}
       {actionError && (
         <div className="flex items-center justify-between rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {actionError}

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { fetchLeads, fetchCampaigns, fetchProfiles, type Lead, type Campaign, type Profile } from '@/lib/crm';
 import { fetchHospitalityLeads, type HospitalityLead } from '@/lib/hospitality';
 import { supabase } from '@/lib/supabase';
@@ -38,6 +38,7 @@ import { withTimeout } from '@/lib/timeout';
 type Route =
   | { name: 'dashboard' }
   | { name: 'leads' }
+  | { name: 'myleads' }
   | { name: 'leadbank' }
   | { name: 'import' }
   | { name: 'planner' }
@@ -77,6 +78,7 @@ function parseHash(): Route {
   if (h.startsWith('hospitality-lead/')) return { name: 'hospitality-lead', id: h.slice(17) };
   if (h === 'search') return { name: 'search' };
   if (h === 'leads') return { name: 'leads' };
+  if (h === 'myleads') return { name: 'myleads' };
   if (h === 'leadbank') return { name: 'leadbank' };
   if (h === 'import') return { name: 'import' };
   if (h === 'planner') return { name: 'planner' };
@@ -101,6 +103,7 @@ function navigate(route: Route) {
   else if (route.name === 'hospitality-lead') window.location.hash = `/hospitality-lead/${route.id}`;
   else if (route.name === 'search') window.location.hash = '/search';
   else if (route.name === 'leads') window.location.hash = '/leads';
+  else if (route.name === 'myleads') window.location.hash = '/myleads';
   else if (route.name === 'leadbank') window.location.hash = '/leadbank';
   else if (route.name === 'import') window.location.hash = '/import';
   else if (route.name === 'planner') window.location.hash = '/planner';
@@ -230,6 +233,12 @@ export default function App() {
   }, []);
 
   const authed = currentUser !== null;
+  // My Leads: leads whose "Assigned to" is the logged-in person's name.
+  const myName = (currentUser?.full_name ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+  const myLeads = useMemo(
+    () => (myName ? leads.filter((l) => (l.assigned_to ?? '').trim().replace(/\s+/g, ' ').toLowerCase() === myName) : []),
+    [leads, myName],
+  );
 
   useEffect(() => {
     if (authed) load();
@@ -313,6 +322,7 @@ export default function App() {
 
   const sidebarCurrent: NavId =
     route.name === 'leads' ? 'leads' :
+    route.name === 'myleads' ? 'myleads' :
     route.name === 'leadbank' ? 'leadbank' :
     route.name === 'import' ? 'import' :
     route.name === 'planner' ? 'planner' :
@@ -402,6 +412,22 @@ export default function App() {
               onOpenHospitalityLead={(id) => go({ name: 'hospitality-lead', id })}
               onAdd={() => setAddOpen(true)}
               onRefresh={load}
+            />
+          )}
+
+          {route.name === 'myleads' && currentUser && (
+            <LeadManagement
+              leads={myLeads}
+              campaigns={campaigns}
+              profiles={profiles}
+              onOpenLead={(id) => go({ name: 'lead', id })}
+              onChanged={load}
+              heading={{
+                title: 'My Leads',
+                subtitle: myLeads.length
+                  ? `${myLeads.length} lead${myLeads.length === 1 ? '' : 's'} assigned to you, ${currentUser.full_name}.`
+                  : `No leads are assigned to you yet, ${currentUser.full_name}. Leads appear here when "Assigned to" is set to your name.`,
+              }}
             />
           )}
 
