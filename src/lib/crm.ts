@@ -1120,12 +1120,14 @@ export async function markLeadCold(
   reason: ColdReason,
   nextReactivationAt?: string,
   opts: UpdateLeadOptions = {},
+  note?: string,
 ): Promise<Lead> {
   const days = coldReasonDays(reason);
   const when = nextReactivationAt ?? (days ? daysFromNow(days) : daysFromNow(60));
   const updated = await updateLead(lead.id, {
     status: 'Cold',
     cold_reason: reason,
+    cold_reason_note: note?.trim() || null,
     cold_since: new Date().toISOString(),
     next_reactivation_at: when,
     next_followup_at: when,
@@ -1133,8 +1135,8 @@ export async function markLeadCold(
   await logActivity({
     lead_id: lead.id,
     type: 'Status Changed',
-    summary: `Marked Cold — Reason: ${reason}. Reactivation scheduled ${formatDate(when)}.`,
-    meta: { reason, next_reactivation_at: when },
+    summary: `Marked Cold — Reason: ${reason}${note?.trim() ? ` (${note.trim()})` : ''}. Reactivation scheduled ${formatDate(when)}.`,
+    meta: { reason, note: note?.trim() || null, next_reactivation_at: when },
   });
   return updated;
 }
@@ -1160,6 +1162,7 @@ export async function reactivateLead(
     const updated = await updateLead(lead.id, {
       status: 'Warm',
       cold_reason: null,
+      cold_reason_note: null,
       cold_since: null,
       next_reactivation_at: null,
       next_followup_at: followUpAt,

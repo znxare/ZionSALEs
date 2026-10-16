@@ -263,6 +263,7 @@ export default function LeadReactivation({ leads, campaigns, onOpenLead, onChang
                     <td className="hidden px-4 py-3 text-gray-600 xl:table-cell">{lead.campaign_id ? (campaignMap.get(lead.campaign_id)?.name ?? '—') : '—'}</td>
                     <td className="hidden px-4 py-3 md:table-cell">
                       <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700">{lead.cold_reason ?? '—'}</span>
+                      {lead.cold_reason_note && <div className="mt-1 max-w-[220px] truncate text-[11px] text-gray-500" title={lead.cold_reason_note}>{lead.cold_reason_note}</div>}
                     </td>
                     <td className="hidden px-4 py-3 text-[12px] text-gray-500 lg:table-cell">{lead.cold_since ? formatDate(lead.cold_since) : '—'}</td>
                     <td className="px-4 py-3">

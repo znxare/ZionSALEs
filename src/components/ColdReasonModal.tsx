@@ -6,7 +6,7 @@ import { COLD_REASONS, coldReasonDays, daysFromNow, toLocalInputValue, formatDat
 interface Props {
   lead: Lead;
   onClose: () => void;
-  onConfirm: (reason: ColdReason, nextReactivationAt: string) => Promise<void>;
+  onConfirm: (reason: ColdReason, nextReactivationAt: string, note?: string) => Promise<void>;
 }
 
 export default function ColdReasonModal({ lead, onClose, onConfirm }: Props) {
@@ -36,7 +36,7 @@ export default function ColdReasonModal({ lead, onClose, onConfirm }: Props) {
     setError(null);
     try {
       const when = new Date(`${effectiveDate}T10:00`).toISOString();
-      await onConfirm(reason as ColdReason, when);
+      await onConfirm(reason as ColdReason, when, reason === 'Other' ? note.trim() || undefined : undefined);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save. Please try again.');
     } finally {
@@ -88,7 +88,7 @@ export default function ColdReasonModal({ lead, onClose, onConfirm }: Props) {
 
           {reason === 'Other' && (
             <div>
-              <label className="mb-1.5 block text-[12px] font-semibold uppercase tracking-wide text-gray-400">Optional note</label>
+              <label className="mb-1.5 block text-[12px] font-semibold uppercase tracking-wide text-gray-400">What happened? (saved with the lead)</label>
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}

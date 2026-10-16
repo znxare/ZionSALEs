@@ -200,11 +200,11 @@ export default function LeadDetail({ id, leads, campaigns, profiles, onBack, onC
     await doAction('Called', `Called — status set to ${status}.`, { status });
   }
 
-  async function confirmCold(reason: ColdReason, nextReactivationAt: string) {
+  async function confirmCold(reason: ColdReason, nextReactivationAt: string, note?: string) {
     if (!coldFor) return;
     setActionError(null);
     try {
-      await markLeadCold(coldFor, reason, nextReactivationAt);
+      await markLeadCold(coldFor, reason, nextReactivationAt, {}, note);
       setColdFor(null);
       await load();
       onChanged();
@@ -772,7 +772,7 @@ function ReactivationHistoryTab({ lead, attempts, activities, siteVisits }: {
   const timeline = useMemo(() => {
     type Item = { id: string; date: string; title: string; sub: string; tone: 'cold' | 'attempt' | 'visit' | 'activity' };
     const items: Item[] = [];
-    if (lead.cold_since) items.push({ id: 'cold', date: lead.cold_since, title: 'Marked Cold', sub: lead.cold_reason ?? 'Reason not recorded', tone: 'cold' });
+    if (lead.cold_since) items.push({ id: 'cold', date: lead.cold_since, title: 'Marked Cold', sub: lead.cold_reason ? `${lead.cold_reason}${lead.cold_reason_note ? ` — ${lead.cold_reason_note}` : ''}` : 'Reason not recorded', tone: 'cold' });
     attempts.forEach((a) => items.push({ id: a.id, date: a.contacted_at, title: `Reactivation attempt — ${a.outcome}`, sub: a.notes ?? a.reason, tone: a.reactivated ? 'attempt' : 'activity' }));
     siteVisits.forEach((v) => items.push({ id: v.id, date: v.scheduled_at, title: `Site Visit ${v.visit_number}`, sub: v.outcome ?? v.status, tone: 'visit' }));
     activities.filter((a) => a.type === 'Called' || a.type === 'WhatsApp Sent').forEach((a) => items.push({ id: a.id, date: a.created_at, title: a.type, sub: a.summary, tone: 'activity' }));
@@ -791,7 +791,7 @@ function ReactivationHistoryTab({ lead, attempts, activities, siteVisits }: {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <SummaryCard label="Cold Since" value={coldSince} />
         <SummaryCard label="Days in Cold" value={String(daysInCold)} />
-        <SummaryCard label="Reason" value={lead.cold_reason ?? '—'} />
+        <SummaryCard label="Reason" value={lead.cold_reason ? `${lead.cold_reason}${lead.cold_reason_note ? ` — ${lead.cold_reason_note}` : ''}` : '—'} />
         <SummaryCard label="Last Contact" value={lastContact} />
       </div>
 

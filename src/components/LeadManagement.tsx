@@ -377,11 +377,11 @@ export default function LeadManagement({ leads, campaigns, profiles, onOpenLead,
     }
   }
 
-  async function confirmCold(reason: ColdReason, nextReactivationAt: string) {
+  async function confirmCold(reason: ColdReason, nextReactivationAt: string, note?: string) {
     if (!coldFor) return;
     setActionError(null);
     try {
-      await markLeadCold(coldFor, reason, nextReactivationAt);
+      await markLeadCold(coldFor, reason, nextReactivationAt, {}, note);
       setColdFor(null);
       onChanged();
     } catch (e) {
