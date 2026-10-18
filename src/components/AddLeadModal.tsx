@@ -15,8 +15,10 @@ export default function AddLeadModal({ campaigns, profiles, onClose, onCreated }
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
-  // Start on the newest running campaign (the list excludes archived ones).
-  const [campaignId, setCampaignId] = useState(() => campaigns[0]?.id ?? '');
+  // Nothing pre-selected: defaulting to the newest campaign silently tagged
+  // walk-ins and site visits to whatever campaign was created last (Delhi).
+  // null = not chosen yet; '' = Walk-in / Organic (no campaign).
+  const [campaignId, setCampaignId] = useState<string | null>(null);
   const [source, setSource] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
   const [saving, setSaving] = useState(false);
@@ -35,6 +37,10 @@ export default function AddLeadModal({ campaigns, profiles, onClose, onCreated }
     }
     if (normalizePhone(phone).length < 7) {
       setError('Enter a valid phone number.');
+      return;
+    }
+    if (campaignId === null) {
+      setError('Choose where this lead came from — a campaign, or Walk-in / Organic.');
       return;
     }
     try {
@@ -142,15 +148,16 @@ export default function AddLeadModal({ campaigns, profiles, onClose, onCreated }
           )}
 
           <div>
-            <label className="mb-1.5 block text-[12px] font-semibold uppercase tracking-wide text-gray-400">Campaign</label>
+            <label className="mb-1.5 block text-[12px] font-semibold uppercase tracking-wide text-gray-400">Campaign (required)</label>
             <div className="flex items-center gap-3 rounded-2xl border border-gray-150 bg-gray-50/60 px-4 py-3 transition focus-within:border-emerald-300 focus-within:bg-white">
               <Megaphone className="h-5 w-5 shrink-0 text-gray-400" />
               <select
-                value={campaignId}
-                onChange={(e) => setCampaignId(e.target.value)}
-                className="w-full bg-transparent text-[15px] font-medium text-gray-900 outline-none"
+                value={campaignId ?? '__choose'}
+                onChange={(e) => { setCampaignId(e.target.value); setError(null); }}
+                className={`w-full bg-transparent text-[15px] font-medium outline-none ${campaignId === null ? 'text-gray-400' : 'text-gray-900'}`}
               >
-                <option value="">Walk-in / Organic</option>
+                <option value="__choose" disabled>Choose where this lead came from…</option>
+                <option value="">Walk-in / Organic (no campaign)</option>
                 {campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
