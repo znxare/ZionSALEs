@@ -3,7 +3,7 @@ import { Check, Moon, Sun, Compass as CompassIcon, CornerUpRight, Flag, Loader2,
 import { MasterPlanBoard, type AdPin, type MapFocus, type TourMarker } from './LiveInventoryBoard';
 import type { HoleReport } from './HoleByHole';
 import { useMapLayers } from '@/lib/mapLayers';
-import { loadPublicMenu, rememberedOrder } from '@/lib/food';
+import { loadPublicMenu, rememberedOrder, isFoodDemo } from '@/lib/food';
 import { SITE_CONTACT } from '@/lib/emergency';
 import { DirectionsControls, type DirectionsPhase, type DirectionsView } from './Directions';
 import { useDeviceHeading, facingBearing } from '@/lib/compass';
@@ -116,9 +116,10 @@ export default function PublicMap({ toId }: { toId?: string }) {
   const [exitDest, setExitDest] = useState<ReturnType<typeof findPlace>>(undefined);
   // Food from the clubhouse kitchen: the button shows while the kitchen is taking orders.
   const [kitchenOpen, setKitchenOpen] = useState(false);
+  const [foodDemo, setFoodDemo] = useState(false);
   const [foodOpen, setFoodOpen] = useState(false);
   const [foodOrderId, setFoodOrderId] = useState<string | null>(() => rememberedOrder());
-  useEffect(() => { void loadPublicMenu().then((m) => setKitchenOpen(m.open && m.items.some((i) => i.available))); }, []);
+  useEffect(() => { void loadPublicMenu().then((m) => { setKitchenOpen(m.open && m.items.some((i) => i.available)); setFoodDemo(isFoodDemo()); }); }, []);
 
   useEffect(() => {
     document.title = 'Map & directions · Zion Hills Golf County';
@@ -399,8 +400,9 @@ export default function PublicMap({ toId }: { toId?: string }) {
           </div>
         )}
         {phase === 'idle' && kitchenOpen && (
-          <button onClick={() => { setMenuOpen(false); setFoodOpen(true); }} aria-label="Order food" className={fab}>
+          <button onClick={() => { setMenuOpen(false); setFoodOpen(true); }} aria-label={foodDemo ? 'Order food (demo)' : 'Order food'} className={`relative ${fab}`}>
             <UtensilsCrossed className="h-6 w-6 text-[#d9480f]" strokeWidth={1.8} />
+            {foodDemo && <span className="absolute -right-1 -top-1 rounded-full bg-[#26231f] px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-white">Demo</span>}
           </button>
         )}
         {phase === 'idle' && (

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { UtensilsCrossed, Phone, MessageCircle, Plus, Trash2, Save, Loader2, MapPin, BellRing } from 'lucide-react';
 import {
-  fetchOrders, setOrderStatus, onOrdersChanged, loadMenu, saveMenu, rupees, STATUS_STEPS,
+  fetchOrders, setOrderStatus, onOrdersChanged, loadMenu, saveMenu, rupees, STATUS_STEPS, isFoodDemo,
   type FoodMenu, type FoodOrder, type FoodStatus, type MenuItem,
 } from '@/lib/food';
 import { MasterPlanBoard } from './LiveInventoryBoard';
@@ -50,7 +50,8 @@ export default function FoodOrders() {
   const me = getCurrentUser()?.full_name;
 
   const load = useCallback(() => { fetchOrders().then((o) => { setOrders(o); setError(null); }).catch((e) => setError(e instanceof Error ? e.message : 'Could not load orders.')); }, []);
-  useEffect(() => { load(); void loadMenu().then(setMenu); }, [load]);
+  // Orders first: that is what tells us whether real ordering is set up (else the demo runs).
+  useEffect(() => { void fetchOrders().then((o) => { setOrders(o); setError(null); }).catch((e) => setError(e instanceof Error ? e.message : 'Could not load orders.')).finally(() => void loadMenu().then(setMenu)); }, []);
   useEffect(() => onOrdersChanged((o, isNew) => {
     load();
     if (isNew) {
@@ -89,6 +90,12 @@ export default function FoodOrders() {
       </div>
 
       {error && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {orders !== null && isFoodDemo() && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <b>Demo mode.</b> Real ordering switches on once the food SQL is run in Supabase. Until then the map shows a sample menu, and orders placed
+          from this browser appear here so you can show both sides; your menu edits are kept on this device only.
+        </div>
+      )}
       {fresh && (
         <button onClick={() => setFresh(null)} className="flex w-full items-center gap-2 rounded-2xl bg-orange-600 px-4 py-3 text-left text-sm font-semibold text-white shadow-lg">
           <BellRing className="h-5 w-5" /> {fresh}

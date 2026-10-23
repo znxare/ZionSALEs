@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { X, Minus, Plus, MapPin, Loader2, ChevronLeft, UtensilsCrossed, Check, Phone } from 'lucide-react';
 import {
-  loadPublicMenu, placeOrder, orderStatus, sendOrderLocation, cancelOrder, rememberOrder, rupees, STATUS_STEPS,
+  loadPublicMenu, placeOrder, orderStatus, sendOrderLocation, cancelOrder, rememberOrder, rupees, STATUS_STEPS, isFoodDemo,
   type FoodMenu, type FoodStatus, type MenuItem,
 } from '@/lib/food';
 import { lxEyebrow, lxIvory, lxOrange } from '@/lib/luxury';
@@ -86,7 +86,7 @@ export default function FoodOrder({ open, onClose, orderId, onOrderId, here, loc
                 <button onClick={() => setStep('menu')} aria-label="Back to the menu" className="-ml-2 rounded-full p-1.5 text-[#8a6a4a]"><ChevronLeft className="h-5 w-5" /></button>
               )}
               <div className="min-w-0 flex-1">
-                <div className={`${lxEyebrow} text-[#d9480f]`}>Clubhouse kitchen · pay on delivery</div>
+                <div className={`${lxEyebrow} text-[#d9480f]`}>{isFoodDemo() ? 'Demo · orders are not sent to the kitchen' : 'Clubhouse kitchen · pay on delivery'}</div>
                 <div className="font-serif text-[24px] font-semibold leading-tight text-[#26231f]">{step === 'menu' ? 'Order food to where you are' : 'Your order'}</div>
               </div>
               <button onClick={onClose} aria-label="Close" className="rounded-full p-2 text-[#8a6a4a]"><X className="h-5 w-5" /></button>
@@ -179,7 +179,7 @@ export default function FoodOrder({ open, onClose, orderId, onOrderId, here, loc
                 >
                   {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UtensilsCrossed className="h-4 w-4" />} Place order · {rupees(total)}
                 </button>
-                <p className="mt-2 text-center text-[11.5px] text-[#8a6a4a]">Pay by cash or UPI when your food arrives.</p>
+                <p className="mt-2 text-center text-[11.5px] text-[#8a6a4a]">{isFoodDemo() ? 'This is a demo — no real order is placed and nothing will be delivered.' : 'Pay by cash or UPI when your food arrives.'}</p>
               </div>
             )}
           </div>
@@ -234,7 +234,7 @@ function OrderTracker({ id, here, onDone, sitePhone }: { id: string; here: Here;
           {finished ? <Check className="h-5 w-5" /> : <UtensilsCrossed className="h-5 w-5" />}
         </div>
         <div className="min-w-0 flex-1">
-          <div className={`${lxEyebrow} text-[#8a6a4a]`}>Order {st.code} · {rupees(st.total)} · pay on delivery</div>
+          <div className={`${lxEyebrow} text-[#8a6a4a]`}>{id.startsWith('demo-') ? 'Demo order — not sent to the kitchen' : `Order ${st.code} · ${rupees(st.total)} · pay on delivery`}</div>
           <div className="font-serif text-[19px] font-semibold leading-tight text-[#26231f]">{label}</div>
           {!finished && (
             <div className="mt-2 flex gap-1">
