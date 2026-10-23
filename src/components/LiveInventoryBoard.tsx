@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type WheelEvent as ReactWheelEvent } from 'react';
+import { lazy, memo, Suspense, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type WheelEvent as ReactWheelEvent } from 'react';
 import {
   Search, X, List as ListIcon, Map as MapIcon, ChevronDown,
   BedDouble, CheckCircle2, Trash2, Receipt, Tag, Clock3, Plus, Minus, RotateCcw,
@@ -8,14 +8,16 @@ import { createPortal } from 'react-dom';
 import { SAMPLE_PLOTS, PHASES, PLOT_STATUSES, BEDROOM_OPTIONS, STATUS_COLORS, type Plot, type PlotStatus } from '@/lib/inventory';
 import { WATER_BODIES } from '@/lib/waterBodies';
 import { useSmoothedAngle } from '@/lib/smoothAngle';
-import { WildlifeLayer } from './WildlifeLayer';
 import { NightLayer } from './NightLayer';
-import { DaylightLayer } from './DaylightLayer';
-import { CartsLayer } from './CartsLayer';
-import { AmbientLayer } from './AmbientLayer';
-import { TerrainLayer } from './TerrainLayer';
-import { SkyLayer } from './SkyLayer';
-import { SponsorSigns } from './SponsorSigns';
+// Optional public-map layers: each is its own download, fetched only the first time it is switched
+// on (Environment effects / Sponsor signs on the public map), so a plain map stays light.
+const WildlifeLayer = lazy(() => import('./WildlifeLayer').then((m) => ({ default: m.WildlifeLayer })));
+const DaylightLayer = lazy(() => import('./DaylightLayer').then((m) => ({ default: m.DaylightLayer })));
+const CartsLayer = lazy(() => import('./CartsLayer').then((m) => ({ default: m.CartsLayer })));
+const AmbientLayer = lazy(() => import('./AmbientLayer').then((m) => ({ default: m.AmbientLayer })));
+const TerrainLayer = lazy(() => import('./TerrainLayer').then((m) => ({ default: m.TerrainLayer })));
+const SkyLayer = lazy(() => import('./SkyLayer').then((m) => ({ default: m.SkyLayer })));
+const SponsorSigns = lazy(() => import('./SponsorSigns').then((m) => ({ default: m.SponsorSigns })));
 import type { Atmosphere } from '@/lib/mapInfo';
 import type { Daylight } from '@/lib/daylight';
 import { BUDGETS, inBudget, outlineOf, centroidOf, plotAt, SHAPE_COLORS, plotShareLink, type BudgetId } from '@/lib/plotMap';
@@ -982,7 +984,7 @@ export type HoleTrail = { n: number; tee: [number, number]; mid: [number, number
 export type TourMarker = { pt: [number, number]; accuracyPct?: number; heading?: number | null };
 
 export function MasterPlanBoard({
-  plots, highlight = null, onSelect, large, selectedId, tooltip = 'internal', bare, cover, publicView, waterAlert = null, wildlife = false, night = 0, daylight = null, ambient = false, scenery = false, onReady, atmosphere = null, rain = 0, adPins = [], selectedAdId = null, onAdTap, holePins = [], holeTrail = null, onHoleTap,
+  plots, highlight = null, onSelect, large, selectedId, tooltip = 'internal', bare, cover, publicView, waterAlert = null, wildlife = false, night = 0, daylight = null, ambient = false, scenery = false, sponsors = false, onReady, atmosphere = null, rain = 0, adPins = [], selectedAdId = null, onAdTap, holePins = [], holeTrail = null, onHoleTap,
   marker = null, focus = null, onUserMove, onMapPoint, pins = [], rotation = 0, turnable = false, route = null, places = [], destination = null, offRoad = false,
 }: {
   plots: Plot[];
@@ -1008,6 +1010,8 @@ export function MasterPlanBoard({
   onReady?: () => void;
   /** The ground and sky around the estate: contours, cloud shadows, sun / moon, stars, birds, kites. */
   scenery?: boolean;
+  /** Public map: the course sponsors' signs (a separate layer the visitor can switch on). */
+  sponsors?: boolean;
   atmosphere?: Atmosphere | null;
   /** 0..1 how hard it is raining (ripples on the lakes). */
   rain?: number;
@@ -1084,11 +1088,11 @@ export function MasterPlanBoard({
         mapLayer={(view) => (
           <>
             <MasterPlanImage view={view} loaded={loaded} onLoad={() => setLoaded(true)} />
-            {loaded && scenery && <TerrainLayer cloud={(atmosphere?.cloud ?? 30) / 100} night={night} />}
+            {loaded && scenery && <Suspense fallback={null}><TerrainLayer cloud={(atmosphere?.cloud ?? 30) / 100} night={night} /></Suspense>}
             {loaded && night > 0.001 && <NightLayer level={night} />}
-            {loaded && scenery && <SkyLayer night={night} cloud={(atmosphere?.cloud ?? 30) / 100} sunrise={atmosphere?.sunrise ?? null} sunset={atmosphere?.sunset ?? null} />}
-            {loaded && daylight && <DaylightLayer light={daylight} night={night} rain={rain} />}
-            {loaded && ambient && view.zoom >= 1.7 && <CartsLayer night={night} />}
+            {loaded && scenery && <Suspense fallback={null}><SkyLayer night={night} cloud={(atmosphere?.cloud ?? 30) / 100} sunrise={atmosphere?.sunrise ?? null} sunset={atmosphere?.sunset ?? null} /></Suspense>}
+            {loaded && daylight && <Suspense fallback={null}><DaylightLayer light={daylight} night={night} rain={rain} /></Suspense>}
+            {loaded && ambient && view.zoom >= 1.7 && <Suspense fallback={null}><CartsLayer night={night} /></Suspense>}
             {loaded && <PlotShapes plots={plots} highlight={highlight} hoverId={hoverId} selectedId={selectedId} large={large} waterAlert={waterAlert} />}
           </>
         )}
@@ -1111,9 +1115,11 @@ export function MasterPlanBoard({
                   <polyline points={routePts.map((q) => toScreen(q).join(',')).join(' ')} fill="none" stroke="white" strokeOpacity={0.7} strokeWidth={2} strokeDasharray="2 10" strokeLinecap="round" className="animate-route-flow" />
                 </svg>
               )}
-              {ambient && publicView && <SponsorSigns toScreen={toScreen} zoom={zoom} upright={upright} safe={safe} viewport={viewport} />}
-              {ambient && <AmbientLayer toScreen={toScreen} zoom={zoom} upright={upright} sun={1 - night} safe={safe} viewport={viewport} />}
-              {wildlife && zoom >= 1.8 && <WildlifeLayer toScreen={toScreen} zoom={zoom} upright={upright} night={night} safe={safe} viewport={viewport} />}
+              <Suspense fallback={null}>
+                {sponsors && publicView && <SponsorSigns toScreen={toScreen} zoom={zoom} upright={upright} safe={safe} viewport={viewport} />}
+                {ambient && <AmbientLayer toScreen={toScreen} zoom={zoom} upright={upright} sun={1 - night} safe={safe} viewport={viewport} />}
+                {wildlife && zoom >= 1.8 && <WildlifeLayer toScreen={toScreen} zoom={zoom} upright={upright} night={night} safe={safe} viewport={viewport} />}
+              </Suspense>
               {holeTrail && (() => {
                 const [t, m, g] = [toScreen(holeTrail.tee), toScreen(holeTrail.mid), toScreen(holeTrail.green)];
                 const d = `M ${t[0]} ${t[1]} Q ${m[0] * 2 - (t[0] + g[0]) / 2} ${m[1] * 2 - (t[1] + g[1]) / 2} ${g[0]} ${g[1]}`;

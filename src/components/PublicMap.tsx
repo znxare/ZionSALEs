@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Moon, Sun, Compass as CompassIcon, CornerUpRight, Flag, Loader2, Navigation, Share2, Search, MoreHorizontal, X as CloseIcon } from 'lucide-react';
-import { MasterPlanBoard, type AdPin, type HolePin, type HoleTrail, type MapFocus, type TourMarker } from './LiveInventoryBoard';
-import { HoleCard } from './HoleCard';
-import { HOLE_GUIDE, holeGuide } from '@/lib/holes';
-import { holeMid, useNearHole } from '@/lib/holeNear';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { Check, Moon, Sun, Compass as CompassIcon, CornerUpRight, Flag, Loader2, Navigation, Share2, Search, MoreHorizontal, X as CloseIcon, Sparkles, Megaphone } from 'lucide-react';
+import { MasterPlanBoard, type AdPin, type MapFocus, type TourMarker } from './LiveInventoryBoard';
+import type { HoleReport } from './HoleByHole';
+import { useMapLayers } from '@/lib/mapLayers';
 import { DirectionsControls, type DirectionsPhase, type DirectionsView } from './Directions';
 import { useDeviceHeading, facingBearing } from '@/lib/compass';
 import { fitTransform, loadPublicCalibration, smoothFix, bearing, distanceM, HeadingTracker, MIN_HEADING_SPEED, type Calibration, type GpsFix } from '@/lib/tour';
@@ -15,7 +14,6 @@ import { useNightControl } from '@/lib/night';
 import { useDaylight } from '@/lib/daylight';
 import { useAtmosphere } from '@/lib/mapInfo';
 import { rainLevel } from '@/lib/sky';
-import { RainOverlay } from './RainOverlay';
 import { WelcomeGreeting, guestFromLink } from './WelcomeGreeting';
 import { useKeepAwake } from '@/lib/wake';
 import { useWaterCaution, WaterCautionBanner } from './WaterCaution';
@@ -39,6 +37,10 @@ import { Navigation2, X } from 'lucide-react';
 // map and directions still work from a starting place the visitor picks.
 
 const LOGO = '/zion-hills-logo.svg';
+// Separate downloads, fetched only when the visitor switches the layer on (More → layers).
+const HoleByHole = lazy(() => import('./HoleByHole'));
+const RainOverlay = lazy(() => import('./RainOverlay').then((m) => ({ default: m.RainOverlay })));
+const NO_HOLES: HoleReport = { pins: [], trail: null, showing: false };
 const FOLLOW_ZOOM = 2.2;
 const NAV_ZOOM = 2.6;
 
@@ -67,8 +69,12 @@ export default function PublicMap({ toId }: { toId?: string }) {
   useKeepAwake(); // the screen stays on while the map is open
   const [ready, setReady] = useState(false);
   // The hole layer: numbered badges; tap one for its card. When the visitor is on a hole, only that hole shows.
-  const [holesOn, setHolesOn] = useState(false);
+  const { layers, set: setLayer } = useMapLayers();
+  const holesOn = layers.holes;
+  const env = layers.environment;
   const [holeSel, setHoleSel] = useState<number | null>(null);
+  const [holeReport, setHoleReport] = useState<HoleReport>(NO_HOLES);
+  const [holeFrame, setHoleFrame] = useState(0);
   const { level: night, isNight, toggle: toggleNight } = useNightControl();
   const daylight = useDaylight(night);
   const atmosphere = useAtmosphere();
@@ -119,10 +125,11 @@ export default function PublicMap({ toId }: { toId?: string }) {
     if (!('geolocation' in navigator)) { setNote("This device can't share its location."); setLocating(false); return; }
     setNote(null);
     let last: GpsFix | null = null;
+    let lastAt = 0;
     const tracker = new HeadingTracker();
     let anchor: { lat: number; lng: number; t: number } | null = null;
-    const id = navigator.geolocation.watchPosition(
-      (pos) => {
+    const onPos = (pos: GeolocationPosition) => {
+        lastAt = Date.now();
         // Same heading logic as the tour: the phone's course when really moving, else the
         // bearing from a point well behind; held steady when slow or stopped.
         const here = { lat: pos.coords.latitude, lng: pos.coords.longitude };
@@ -141,15 +148,30 @@ export default function PublicMap({ toId }: { toId?: string }) {
         const heading = tracker.update(course, speed ?? 0, accuracy);
         last = smoothFix(last, { ...here, accuracy, heading, speed, t: pos.timestamp });
         setFix(last);
-      },
-      (err) => {
-        if (err.code === err.PERMISSION_DENIED) { setNote('Location is blocked — allow it for this site in your browser settings.'); setLocating(false); }
-        else setNote('Waiting for a GPS signal… stay in the open.');
-      },
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 },
-    );
-    return () => navigator.geolocation.clearWatch(id);
+    };
+    const onErr = (err: GeolocationPositionError) => {
+      if (err.code === err.PERMISSION_DENIED) { setNote('Location is blocked — allow it for this site in your browser settings.'); setLocating(false); }
+      else setNote('Waiting for a GPS signal… stay in the open.');
+    };
+    // Fresh positions only (no cached ones), and at least once a second: phones often go quiet when
+    // the position barely changes, so if a second passes without one, ask for it directly.
+    const id = navigator.geolocation.watchPosition(onPos, onErr, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+    const tick = window.setInterval(() => {
+      if (Date.now() - lastAt < 1000) return;
+      navigator.geolocation.getCurrentPosition(onPos, () => {}, { enableHighAccuracy: true, maximumAge: 0, timeout: 4000 });
+    }, 1000);
+    return () => { navigator.geolocation.clearWatch(id); window.clearInterval(tick); };
   }, [locating]);
+
+  // If the visitor has already allowed location on this site, show it straight away (no tap, no prompt).
+  useEffect(() => {
+    if (!tf || locating) return;
+    const perms = (navigator as Navigator & { permissions?: { query: (d: { name: 'geolocation' }) => Promise<{ state: string }> } }).permissions;
+    void perms?.query({ name: 'geolocation' }).then((r) => { if (r.state === 'granted') { setLocating(true); setFollow(true); } }).catch(() => {});
+  }, [tf]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // After the visitor drags the map away, it glides back to their dot by itself after a few quiet seconds.
+  const [moved, setMoved] = useState(0);
 
   // Which way they face: the phone's compass at walking pace (works standing still), the GPS course at cart speed.
   const compass = useDeviceHeading(locating);
@@ -159,7 +181,6 @@ export default function PublicMap({ toId }: { toId?: string }) {
     : null;
   const onPlan = !!marker && marker.pt[0] > -5 && marker.pt[0] < 105 && marker.pt[1] > -5 && marker.pt[1] < 105;
   const markerX = marker?.pt[0], markerY = marker?.pt[1];
-  const near = useNearHole(onPlan && markerX !== undefined && markerY !== undefined ? [markerX, markerY] : null);
   const waterAlert = useWaterCaution(onPlan && markerX !== undefined && markerY !== undefined ? [markerX, markerY] : null, fix?.accuracy ?? null);
 
   // Keep the turn "unwrapped" (350° → 370°, not back to 10°) so passing north animates the short way.
@@ -177,29 +198,17 @@ export default function PublicMap({ toId }: { toId?: string }) {
 
   const navigating = phase === 'navigating';
 
-  const activeHole = holeSel ?? (holesOn && near ? near.hole.n : null);
-  const holePins = useMemo<HolePin[]>(
-    () => (phase !== 'idle' || !holesOn ? [] : HOLE_GUIDE.filter((h) => !near || h.n === near.hole.n || h.n === holeSel).map((h) => ({ n: h.n, pt: holeMid(h.n) }))),
-    [phase, holesOn, near?.hole.n, holeSel], // eslint-disable-line react-hooks/exhaustive-deps
-  );
-  const holeTrail = useMemo<HoleTrail | null>(() => {
-    const g = activeHole != null && phase === 'idle' ? holeGuide(activeHole) : null;
-    return g ? { n: g.n, tee: g.tee, mid: holeMid(g.n), green: g.green } : null;
-  }, [activeHole, phase]);
-  const selHole = holeSel != null ? holeGuide(holeSel) : null;
 
-  function showHole(n: number) {
-    const g = holeGuide(n);
-    if (!g) return;
-    const pts = [g.tee, holeMid(n), g.green];
-    const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]);
-    const w = Math.max(...xs) - Math.min(...xs), h = Math.max(...ys) - Math.min(...ys);
-    // The hole card covers the lower half of the screen, so the hole is framed in the upper part.
-    const zoom = Math.min(3, Math.max(1.5, 0.4 * Math.min(100 / Math.max(w, 3), 100 / Math.max(h, 3))));
-    setFollow(false);
-    setFocus({ pt: [(Math.max(...xs) + Math.min(...xs)) / 2, (Math.max(...ys) + Math.min(...ys)) / 2], zoom, exact: true, offsetY: -window.innerHeight * 0.2, nonce: Date.now() });
-  }
-  function openHole(n: number) { setHolesOn(true); setAdSel(null); setHoleSel(n); showHole(n); }
+
+  function openHole(n: number) { setLayer('holes', true); setAdSel(null); setHoleSel(n); setHoleFrame((k) => k + 1); }
+
+  // After the visitor drags the map away, it glides back to their dot by itself after 8 quiet seconds
+  // (not while a route is being previewed).
+  useEffect(() => {
+    if (!locating || follow || !onPlan || phase === 'preview') return;
+    const t = window.setTimeout(() => setFollow(true), 8000);
+    return () => window.clearTimeout(t);
+  }, [moved, locating, follow, onPlan, phase]);
 
   // Choosing a place shows the whole route first (like Google Maps' preview).
   const destX = dirView.destination?.pt[0], destY = dirView.destination?.pt[1];
@@ -304,21 +313,22 @@ export default function PublicMap({ toId }: { toId?: string }) {
           destination={dirView.destination}
           places={dirView.places}
           focus={followFocus ?? focus}
-          onUserMove={() => setFollow(false)}
+          onUserMove={() => { setFollow(false); setMoved((k) => k + 1); }}
           rotation={rotation}
           turnable
           waterAlert={waterAlert?.index ?? null}
-          wildlife={phase === 'idle'}
+          wildlife={env && phase === 'idle'}
           night={night}
-          daylight={daylight}
-          scenery
+          daylight={env ? daylight : null}
+          scenery={env}
+          sponsors={layers.sponsors}
           onReady={() => setReady(true)}
           atmosphere={atmosphere}
-          rain={rain}
-          ambient={phase === 'idle'}
-          adPins={phase === 'idle' ? adPins : []}
-          holePins={holePins}
-          holeTrail={holeTrail}
+          rain={env ? rain : 0}
+          ambient={env && phase === 'idle'}
+          adPins={phase === 'idle' ? adPins.filter((a) => a.kind !== 'sponsor' || layers.sponsors) : []}
+          holePins={holesOn ? holeReport.pins : []}
+          holeTrail={holesOn ? holeReport.trail : null}
           onHoleTap={openHole}
           selectedAdId={adSel}
           onAdTap={(id) => {
@@ -384,8 +394,14 @@ export default function PublicMap({ toId }: { toId?: string }) {
           <div className="relative">
             {menuOpen && (
               <div className="pointer-events-auto absolute bottom-full right-0 mb-2.5 flex flex-col items-end gap-2" style={{ animation: 'zh-bubble .2s ease-out both' }}>
-                <button onClick={() => { setHolesOn((v) => !v); setHoleSel(null); setMenuOpen(false); }} aria-label="Hole by hole" aria-pressed={holesOn} className={`${menuItem} ${holesOn ? '!text-[#f26a35]' : ''}`}>
-                  <Flag className="h-4 w-4" strokeWidth={1.8} /> Hole by hole
+                <button onClick={() => { setLayer('environment', !env); setMenuOpen(false); }} aria-label="Environment effects" aria-pressed={env} className={`${menuItem} ${env ? '!text-[#f26a35]' : ''}`}>
+                  <Sparkles className="h-4 w-4" strokeWidth={1.8} /> Environment effects {env && <Check className="h-4 w-4" />}
+                </button>
+                <button onClick={() => { setLayer('sponsors', !layers.sponsors); setMenuOpen(false); }} aria-label="Sponsor signs" aria-pressed={layers.sponsors} className={`${menuItem} ${layers.sponsors ? '!text-[#f26a35]' : ''}`}>
+                  <Megaphone className="h-4 w-4" strokeWidth={1.8} /> Sponsor signs {layers.sponsors && <Check className="h-4 w-4" />}
+                </button>
+                <button onClick={() => { setLayer('holes', !holesOn); setHoleSel(null); setMenuOpen(false); }} aria-label="Hole by hole" aria-pressed={holesOn} className={`${menuItem} ${holesOn ? '!text-[#f26a35]' : ''}`}>
+                  <Flag className="h-4 w-4" strokeWidth={1.8} /> Hole by hole {holesOn && <Check className="h-4 w-4" />}
                 </button>
                 <button onClick={() => { void share(); setMenuOpen(false); }} aria-label="Share this map" className={menuItem}>
                   <Share2 className="h-4 w-4" strokeWidth={1.8} /> Share this map
@@ -430,33 +446,25 @@ export default function PublicMap({ toId }: { toId?: string }) {
         onPhase={(p) => { setPhase(p); if (p !== 'navigating') setHeadingUp(false); }}
       />
 
-      {phase === 'idle' && selHole && (
-        <HoleCard
-          key={selHole.n}
-          className="absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-3 right-[4.5rem] z-40 sm:left-24 sm:right-auto sm:w-[28rem]"
-          hole={selHole}
-          yards={near && near.hole.n === selHole.n ? near.yards : null}
-          onClose={() => setHoleSel(null)}
-          onTeeOff={() => { const dest = findPlace(`tee-${selHole.n}`); setHoleSel(null); setExitDest(dest); }}
-          onShowOnMap={() => showHole(selHole.n)}
-          onPick={openHole}
-        />
+
+
+      {holesOn && (
+        <Suspense fallback={null}>
+          <HoleByHole
+            markerPt={onPlan && markerX !== undefined && markerY !== undefined ? [markerX, markerY] : null}
+            idle={phase === 'idle'}
+            holeSel={holeSel}
+            onSelect={openHole}
+            onClose={() => setHoleSel(null)}
+            onReport={setHoleReport}
+            onFocus={(f) => { setFollow(false); setFocus(f); }}
+            onTeeOff={(n) => { const dest = findPlace(`tee-${n}`); setHoleSel(null); setExitDest(dest); }}
+            frameSignal={holeFrame}
+          />
+        </Suspense>
       )}
 
-      {phase === 'idle' && !selHole && near && (
-        <button
-          onClick={() => openHole(near.hole.n)}
-          className={`pointer-events-auto absolute bottom-[5.6rem] left-3 right-[4.5rem] z-40 flex animate-slide-up items-center gap-3 rounded-[20px] px-3.5 py-2 text-left sm:left-24 sm:right-auto sm:w-[26rem] ${lxIvory}`}
-        >
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#1f2a24] font-serif text-[22px] font-bold text-[#ffd9bf] ring-1 ring-[#e3d8c2]">{near.hole.n}</span>
-          <span className="min-w-0 flex-1">
-            <span className="block font-serif text-[18px] font-semibold leading-tight text-[#26231f]">You&rsquo;re on Hole {near.hole.n} &middot; Par {near.hole.par}</span>
-            <span className="block text-[12px] text-[#5b5a4c]">{Math.round(near.yards)} yards to the green &middot; tap for the hole</span>
-          </span>
-        </button>
-      )}
-
-      {phase === 'idle' && !selHole && adPlot && (
+      {phase === 'idle' && !(holesOn && holeReport.showing) && adPlot && (
         <div data-dock="left" className={`pointer-events-auto absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-3 right-[4.5rem] z-40 animate-slide-up rounded-[22px] p-3 sm:left-24 sm:p-3.5 sm:right-auto sm:w-[26rem] ${lxIvory}`}>
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
@@ -473,14 +481,14 @@ export default function PublicMap({ toId }: { toId?: string }) {
         </div>
       )}
 
-      {phase === 'idle' && !adPlot && !selHole && (
+      {phase === 'idle' && !adPlot && !(holesOn && holeReport.showing) && (
         <MapInfoCard
           className="absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-3 right-[4.5rem] z-40 sm:left-24 sm:right-auto sm:w-[26rem]"
           onShowPlace={(id) => setExitDest(findPlace(id))}
         />
       )}
 
-      <RainOverlay level={rain} />
+      {env && rain > 0.02 && <Suspense fallback={null}><RainOverlay level={rain} /></Suspense>}
       <LoadingSplash done={ready} />
 
       {greet && <WelcomeGreeting eyebrow={greet.eyebrow} title={greet.title} onDone={() => setGreet(null)} />}
