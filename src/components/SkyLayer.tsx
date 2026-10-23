@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useState } from 'react';
-import { liteMode } from '@/lib/perf';
+import { liteMode, svgPicture } from '@/lib/perf';
 import { STARS, VILLAGE_LIGHTS } from '@/lib/marginSpots';
 import { bodyOnArc, moonCycle } from '@/lib/sky';
 
@@ -191,35 +191,30 @@ function SkyLayerBase({ night, cloud, sunrise, sunset }: { night: number; cloud:
         )}
       </svg>
 
-      {/* things that sit in the stretched 100x100 box: stars and far-off lights */}
-      <svg
-        className="zh-anim pointer-events-none absolute inset-0 h-full w-full"
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
-        style={{ opacity: night, transition: 'opacity 3s ease' }}
-      >
-        <g opacity={1 - 0.6 * cloud}>
-          {[0, 1].map((g) => (
-            <g key={g} style={lite ? undefined : { animation: `zh-twinkle ${3 + g * 1.3}s ease-in-out ${-g * 1.5}s infinite` }}>
-              {STARS.filter((s) => s[3] % 2 === g).map(([x, y, sz], i) => (
-                <ellipse key={i} cx={x} cy={y} rx={0.085 * sz} ry={0.085 * sz * ASPECT} fill="#f6f1e2" />
-              ))}
-            </g>
-          ))}
-        </g>
-        {[0, 1].map((g) => (
-          <g key={g} style={lite ? undefined : { animation: `zh-glow ${3.6 + g * 1.5}s ease-in-out ${-g * 1.7}s infinite` }}>
-            {VILLAGE_LIGHTS.filter((s) => s[3] % 2 === g).map(([x, y, sz], i) => (
-              <g key={i}>
-                <ellipse cx={x} cy={y} rx={0.24 * sz} ry={0.24 * sz * ASPECT} fill="#ffb347" opacity={0.28} />
-                <ellipse cx={x} cy={y} rx={0.075 * sz} ry={0.075 * sz * ASPECT} fill="#ffe2a8" />
-              </g>
+      {/* things that sit in the stretched 100x100 box: stars and far-off lights — only built once dusk
+          begins (by day they were ~420 invisible shapes still being animated), and drawn as pictures */}
+      {night > 0.02 && (
+        <div className="zh-anim pointer-events-none absolute inset-0" style={{ opacity: night, transition: 'opacity 3s ease' }}>
+          <div className="absolute inset-0" style={{ opacity: 1 - 0.6 * cloud }}>
+            {NIGHT_PICTURES.stars.map((src, g) => (
+              <img key={g} src={src} alt="" aria-hidden draggable={false} className="absolute inset-0 h-full w-full" style={lite ? undefined : { animation: `zh-twinkle ${3 + g * 1.3}s ease-in-out ${-g * 1.5}s infinite` }} />
             ))}
-          </g>
-        ))}
-      </svg>
+          </div>
+          {NIGHT_PICTURES.lights.map((src, g) => (
+            <img key={g} src={src} alt="" aria-hidden draggable={false} className="absolute inset-0 h-full w-full" style={lite ? undefined : { animation: `zh-glow ${3.6 + g * 1.5}s ease-in-out ${-g * 1.7}s infinite` }} />
+          ))}
+        </div>
+      )}
     </>
   );
 }
+
+// Stars and village lights never move on the plan, so their pictures are made once.
+const NIGHT_PICTURES = {
+  stars: [0, 1].map((g) => svgPicture(STARS.filter((s) => s[3] % 2 === g)
+    .map(([x, y, sz]) => `<ellipse cx="${x}" cy="${y}" rx="${0.085 * sz}" ry="${0.085 * sz * ASPECT}" fill="#f6f1e2"/>`).join(''))),
+  lights: [0, 1].map((g) => svgPicture(VILLAGE_LIGHTS.filter((s) => s[3] % 2 === g)
+    .map(([x, y, sz]) => `<ellipse cx="${x}" cy="${y}" rx="${0.24 * sz}" ry="${0.24 * sz * ASPECT}" fill="#ffb347" opacity="0.28"/><ellipse cx="${x}" cy="${y}" rx="${0.075 * sz}" ry="${0.075 * sz * ASPECT}" fill="#ffe2a8"/>`).join(''))),
+};
 
 export const SkyLayer = memo(SkyLayerBase);

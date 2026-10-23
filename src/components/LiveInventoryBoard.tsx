@@ -460,7 +460,14 @@ function ZoomPanMap({
   }, [zoom, pan.x, pan.y, interacting]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
-  const moving = interacting || gliding;
+  // Decorations also rest while the page is in the background (another app or tab on top).
+  const [hidden, setHidden] = useState(() => typeof document !== 'undefined' && document.hidden);
+  useEffect(() => {
+    const onVis = () => setHidden(document.hidden);
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, []);
+  const moving = interacting || gliding || hidden;
   useEffect(() => {
     // SVG animations (<animate>, <animateMotion>) are paused too; CSS ones are paused by the data-moving rule.
     viewportRef.current?.querySelectorAll('svg').forEach((el) => { try { if (moving) el.pauseAnimations(); else el.unpauseAnimations(); } catch { /* not supported */ } });
@@ -759,7 +766,7 @@ function ZoomPanMap({
   return (
     <div
       ref={viewportRef}
-      data-moving={interacting || gliding ? '1' : undefined}
+      data-moving={moving ? '1' : undefined}
       className="absolute inset-0 touch-none select-none overflow-hidden"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -836,9 +843,12 @@ const PLAN_LEVELS = [
 ] as const;
 const PLAN_TILE = 1024;
 
-/** Sharpest level the screen can actually show at this zoom. */
+/** Sharpest level the screen can actually show at this zoom. Seen whole (not zoomed in) the light
+ *  1600 px picture is used even on sharp phone screens — the 3600 px one alone takes ~37 MB of memory
+ *  once opened — and screens sharper than 2x don't pull in bigger pictures than a 2x one would. */
 function planLevelFor(view: ViewState): number {
-  const needed = view.size.width * view.zoom * (window.devicePixelRatio || 1);
+  if (view.zoom < 1.3) return 0;
+  const needed = view.size.width * view.zoom * Math.min(2, window.devicePixelRatio || 1);
   const i = PLAN_LEVELS.findIndex((l) => l.width >= needed);
   return i === -1 ? PLAN_LEVELS.length - 1 : i;
 }
@@ -853,6 +863,10 @@ function MasterPlanImage({ view, loaded, onLoad }: { view: ViewState; loaded: bo
     const t = window.setTimeout(() => setLevel(target), 150);
     return () => window.clearTimeout(t);
   }, [target, view.interacting]);
+
+  // The full-size middle picture, once it has fully loaded, replaces the light one (which is then let go).
+  const [l1Ready, setL1Ready] = useState(false);
+  useEffect(() => { if (level !== 1) setL1Ready(false); }, [level]);
 
   const lvl = PLAN_LEVELS[level];
   let tiles: { key: string; src: string; style: React.CSSProperties }[] = [];
@@ -885,15 +899,20 @@ function MasterPlanImage({ view, loaded, onLoad }: { view: ViewState; loaded: bo
 
   return (
     <>
-      <img
-        src="/master-plan/l0.webp"
-        alt="Zion Hills master plan"
-        onLoad={onLoad}
-        className={`absolute inset-0 h-full w-full transition-opacity ${loaded ? 'opacity-100' : 'opacity-0'}`}
-        draggable={false}
-      />
-      {level >= 1 && (
-        <img src="/master-plan/l1.webp" alt="" aria-hidden className="absolute inset-0 h-full w-full" draggable={false} />
+      {/* Light picture: always under the zoomed-in tiles (it fills any tile still loading), and
+          under the middle picture only until that one is ready. */}
+      {!(level === 1 && l1Ready) && (
+        <img
+          src="/master-plan/l0.webp"
+          alt="Zion Hills master plan"
+          onLoad={onLoad}
+          className={`absolute inset-0 h-full w-full transition-opacity ${loaded ? 'opacity-100' : 'opacity-0'}`}
+          draggable={false}
+        />
+      )}
+      {/* Middle picture only at its own level — never kept underneath the sharp tiles. */}
+      {level === 1 && (
+        <img src="/master-plan/l1.webp" alt="" aria-hidden onLoad={() => setL1Ready(true)} className="absolute inset-0 h-full w-full" draggable={false} />
       )}
       {tiles.map((t) => (
         <img key={t.key} src={t.src} alt="" aria-hidden decoding="async" className="absolute" style={t.style} draggable={false} />

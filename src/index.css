@@ -340,8 +340,8 @@ body {
 @keyframes zh-flapy { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(-0.55); } }
 @keyframes zh-kite { from { transform: rotate(-8deg) translateY(0); } to { transform: rotate(8deg) translateY(4px); } }
 @keyframes zh-shoot { 0%, 93% { opacity: 0; transform: translate(0, 0); } 94% { opacity: 1; } 100% { opacity: 0; transform: translate(230px, 92px); } }
-@keyframes zh-rain { from { background-position: 0 0; } to { background-position: 0 120px; } }
-@keyframes zh-rain-b { from { background-position: 40px 20px; } to { background-position: 40px 104px; } }
+@keyframes zh-rain { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(0, 120px, 0); } }
+@keyframes zh-rain-b { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(0, 84px, 0); } }
 @keyframes zh-ripple { 0% { opacity: 0.9; transform: scale(0.15); } 100% { opacity: 0; transform: scale(1.6); } }
 @keyframes zh-pennant { 0% { transform: translateX(-110%); } 10%, 86% { transform: translateX(0); } 100% { transform: translateX(-110%); } }
 @keyframes zh-bubble { 0% { opacity: 0; transform: translateY(4px) scale(0.96); } 100% { opacity: 1; transform: translateY(0) scale(1); } }

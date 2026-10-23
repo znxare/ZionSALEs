@@ -4,6 +4,15 @@
 
 let cached: boolean | null = null;
 
+/**
+ * Many small decorative shapes (lake glints, stars, far-off lights) drawn as ONE picture instead of
+ * hundreds of live SVG elements: the browser rasterises it once and a twinkle only fades the picture,
+ * which the graphics chip does on its own. `body` is SVG markup in a 0..100 x 0..100 box.
+ */
+export function svgPicture(body: string): string {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none">${body}</svg>`)}`;
+}
+
 export function liteMode(): boolean {
   if (cached != null) return cached;
   let lite = false;

@@ -1,7 +1,7 @@
 import { memo, useMemo } from 'react';
 import { WATER_BODIES } from '@/lib/waterBodies';
 import type { Daylight } from '@/lib/daylight';
-import { liteMode } from '@/lib/perf';
+import { liteMode, svgPicture } from '@/lib/perf';
 
 // The light on the plan: a warm golden wash in the hour before sunset, a pale mist lifting off the
 // lakes at dawn, and sun (or moonlight) sparkling on the water. No blur filters or blend modes.
@@ -49,6 +49,10 @@ function DaylightLayerBase({ light, night, rain = 0 }: { light: Daylight; night:
   const sparkles = useMemo(lakeSparkles, []);
   const silver = night > 0.5;
   const lite = liteMode();
+  // The sun on the water: ~460 glints as two pictures (one per twinkle group) instead of ~930 live shapes.
+  const glints = useMemo(() => [0, 1].map((g) => svgPicture(sparkles.filter((s) => s.g === g).map((s) =>
+    `<ellipse cx="${s.x}" cy="${s.y}" rx="${0.2 * s.s}" ry="${0.2 * s.s * ASPECT}" fill="${silver ? '#cfe0ff' : '#ffffff'}" opacity="0.22"/>`
+    + `<ellipse cx="${s.x}" cy="${s.y}" rx="${0.075 * s.s}" ry="${0.075 * s.s * ASPECT}" fill="${silver ? '#eaf2ff' : '#ffffff'}"/>`).join(''))), [sparkles, silver]);
   return (
     <>
       {light.golden > 0.01 && (
@@ -76,25 +80,19 @@ function DaylightLayerBase({ light, night, rain = 0 }: { light: Daylight; night:
 
       {rain > 0.05 && !lite && (
         <svg className="zh-anim pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ opacity: Math.min(1, rain + 0.2) }}>
-          {sparkles.filter((_, i) => i % 3 === 0).map((s, i) => (
+          {/* about 20 rings, spread over all the lakes (was ~100) */}
+          {sparkles.filter((_, i) => i % Math.max(1, Math.ceil(sparkles.length / 20)) === 0).map((s, i) => (
             <ellipse key={i} cx={s.x} cy={s.y} rx={0.6 * s.s} ry={0.6 * s.s * ASPECT} fill="none" stroke="#ffffff" strokeWidth={0.07} style={{ transformBox: 'fill-box', transformOrigin: 'center', animation: `zh-ripple ${1.6 + (i % 5) * 0.35}s ease-out ${-(i % 7) * 0.3}s infinite` }} />
           ))}
         </svg>
       )}
 
       {light.shimmer > 0.01 && (
-        <svg className="zh-anim pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ opacity: light.shimmer, transition: 'opacity 3s ease' }}>
-          {[0, 1].map((g) => (
-            <g key={g} style={lite ? undefined : { animation: `zh-twinkle ${2.6 + g * 1.1}s ease-in-out ${-g * 1.3}s infinite` }}>
-              {sparkles.filter((s) => s.g === g).map((s, i) => (
-                <g key={i}>
-                  <ellipse cx={s.x} cy={s.y} rx={0.2 * s.s} ry={0.2 * s.s * ASPECT} fill={silver ? '#cfe0ff' : '#ffffff'} opacity={0.22} />
-                  <ellipse cx={s.x} cy={s.y} rx={0.075 * s.s} ry={0.075 * s.s * ASPECT} fill={silver ? '#eaf2ff' : '#ffffff'} />
-                </g>
-              ))}
-            </g>
+        <div className="zh-anim pointer-events-none absolute inset-0" style={{ opacity: light.shimmer, transition: 'opacity 3s ease' }}>
+          {glints.map((src, g) => (
+            <img key={g} src={src} alt="" aria-hidden draggable={false} className="absolute inset-0 h-full w-full" style={lite ? undefined : { animation: `zh-twinkle ${2.6 + g * 1.1}s ease-in-out ${-g * 1.3}s infinite` }} />
           ))}
-        </svg>
+        </div>
       )}
     </>
   );
