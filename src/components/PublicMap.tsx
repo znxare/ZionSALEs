@@ -1,8 +1,10 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Moon, Sun, Compass as CompassIcon, CornerUpRight, Flag, Loader2, Navigation, Share2, Search, MoreHorizontal, X as CloseIcon, Sparkles, Megaphone } from 'lucide-react';
+import { Check, Moon, Sun, Compass as CompassIcon, CornerUpRight, Flag, Loader2, Navigation, Share2, Search, MoreHorizontal, X as CloseIcon, Sparkles, Megaphone, UtensilsCrossed } from 'lucide-react';
 import { MasterPlanBoard, type AdPin, type MapFocus, type TourMarker } from './LiveInventoryBoard';
 import type { HoleReport } from './HoleByHole';
 import { useMapLayers } from '@/lib/mapLayers';
+import { loadPublicMenu, rememberedOrder } from '@/lib/food';
+import { SITE_CONTACT } from '@/lib/emergency';
 import { DirectionsControls, type DirectionsPhase, type DirectionsView } from './Directions';
 import { useDeviceHeading, facingBearing } from '@/lib/compass';
 import { fitTransform, loadPublicCalibration, smoothFix, bearing, distanceM, HeadingTracker, MIN_HEADING_SPEED, type Calibration, type GpsFix } from '@/lib/tour';
@@ -41,6 +43,7 @@ const LOGO = '/zion-hills-logo.svg';
 const HoleByHole = lazy(() => import('./HoleByHole'));
 const RainOverlay = lazy(() => import('./RainOverlay').then((m) => ({ default: m.RainOverlay })));
 const NO_HOLES: HoleReport = { pins: [], trail: null, showing: false };
+const FoodOrder = lazy(() => import('./FoodOrder'));
 const FOLLOW_ZOOM = 2.2;
 const NAV_ZOOM = 2.6;
 
@@ -111,6 +114,11 @@ export default function PublicMap({ toId }: { toId?: string }) {
   const initialDest = useMemo(() => (toId ? findPlace(toId) : undefined), [toId]);
   // The Emergency sheet's "way out" picks the destination (remounts the directions control with it chosen).
   const [exitDest, setExitDest] = useState<ReturnType<typeof findPlace>>(undefined);
+  // Food from the clubhouse kitchen: the button shows while the kitchen is taking orders.
+  const [kitchenOpen, setKitchenOpen] = useState(false);
+  const [foodOpen, setFoodOpen] = useState(false);
+  const [foodOrderId, setFoodOrderId] = useState<string | null>(() => rememberedOrder());
+  useEffect(() => { void loadPublicMenu().then((m) => setKitchenOpen(m.open && m.items.some((i) => i.available))); }, []);
 
   useEffect(() => {
     document.title = 'Map & directions · Zion Hills Golf County';
@@ -390,6 +398,11 @@ export default function PublicMap({ toId }: { toId?: string }) {
             />
           </div>
         )}
+        {phase === 'idle' && kitchenOpen && (
+          <button onClick={() => { setMenuOpen(false); setFoodOpen(true); }} aria-label="Order food" className={fab}>
+            <UtensilsCrossed className="h-6 w-6 text-[#d9480f]" strokeWidth={1.8} />
+          </button>
+        )}
         {phase === 'idle' && (
           <div className="relative">
             {menuOpen && (
@@ -489,6 +502,21 @@ export default function PublicMap({ toId }: { toId?: string }) {
       )}
 
       {env && rain > 0.02 && <Suspense fallback={null}><RainOverlay level={rain} /></Suspense>}
+      {(foodOpen || foodOrderId) && (
+        <Suspense fallback={null}>
+          <FoodOrder
+            open={foodOpen}
+            onClose={() => setFoodOpen(false)}
+            orderId={foodOrderId}
+            onOrderId={setFoodOrderId}
+            here={onPlan && marker && fix ? { lat: fix.lat, lng: fix.lng, x: marker.pt[0], y: marker.pt[1] } : null}
+            locating={locating}
+            onLocate={onLocateTap}
+            sitePhone={SITE_CONTACT?.phone}
+          />
+        </Suspense>
+      )}
+
       <LoadingSplash done={ready} />
 
       {greet && <WelcomeGreeting eyebrow={greet.eyebrow} title={greet.title} onDone={() => setGreet(null)} />}

@@ -50,6 +50,7 @@ export const CONFIGURABLE_MODULES: { id: string; label: string; group: string }[
   { id: 'hospitality-leadbank', label: 'Lead Bank', group: 'Hospitality' },
   { id: 'import', label: 'Lead Import', group: 'Tools' },
   { id: 'planner', label: 'Day Planner', group: 'Tools' },
+  { id: 'food', label: 'Food orders', group: 'Tools' },
   { id: 'campaigns', label: 'Campaigns', group: 'Tools' },
   { id: 'reactivation', label: 'Reactivation', group: 'Tools' },
   { id: 'activitylog', label: 'Activity Log', group: 'Tools' },

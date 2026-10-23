@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import {
   LayoutDashboard, Users, MapPin, Megaphone, Landmark, CalendarCheck, Snowflake, Upload,
-  Menu, X, History, LayoutGrid, Settings, FileBarChart, UserCheck,
+  Menu, X, History, LayoutGrid, Settings, FileBarChart, UserCheck, UtensilsCrossed,
 } from 'lucide-react';
 import ConnectionStatus from '@/components/ConnectionStatus';
 import { useModuleAccess } from '@/lib/access';
 
 export type NavId =
-  | 'dashboard' | 'myleads' | 'leads' | 'sitevisits' | 'campaigns' | 'leadbank' | 'import' | 'planner'
+  | 'dashboard' | 'myleads' | 'leads' | 'sitevisits' | 'food' | 'campaigns' | 'leadbank' | 'import' | 'planner'
   | 'reactivation' | 'activitylog' | 'inventory' | 'settings' | 'reports'
   | 'hospitality-leads' | 'hospitality-leadbank';
 
@@ -43,6 +43,7 @@ const NAV: NavEntry[] = [
   { kind: 'divider' },
   { kind: 'single', item: { id: 'import', label: 'Lead Import', icon: Upload } },
   { kind: 'single', item: { id: 'planner', label: 'Day Planner', icon: CalendarCheck } },
+  { kind: 'single', item: { id: 'food', label: 'Food orders', icon: UtensilsCrossed } },
   { kind: 'single', item: { id: 'campaigns', label: 'Campaigns', icon: Megaphone } },
   { kind: 'single', item: { id: 'reactivation', label: 'Reactivation', icon: Snowflake } },
   { kind: 'single', item: { id: 'activitylog', label: 'Activity Log', icon: History } },
@@ -54,6 +55,7 @@ const NAV: NavEntry[] = [
 // Hospitality items use a rose/fuchsia family to read as a distinct division from Real Estate.
 const TAB_COLORS: Record<NavId, { bg: string; text: string; ring: string; icon: string; border: string }> = {
   dashboard: { bg: 'bg-orange-50', text: 'text-orange-700', ring: 'ring-orange-200/60', icon: 'text-orange-600', border: 'border-orange-500' },
+  food: { bg: 'bg-amber-50', text: 'text-amber-700', ring: 'ring-amber-200/60', icon: 'text-amber-600', border: 'border-amber-500' },
   myleads: { bg: 'bg-orange-50', text: 'text-orange-700', ring: 'ring-orange-200/60', icon: 'text-orange-600', border: 'border-orange-500' },
   leads: { bg: 'bg-slate-100', text: 'text-slate-700', ring: 'ring-slate-200/60', icon: 'text-slate-600', border: 'border-slate-400' },
   leadbank: { bg: 'bg-violet-50', text: 'text-violet-700', ring: 'ring-violet-200/60', icon: 'text-violet-600', border: 'border-violet-500' },
