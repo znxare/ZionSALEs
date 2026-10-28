@@ -393,6 +393,7 @@ function ZoomPanMap({
   onUserMove,
   rotation = 0,
   turnable = false,
+  tilt = 0,
 }: {
   mapLayer: (state: ViewState) => ReactNode;
   overlay: (state: OverlayState) => ReactNode;
@@ -408,6 +409,8 @@ function ZoomPanMap({
   /** The map may be turned (heading-up): make it big enough that its edges
    *  never show in the screen's corners, whatever the angle. */
   turnable?: boolean;
+  /** Lean the map back this many degrees (driving view: more road ahead, like Google Maps navigation). */
+  tilt?: number;
   /** The user dragged or pinched the map (so a follow mode can pause). */
   onUserMove?: () => void;
   /** A tap/click that wasn't a drag, at a point on the map in % of its width/height. */
@@ -433,6 +436,7 @@ function ZoomPanMap({
   const shownRef = useRef(shown);
   const glide = useRef<GlideSpec>({ ...DEFAULT_GLIDE, at: 0 });
   const panRaf = useRef(0);
+  const lockRef = useRef<{ on: boolean; fz: number; zoom: number; at: number; from: { zoom: number; pan: { x: number; y: number } }; ended: { zoom: number; pan: { x: number; y: number } } | null }>({ on: false, fz: 0, zoom: 1, at: 0, from: { zoom: 1, pan: { x: 0, y: 0 } }, ended: null });
   // The map's turn (heading-up) follows the heading continuously (see smoothAngle.ts); the compass uses the same.
   const turnShown = useSmoothedAngle(rotation);
 
@@ -440,6 +444,7 @@ function ZoomPanMap({
     window.cancelAnimationFrame(panRaf.current);
     const to = { zoom, pan };
     const from = shownRef.current;
+    if (lockRef.current.on) { setGliding(false); return; }   // the camera is locked to a moving point (see below)
     if (interacting) { shownRef.current = to; setGliding(false); return; }   // a finger is on the map: follow it exactly
     const spec = performance.now() - glide.current.at < 200 ? glide.current : { ...DEFAULT_GLIDE, at: 0 };
     glide.current = { ...DEFAULT_GLIDE, at: 0 };
@@ -475,9 +480,10 @@ function ZoomPanMap({
     viewportRef.current?.querySelectorAll('svg').forEach((el) => { try { if (moving) el.pauseAnimations(); else el.unpauseAnimations(); } catch { /* not supported */ } });
   }, [moving]);
 
-  // Drawn values (the targets themselves while a finger is on the map).
-  const vz = interacting ? zoom : shown.zoom;
-  const vp = interacting ? pan : shown.pan;
+  // Drawn values (the targets themselves while a finger is on the map). Overridden further down while
+  // the camera is locked to a moving point.
+  let vz = interacting ? zoom : shown.zoom;
+  let vp = interacting ? pan : shown.pan;
   const viewportRef = useRef<HTMLDivElement>(null);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   // Pinch: the map point under the fingers' midpoint stays under them while zooming.
@@ -600,9 +606,12 @@ function ZoomPanMap({
   const flown = useRef<number | undefined>(undefined);
   const focusOn = focus != null;
   useEffect(() => { if (!focusOn) following.current = false; }, [focusOn]);
+  // Following a point that is already being glided (the "you are here" dot): the camera is locked to it.
+  const locked = !!focus?.follow && !!fi && !interacting;
   useEffect(() => {
     if (fx === undefined || fy === undefined || fz === undefined || layer.width === 0) return;
     if (pointers.current.size > 0) return; // never fight a finger on the map
+    if (locked) return; // drawn straight from the focus point during render (no state round trip)
     if (fe) {
       if (flown.current === fn) return;
       flown.current = fn;
@@ -620,7 +629,59 @@ function ZoomPanMap({
     setZoom(z);
     setPan(clampPan({ x: -((fx / 100) * layer.width - layer.width / 2) * z + o.x, y: -((fy / 100) * layer.height - layer.height / 2) * z + o.y }, z));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fx, fy, fz, fo, fn, turnShown, layer.width, layer.height, zoom]);
+  }, [fx, fy, fz, fo, fn, turnShown, layer.width, layer.height, zoom, locked]);
+
+  // Locked camera (following the gliding "you are here" dot): the pose is worked out right here in
+  // render from the focus point, zoom and the turn as drawn, so each animation frame is one render —
+  // not a render, then an effect setting pan, then another render. A change of zoom (or the start of
+  // following) eases in over BLEND_MS from wherever the map was.
+  const BLEND_MS = 900;
+  const lk = lockRef.current;
+  const now = performance.now();
+  if (locked && fx !== undefined && fy !== undefined && fz !== undefined && layer.width > 0) {
+    if (!lk.on) { lk.on = true; lk.fz = fz; lk.zoom = clampZoom(fz); lk.at = now; lk.from = shownRef.current; lk.ended = null; }
+    else if (fz !== lk.fz) { lk.fz = fz; lk.zoom = clampZoom(fz); lk.at = now; lk.from = shownRef.current; }
+    const k = Math.min(1, (now - lk.at) / BLEND_MS);
+    const e = easeInOut(k);
+    const z = lk.from.zoom + (lk.zoom - lk.from.zoom) * e;
+    const o = unturn(0, fo);
+    const target = clampPan({ x: -((fx / 100) * layer.width - layer.width / 2) * z + o.x, y: -((fy / 100) * layer.height - layer.height / 2) * z + o.y }, z);
+    vz = z;
+    vp = k >= 1 ? target : { x: lk.from.pan.x + (target.x - lk.from.pan.x) * e, y: lk.from.pan.y + (target.y - lk.from.pan.y) * e };
+    shownRef.current = { zoom: vz, pan: vp };
+  } else if (lk.on) {
+    lk.on = false;
+    lk.ended = shownRef.current;
+  }
+  if (!lk.on && lk.ended && !interacting) { vz = lk.ended.zoom; vp = lk.ended.pan; }
+  const blending = lk.on && now - lk.at < BLEND_MS;
+  // Keep drawing frames while easing in (the dot may be standing still, so nothing else would).
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!blending) return;
+    const id = window.requestAnimationFrame(() => setTick((t) => t + 1));
+    return () => window.cancelAnimationFrame(id);
+  });
+  // When the lock lets go, carry on from where the camera was (not from the pose before it locked).
+  const lockOn = lk.on;
+  useEffect(() => {
+    if (lockOn) { window.cancelAnimationFrame(panRaf.current); setGliding(false); return; }
+    const end = lockRef.current.ended;
+    if (!end) return;
+    lockRef.current.ended = null;
+    if (pointers.current.size > 0 || interacting) return;
+    glide.current = { ms: 0, ease: linear, at: performance.now() };
+    shownRef.current = end;
+    setShown(end);
+    setZoom(end.zoom);
+    setPan(end.pan);
+  }, [lockOn]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A steady zoom while locked: the map goes on its own GPU layer, so following, turning and leaning
+  // only move a finished picture instead of repainting the plan (and its hundreds of plot outlines)
+  // every frame. Only while the zoom holds still: a layer keeps the sharpness it was made at, which is
+  // what made zooming blurry before.
+  const promote = interacting || (lockOn && !blending);
 
   /**
    * Accepts either an absolute zoom or an updater — always resolves against the
@@ -734,9 +795,19 @@ function ZoomPanMap({
     }
   }
 
+  /** While locked, zooming changes the locked zoom (eased in), so following carries on. */
+  function zoomLocked(f: number): boolean {
+    const l = lockRef.current;
+    if (!l.on) return false;
+    l.from = shownRef.current; l.at = performance.now(); l.zoom = clampZoom(l.zoom * f);
+    setTick((t) => t + 1);
+    return true;
+  }
+
   function onWheel(e: ReactWheelEvent<HTMLDivElement>) {
     e.preventDefault();
     stopInertia();
+    if (zoomLocked(Math.exp(-e.deltaY * 0.0018))) return;
     setZoomClamped((z) => z * Math.exp(-e.deltaY * 0.0018));
   }
 
@@ -754,6 +825,7 @@ function ZoomPanMap({
 
   function zoomBy(delta: number) {
     stopInertia();
+    if (zoomLocked(delta > 0 ? 1.6 : 1 / 1.6)) return;
     // a steady proportional step (about 1.6x), whatever the current zoom
     setZoomClamped((z) => z * (delta > 0 ? 1.6 : 1 / 1.6));
   }
@@ -784,12 +856,17 @@ function ZoomPanMap({
           stretch that bitmap — the cause of the blurry zoom. */}
       {/* Turned frame (heading-up). Rotating about the screen centre keeps the
           cart — which follow mode puts there — in place while the map turns. */}
+      {/* Leaned-back driving view: the whole turned frame (plan, route, dot) leans together. */}
       <div
         className="absolute inset-0"
+        style={{ transform: tilt ? `perspective(1100px) rotateX(${tilt}deg)` : 'none', transformOrigin: '50% 62%', transition: 'transform 900ms cubic-bezier(0.4, 0, 0.2, 1)' }}
+      >
+      <div
+        className={`absolute inset-0 ${promote && turnable ? 'will-change-transform' : ''}`}
         style={turnShown ? { transform: `rotate(${-turnShown}deg)`, transformOrigin: 'center center' } : undefined}
       >
       <div
-        className={`absolute ${interacting ? 'will-change-transform' : ''}`}
+        className={`absolute ${promote ? 'will-change-transform' : ''}`}
         style={{
           left: (size.width - layer.width) / 2,
           top: (size.height - layer.height) / 2,
@@ -809,6 +886,7 @@ function ZoomPanMap({
           {overlay({ zoom: vz, pan: vp, size: layer, viewport: size, rotation: turnShown })}
         </div>
       )}
+      </div>
       </div>
 
       {/* Zoom controls */}
@@ -985,7 +1063,7 @@ export type TourMarker = { pt: [number, number]; accuracyPct?: number; heading?:
 
 export function MasterPlanBoard({
   plots, highlight = null, onSelect, large, selectedId, tooltip = 'internal', bare, cover, publicView, waterAlert = null, wildlife = false, night = 0, daylight = null, ambient = false, scenery = false, sponsors = false, onReady, atmosphere = null, rain = 0, adPins = [], selectedAdId = null, onAdTap, holePins = [], holeTrail = null, onHoleTap,
-  marker = null, focus = null, onUserMove, onMapPoint, pins = [], rotation = 0, turnable = false, route = null, places = [], destination = null, offRoad = false,
+  marker = null, focus = null, onUserMove, onMapPoint, pins = [], rotation = 0, turnable = false, tilt = 0, markerArrow = false, route = null, places = [], destination = null, offRoad = false,
 }: {
   plots: Plot[];
   /** Plots matching the active filters; null = no filter (everything at full colour). */
@@ -1036,6 +1114,10 @@ export function MasterPlanBoard({
   /** Heading-up: degrees to turn the map anticlockwise (see ZoomPanMap). */
   rotation?: number;
   turnable?: boolean;
+  /** Driving view: lean the map back (degrees). */
+  tilt?: number;
+  /** Driving: draw "you are here" as a navigation arrow instead of a dot. */
+  markerArrow?: boolean;
   /** Calibration: taps report the raw map point instead of selecting a plot. */
   onMapPoint?: (pt: [number, number]) => void;
   /** Numbered pins (calibration points). */
@@ -1079,6 +1161,7 @@ export function MasterPlanBoard({
         onUserMove={onUserMove}
         rotation={rotation}
         turnable={turnable}
+        tilt={tilt}
         onTap={(pt) => {
           if (onMapPoint) { onMapPoint(pt); return; }
           const hit = plotAt(plots, pt);
@@ -1112,7 +1195,7 @@ export function MasterPlanBoard({
                 <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" style={{ zIndex: 15 }}>
                   <polyline points={routePts.map((q) => toScreen(q).join(',')).join(' ')} fill="none" stroke="white" strokeWidth={11} strokeLinecap="round" strokeLinejoin="round" />
                   <polyline points={routePts.map((q) => toScreen(q).join(',')).join(' ')} fill="none" stroke={offRoad ? '#dc2626' : '#f05a22'} strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" />
-                  <polyline points={routePts.map((q) => toScreen(q).join(',')).join(' ')} fill="none" stroke="white" strokeOpacity={0.7} strokeWidth={2} strokeDasharray="2 10" strokeLinecap="round" className="animate-route-flow" />
+                  <polyline points={routePts.map((q) => toScreen(q).join(',')).join(' ')} fill="none" stroke="white" strokeOpacity={0.7} strokeWidth={2} strokeDasharray="2 10" strokeLinecap="round" className={shownMarker ? undefined : 'animate-route-flow'} />
                 </svg>
               )}
               <Suspense fallback={null}>
@@ -1240,7 +1323,12 @@ export function MasterPlanBoard({
                     {halo > 0 && (
                       <div className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full border" style={{ width: halo * 2, height: halo * 2, borderColor: `${dot}40`, backgroundColor: `${dot}1a` }} />
                     )}
-                    {beam != null && (
+                    {markerArrow && beam != null ? (
+                      <svg width="44" height="44" viewBox="-22 -22 44 44" className="absolute overflow-visible" style={{ transform: `translate(-50%, -50%) rotate(${beamShown}deg)`, left: 0, top: 0 }}>
+                        <circle r="19" fill="#1a73e8" fillOpacity="0.16" />
+                        <path d="M0 -15 L11 12 L0 6 L-11 12 Z" fill="#1a73e8" stroke="white" strokeWidth="3" strokeLinejoin="round" />
+                      </svg>
+                    ) : beam != null && (
                       <svg width="72" height="72" viewBox="-36 -36 72 72" className="absolute -translate-x-1/2 -translate-y-1/2 overflow-visible" style={{ transform: `translate(-50%, -50%) rotate(${beamShown}deg)` }}>
                         <defs>
                           <radialGradient id="gm-beam" cx="0" cy="0" r="36" gradientUnits="userSpaceOnUse">
@@ -1251,9 +1339,13 @@ export function MasterPlanBoard({
                         <path d="M0 0 L-17 -32 A36 36 0 0 1 17 -32 Z" fill="url(#gm-beam)" />
                       </svg>
                     )}
-                    <span className="zh-radiate" />
-                    <span className="zh-radiate zh-radiate-2" />
-                    <div className="zh-heart absolute left-0 top-0 h-[22px] w-[22px] rounded-full ring-[3px] ring-white" style={{ backgroundColor: dot }} />
+                    {!(markerArrow && beam != null) && (
+                      <>
+                        <span className="zh-radiate" />
+                        <span className="zh-radiate zh-radiate-2" />
+                        <div className="zh-heart absolute left-0 top-0 h-[22px] w-[22px] rounded-full ring-[3px] ring-white" style={{ backgroundColor: dot }} />
+                      </>
+                    )}
                   </div>
                 );
               })()}

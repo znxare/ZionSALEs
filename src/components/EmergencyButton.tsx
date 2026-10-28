@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Phone, Siren, MapPin, Share2, Navigation2, X, Check, Loader2 } from 'lucide-react';
-import { AMENITIES, VILLAS, PLOT_PLACES, findRoute, planMetres } from '@/lib/directions';
+import { AMENITIES, findRoute, planMetres } from '@/lib/directions';
 import { AMBULANCE, NATIONAL_EMERGENCY, SITE_CONTACT } from '@/lib/emergency';
 import { distanceWords } from '@/lib/turns';
 import type { MapPt } from '@/lib/tour';
@@ -9,18 +9,6 @@ import { lxCrimson, lxEyebrow, lxIvory, lxOrange } from '@/lib/luxury';
 
 // Emergency help on the public map: one tap to call, the visitor's location ready to send,
 // and the way to the main gate.
-
-const NAMED = [...AMENITIES, ...VILLAS, ...PLOT_PLACES];
-
-/** The closest named place (plot, villa, amenity) to a point on the plan, in words. */
-function nearTo(pt: MapPt): string {
-  let best = NAMED[0], bd = Infinity;
-  for (const p of NAMED) {
-    const d = Math.hypot((p.pt[0] - pt[0]) * 23.7, (p.pt[1] - pt[1]) * 16.9);
-    if (d < bd) { bd = d; best = p; }
-  }
-  return bd < 250 ? `near ${best.label}` : '';
-}
 
 export function EmergencyButton({ position, onPlan, locating, onLocate, onRouteToGate }: {
   /** The visitor's GPS position, once they have asked to be located. */
@@ -41,9 +29,8 @@ export function EmergencyButton({ position, onPlan, locating, onLocate, onRouteT
     return r ? planMetres(r.points) : null;
   }, [onPlan?.[0], onPlan?.[1]]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const near = onPlan ? nearTo(onPlan) : '';
   const mapLink = position ? `https://maps.google.com/?q=${position.lat.toFixed(6)},${position.lng.toFixed(6)}` : '';
-  const message = `I need help at Zion Hills Golf County${near ? ` (${near})` : ''}.${mapLink ? ` My location: ${mapLink}` : ''}`;
+  const message = `I need help at Zion Hills Golf County.${mapLink ? ` My location: ${mapLink}` : ''}`;
 
   async function share() {
     const nav = navigator as Navigator & { share?: (d: { text: string }) => Promise<void> };
@@ -62,9 +49,9 @@ export function EmergencyButton({ position, onPlan, locating, onLocate, onRouteT
       <button
         onClick={() => setOpen(true)}
         aria-label="Emergency help"
-        className={`pointer-events-auto flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-bold tracking-[0.12em] transition hover:brightness-110 ${lxCrimson}`}
+        className={`pointer-events-auto flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-bold tracking-[0.04em] transition hover:brightness-110 ${lxCrimson}`}
       >
-        <Siren className="h-4 w-4" /> SOS
+        <Siren className="h-4 w-4" /> Emergency
       </button>
 
       {open && createPortal(
@@ -96,7 +83,7 @@ export function EmergencyButton({ position, onPlan, locating, onLocate, onRouteT
               {SITE_CONTACT && (
                 <a href={`tel:${SITE_CONTACT.phone}`} className={`${call} bg-[#26231f] text-[#f3ead3] ring-1 ring-[#e3d8c2]/[0.45]`}>
                   <Phone className="h-5 w-5 shrink-0" />
-                  <span className="flex-1"><span className="block text-[16px] leading-tight">Call {SITE_CONTACT.label}</span><span className="block text-[12px] font-medium text-white/70">{SITE_CONTACT.phone}</span></span>
+                  <span className="flex-1"><span className="block font-serif text-[20px] font-semibold leading-tight">Call {SITE_CONTACT.label}</span><span className="block text-[12px] font-medium text-white/70">{SITE_CONTACT.shown} · estate security</span></span>
                 </a>
               )}
             </div>
@@ -105,7 +92,7 @@ export function EmergencyButton({ position, onPlan, locating, onLocate, onRouteT
               <div className={`flex items-center gap-2 ${lxEyebrow} text-[#8a6a4a]`}><MapPin className="h-4 w-4" /> Where you are</div>
               {position ? (
                 <>
-                  <p className="mt-1.5 font-serif text-[20px] font-semibold text-[#26231f]">{near ? `You are ${near}` : onPlan ? 'You are on the estate' : 'Your location is ready to send'}</p>
+                  <p className="mt-1.5 font-serif text-[20px] font-semibold text-[#26231f]">Your location is ready to send</p>
                   <p className="text-[12px] tabular-nums text-[#7a7358]">{position.lat.toFixed(5)}, {position.lng.toFixed(5)}</p>
                   <button onClick={share} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#26231f] py-3 text-[15px] font-semibold text-[#f3ead3] ring-1 ring-[#e3d8c2]/[0.45] active:scale-[0.98]">
                     {shared ? <><Check className="h-4 w-4" /> Copied — paste it into a message</> : <><Share2 className="h-4 w-4" /> Send my location</>}

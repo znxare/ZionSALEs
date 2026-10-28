@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { fetchLeads, fetchCampaigns, fetchProfiles, type Lead, type Campaign, type Profile } from '@/lib/crm';
 import { fetchHospitalityLeads, type HospitalityLead } from '@/lib/hospitality';
 import { supabase } from '@/lib/supabase';
@@ -34,14 +34,11 @@ import HospitalityComingSoon from '@/components/HospitalityComingSoon';
 import { Landmark } from 'lucide-react';
 import { getSession, onAuthChange, signOutUser, type CurrentUser } from '@/lib/auth';
 import { withTimeout } from '@/lib/timeout';
-// The kitchen screen loads only when someone opens it.
-const FoodOrders = lazy(() => import('@/components/FoodOrders'));
 
 type Route =
   | { name: 'dashboard' }
   | { name: 'leads' }
   | { name: 'myleads' }
-  | { name: 'food' }
   | { name: 'leadbank' }
   | { name: 'import' }
   | { name: 'planner' }
@@ -82,7 +79,6 @@ function parseHash(): Route {
   if (h === 'search') return { name: 'search' };
   if (h === 'leads') return { name: 'leads' };
   if (h === 'myleads') return { name: 'myleads' };
-  if (h === 'food') return { name: 'food' };
   if (h === 'leadbank') return { name: 'leadbank' };
   if (h === 'import') return { name: 'import' };
   if (h === 'planner') return { name: 'planner' };
@@ -108,7 +104,6 @@ function navigate(route: Route) {
   else if (route.name === 'search') window.location.hash = '/search';
   else if (route.name === 'leads') window.location.hash = '/leads';
   else if (route.name === 'myleads') window.location.hash = '/myleads';
-  else if (route.name === 'food') window.location.hash = '/food';
   else if (route.name === 'leadbank') window.location.hash = '/leadbank';
   else if (route.name === 'import') window.location.hash = '/import';
   else if (route.name === 'planner') window.location.hash = '/planner';
@@ -328,7 +323,6 @@ export default function App() {
   const sidebarCurrent: NavId =
     route.name === 'leads' ? 'leads' :
     route.name === 'myleads' ? 'myleads' :
-    route.name === 'food' ? 'food' :
     route.name === 'leadbank' ? 'leadbank' :
     route.name === 'import' ? 'import' :
     route.name === 'planner' ? 'planner' :
@@ -419,10 +413,6 @@ export default function App() {
               onAdd={() => setAddOpen(true)}
               onRefresh={load}
             />
-          )}
-
-          {route.name === 'food' && (
-            <Suspense fallback={null}><FoodOrders /></Suspense>
           )}
 
           {route.name === 'myleads' && currentUser && (

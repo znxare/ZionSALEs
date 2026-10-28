@@ -1,10 +1,8 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Moon, Sun, Compass as CompassIcon, CornerUpRight, Flag, Loader2, Navigation, Share2, Search, MoreHorizontal, X as CloseIcon, Sparkles, Megaphone, UtensilsCrossed } from 'lucide-react';
+import { Check, Moon, Sun, Compass as CompassIcon, CornerUpRight, Flag, Loader2, Navigation, Share2, Search, MoreHorizontal, X as CloseIcon, Sparkles, Megaphone } from 'lucide-react';
 import { MasterPlanBoard, type AdPin, type MapFocus, type TourMarker } from './LiveInventoryBoard';
 import type { HoleReport } from './HoleByHole';
 import { useMapLayers } from '@/lib/mapLayers';
-import { loadPublicMenu, rememberedOrder, isFoodDemo } from '@/lib/food';
-import { SITE_CONTACT } from '@/lib/emergency';
 import { DirectionsControls, type DirectionsPhase, type DirectionsView } from './Directions';
 import { useDeviceHeading, facingBearing } from '@/lib/compass';
 import { fitTransform, loadPublicCalibration, smoothFix, bearing, distanceM, HeadingTracker, MIN_HEADING_SPEED, type Calibration, type GpsFix } from '@/lib/tour';
@@ -43,9 +41,14 @@ const LOGO = '/zion-hills-logo.svg';
 const HoleByHole = lazy(() => import('./HoleByHole'));
 const RainOverlay = lazy(() => import('./RainOverlay').then((m) => ({ default: m.RainOverlay })));
 const NO_HOLES: HoleReport = { pins: [], trail: null, showing: false };
-const FoodOrder = lazy(() => import('./FoodOrder'));
 const FOLLOW_ZOOM = 2.2;
-const NAV_ZOOM = 2.6;
+// Driving (like Google Maps): closer in when slow, further out when faster, so there is always time to see the next turn.
+const DRIVE_ZOOMS = [2.8, 2.4, 2.0];
+const DRIVE_TILT = 40;
+/** Moving at least this fast (m/s) counts as driving; below STOP_SPEED for STOP_MS it is walking again. */
+const DRIVE_SPEED = 2.5;
+const STOP_SPEED = 0.8;
+const STOP_MS = 8000;
 
 const menuItem = `flex items-center gap-2.5 whitespace-nowrap rounded-full py-2.5 pl-3.5 pr-4 text-[13px] font-semibold tracking-wide transition active:scale-95 ${lxFab}`;
 
@@ -60,9 +63,8 @@ export default function PublicMap({ toId }: { toId?: string }) {
   const [dirView, setDirView] = useState<DirectionsView>({ route: null, destination: null, places: [] });
   const [focus, setFocus] = useState<MapFocus | null>(null);
   const [copied, setCopied] = useState(false);
-  // Heading-up like the tour: the map turns so the way you are walking is at the top.
-  // North-up while just looking around; heading-up once navigation starts (like Google Maps).
-  const [headingUp, setHeadingUp] = useState(false);
+  // Heading-up by default: the map turns with the compass / the way you travel. Tap the compass for north up.
+  const [headingUp, setHeadingUp] = useState(true);
   // The camera follows the visitor's dot (until they drag the map); the location button re-centres it.
   const [follow, setFollow] = useState(false);
   // Adverts drawn on the map: a few vacant plots as "can be yours" flags (more appear as dots once zoomed in).
@@ -114,12 +116,6 @@ export default function PublicMap({ toId }: { toId?: string }) {
   const initialDest = useMemo(() => (toId ? findPlace(toId) : undefined), [toId]);
   // The Emergency sheet's "way out" picks the destination (remounts the directions control with it chosen).
   const [exitDest, setExitDest] = useState<ReturnType<typeof findPlace>>(undefined);
-  // Food from the clubhouse kitchen: the button shows while the kitchen is taking orders.
-  const [kitchenOpen, setKitchenOpen] = useState(false);
-  const [foodDemo, setFoodDemo] = useState(false);
-  const [foodOpen, setFoodOpen] = useState(false);
-  const [foodOrderId, setFoodOrderId] = useState<string | null>(() => rememberedOrder());
-  useEffect(() => { void loadPublicMenu().then((m) => { setKitchenOpen(m.open && m.items.some((i) => i.available)); setFoodDemo(isFoodDemo()); }); }, []);
 
   useEffect(() => {
     document.title = 'Map & directions · Zion Hills Golf County';
@@ -207,6 +203,32 @@ export default function PublicMap({ toId }: { toId?: string }) {
 
   const navigating = phase === 'navigating';
 
+  // Driving: once moving at cart speed the view becomes the driving view (leaned back, arrow, more road
+  // ahead, zoom by speed), with or without a route; it relaxes after standing still for a while.
+  const speed = fix?.speed ?? 0;
+  const [driving, setDriving] = useState(false);
+  const stoppedAt = useRef<number | null>(null);
+  useEffect(() => {
+    if (!locating || !fix) { setDriving(false); return; }
+    if (speed >= DRIVE_SPEED) { stoppedAt.current = null; setDriving(true); return; }
+    if (speed < STOP_SPEED) {
+      if (stoppedAt.current == null) stoppedAt.current = Date.now();
+      else if (Date.now() - stoppedAt.current > STOP_MS) setDriving(false);
+    } else stoppedAt.current = null;
+  }, [fix, locating]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Zoom step by speed, with a margin either side so it doesn't flicker between two steps.
+  const [zoomStep, setZoomStep] = useState(0);
+  useEffect(() => {
+    setZoomStep((z) => {
+      const up = [4.5, 8.5];       // m/s to step out (≈16 and ≈30 km/h)
+      const down = [3.5, 7];       // m/s to step back in
+      if (z < 2 && speed > up[z]) return z + 1;
+      if (z > 0 && speed < down[z - 1]) return z - 1;
+      return z;
+    });
+  }, [speed]);
+  const driveView = (navigating || driving) && headingUp;
+
 
 
   function openHole(n: number) { setLayer('holes', true); setAdSel(null); setHoleSel(n); setHoleFrame((k) => k + 1); }
@@ -288,9 +310,11 @@ export default function PublicMap({ toId }: { toId?: string }) {
     setFollow(true); // already locating: bring the camera back to the dot
   }
 
+  // The camera keeps the traveller in view: centred when walking, low on the screen with the road ahead when driving.
   const followFocus: MapFocus | null = follow && onPlan && marker
-    ? { pt: marker.pt, zoom: navigating ? NAV_ZOOM : FOLLOW_ZOOM, follow: true, offsetY: navigating && headingUp ? window.innerHeight * 0.18 : 0 }
+    ? { pt: marker.pt, zoom: driveView ? DRIVE_ZOOMS[zoomStep] : FOLLOW_ZOOM, follow: true, offsetY: driveView ? window.innerHeight * 0.24 : 0 }
     : null;
+  const tilt = driveView && follow && onPlan ? DRIVE_TILT : 0;
 
   async function share() {
     const url = `${window.location.origin}/#/map`;
@@ -325,6 +349,8 @@ export default function PublicMap({ toId }: { toId?: string }) {
           onUserMove={() => { setFollow(false); setMoved((k) => k + 1); }}
           rotation={rotation}
           turnable
+          tilt={tilt}
+          markerArrow={driveView}
           waterAlert={waterAlert?.index ?? null}
           wildlife={env && phase === 'idle'}
           night={night}
@@ -399,12 +425,6 @@ export default function PublicMap({ toId }: { toId?: string }) {
             />
           </div>
         )}
-        {phase === 'idle' && kitchenOpen && (
-          <button onClick={() => { setMenuOpen(false); setFoodOpen(true); }} aria-label={foodDemo ? 'Order food (demo)' : 'Order food'} className={`relative ${fab}`}>
-            <UtensilsCrossed className="h-6 w-6 text-[#d9480f]" strokeWidth={1.8} />
-            {foodDemo && <span className="absolute -right-1 -top-1 rounded-full bg-[#26231f] px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-white">Demo</span>}
-          </button>
-        )}
         {phase === 'idle' && (
           <div className="relative">
             {menuOpen && (
@@ -458,7 +478,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
         hidePlaces
         openSignal={pickerSignal}
         onStart={onStartNav}
-        onPhase={(p) => { setPhase(p); if (p !== 'navigating') setHeadingUp(false); }}
+        onPhase={setPhase}
       />
 
 
@@ -497,27 +517,10 @@ export default function PublicMap({ toId }: { toId?: string }) {
       )}
 
       {phase === 'idle' && !adPlot && !(holesOn && holeReport.showing) && (
-        <MapInfoCard
-          className="absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-3 right-[4.5rem] z-40 sm:left-24 sm:right-auto sm:w-[26rem]"
-          onShowPlace={(id) => setExitDest(findPlace(id))}
-        />
+        <MapInfoCard className="absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-3 right-[4.5rem] z-40 sm:left-24 sm:right-auto sm:w-[22rem]" />
       )}
 
       {env && rain > 0.02 && <Suspense fallback={null}><RainOverlay level={rain} /></Suspense>}
-      {(foodOpen || foodOrderId) && (
-        <Suspense fallback={null}>
-          <FoodOrder
-            open={foodOpen}
-            onClose={() => setFoodOpen(false)}
-            orderId={foodOrderId}
-            onOrderId={setFoodOrderId}
-            here={onPlan && marker && fix ? { lat: fix.lat, lng: fix.lng, x: marker.pt[0], y: marker.pt[1] } : null}
-            locating={locating}
-            onLocate={onLocateTap}
-            sitePhone={SITE_CONTACT?.phone}
-          />
-        </Suspense>
-      )}
 
       <LoadingSplash done={ready} />
 

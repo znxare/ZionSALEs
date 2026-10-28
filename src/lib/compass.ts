@@ -8,11 +8,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 //    permission prompt, which must come from a tap (see `request`).
 //
 // Readings arrive up to 60 times a second and jitter, so they are low-passed on the unit circle
-// (no jump at 359 -> 0) before being handed on at no more than ~30 updates a second.
+// (no jump at 359 -> 0) before being handed on at no more than ~15 updates a second.
 
 const RAD = Math.PI / 180;
 const SMOOTH_SECONDS = 0.08;
-const MIN_STEP_DEG = 0.4;
+const MIN_STEP_DEG = 0.8;
 
 type OrientationEventIOS = DeviceOrientationEvent & { webkitCompassHeading?: number; webkitCompassAccuracy?: number };
 type DeviceOrientationStatic = typeof DeviceOrientationEvent & { requestPermission?: () => Promise<'granted' | 'denied'> };
@@ -83,10 +83,10 @@ export function useDeviceHeading(enabled: boolean): { heading: number | null; re
       vx += (Math.cos(h * RAD) - vx) * k;
       vy += (Math.sin(h * RAD) - vy) * k;
       have = true;
-      if (now - lastEmit < 33) {
+      if (now - lastEmit < 66) {
         // Too soon after the last update: send the latest value shortly, so the final reading of a
         // turn is never dropped (a still phone stops sending events).
-        if (!trailing) trailing = window.setTimeout(() => { trailing = 0; emit(); }, 36);
+        if (!trailing) trailing = window.setTimeout(() => { trailing = 0; emit(); }, 70);
         return;
       }
       emit();
