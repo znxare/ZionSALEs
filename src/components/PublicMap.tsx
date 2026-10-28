@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Moon, Sun, Compass as CompassIcon, CornerUpRight, Flag, Loader2, Navigation, Share2, Search, MoreHorizontal, X as CloseIcon, Sparkles, Megaphone } from 'lucide-react';
-import { MasterPlanBoard, type AdPin, type MapFocus, type TourMarker } from './LiveInventoryBoard';
+import { Check, Moon, Sun, LocateFixed, CornerUpRight, Flag, Loader2, Navigation, Share2, Search, MoreHorizontal, X as CloseIcon, Sparkles, Megaphone } from 'lucide-react';
+import { MasterPlanBoard, coverLayerSize, type AdPin, type MapFocus, type TourMarker } from './LiveInventoryBoard';
 import type { HoleReport } from './HoleByHole';
 import { useMapLayers } from '@/lib/mapLayers';
 import { DirectionsControls, type DirectionsPhase, type DirectionsView } from './Directions';
@@ -193,7 +193,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
     const delta = ((marker.heading - turn.current) % 360 + 540) % 360 - 180;
     if (Math.abs(delta) >= 0.3) turn.current += delta;
   }
-  const rotation = headingUp && onPlan ? turn.current : 0;
+  const rotation = headingUp && onPlan && phase !== 'preview' ? turn.current : 0;
 
   useEffect(() => {
     if (!locating || !fix || !tf) return;
@@ -247,9 +247,16 @@ export default function PublicMap({ toId }: { toId?: string }) {
     if (phase !== 'preview' || !dirView.route || dirView.route.length < 2) return;
     const xs = dirView.route.map((q) => q[0]), ys = dirView.route.map((q) => q[1]);
     const w = Math.max(...xs) - Math.min(...xs), h = Math.max(...ys) - Math.min(...ys);
-    const zoom = Math.min(3, Math.max(1.2, 0.7 * Math.min(100 / Math.max(w, 4), 100 / Math.max(h, 4))));
+    // Fit the whole route (and the destination pin above its end) into the clear space between the
+    // search bar / logo at the top and the route card at the bottom.
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const layer = coverLayerSize(vw, vh);
+    const top = 120, bottom = Math.min(vh * 0.42, 260), side = 36;
+    const boxW = vw - side * 2, boxH = Math.max(120, vh - top - bottom - 40);
+    const zoomMin = Math.min(1, vw / layer.width, vh / layer.height);
+    const zoom = Math.min(3, Math.max(zoomMin, Math.min(boxW / ((Math.max(w, 2) / 100) * layer.width), boxH / ((Math.max(h, 2) / 100) * layer.height))));
     setFollow(false);
-    setFocus({ pt: [(Math.max(...xs) + Math.min(...xs)) / 2, (Math.max(...ys) + Math.min(...ys)) / 2 + 4], zoom, exact: true, nonce: Date.now() });
+    setFocus({ pt: [(Math.max(...xs) + Math.min(...xs)) / 2, (Math.max(...ys) + Math.min(...ys)) / 2], zoom, offsetY: (top + 20 - bottom) / 2, exact: true, nonce: Date.now() });
   }, [phase, destX, destY]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The opening: a greeting for the time of day, and the map gliding in to the main gate (once per visit).
@@ -453,18 +460,18 @@ export default function PublicMap({ toId }: { toId?: string }) {
         )}
         <button onClick={onLocateTap} aria-label={locating ? 'Centre the map on my location' : 'Show my location'} className={fab}>
           {locating && !fix ? (
-            <Loader2 className="h-6 w-6 animate-spin text-[#f26a35]" />
+            <Loader2 className="h-6 w-6 animate-spin text-[#1a73e8]" />
           ) : locating && fix && follow ? (
-            <Navigation className="h-6 w-6 fill-[#f26a35] text-[#f26a35]" />
+            <Navigation className="h-6 w-6 fill-[#1a73e8] text-[#1a73e8]" />
           ) : (
-            <CompassIcon className={`h-6 w-6 sm:h-7 sm:w-7 ${locating ? 'text-[#f05a22]' : ''}`} strokeWidth={1.8} />
+            <LocateFixed className={`h-6 w-6 sm:h-7 sm:w-7 ${locating ? 'text-[#1a73e8]' : 'text-[#5b5a4c]'}`} strokeWidth={1.9} />
           )}
         </button>
       </div>
 
       <WaterCautionBanner alert={waterAlert} top={navigating ? 'top-[10rem]' : undefined} />
 
-      <Compass rotation={rotation} facing={locating ? facing : null} weak={locating && compass.weak} headingUp={headingUp} onToggle={() => setHeadingUp((v) => !v)} top={navigating ? 'top-[9.6rem]' : undefined} />
+      {locating && <Compass rotation={rotation} facing={facing} weak={compass.weak} headingUp={headingUp} onToggle={() => setHeadingUp((v) => !v)} top={navigating ? 'top-[9.6rem]' : undefined} />}
 
       <DirectionsControls
         key={exitDest?.id ?? 'dir'}

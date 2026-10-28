@@ -25,15 +25,15 @@ export function MapInfoCard({ className = '' }: { className?: string }) {
 
   return (
     <div data-dock="left" className={`pointer-events-auto [@media(max-height:460px)]:hidden ${className}`}>
-      <div className="flex animate-slide-up items-stretch overflow-hidden rounded-[22px] bg-[#fbf8f1]/[0.97] text-[#26231f] shadow-[0_14px_34px_-14px_rgba(38,35,31,0.45)] ring-1 ring-black/[0.06]">
+      <div className="flex animate-slide-up items-stretch overflow-hidden rounded-[22px] bg-[#fbf8f1] text-[#26231f] shadow-[0_6px_20px_-8px_rgba(38,35,31,0.32)] ring-1 ring-black/[0.05]">
         <div className="flex min-w-0 flex-1 items-center gap-3 py-2.5 pl-3 pr-3">
-          <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl ${a.isDay ? 'bg-gradient-to-br from-[#ffd9bf] to-[#f7a46f] text-[#b4400f]' : 'bg-gradient-to-br from-[#2c3a52] to-[#16203a] text-[#e8e2cf]'}`}>
+          <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl ${a.isDay ? 'bg-[#ffe6d4] text-[#c2410c]' : 'bg-[#22304a] text-[#e8e2cf]'}`}>
             <Sky className="h-6 w-6" strokeWidth={1.8} />
           </div>
           <div className="min-w-0">
             <div className="flex items-baseline gap-1.5">
               <span className="font-serif text-[30px] font-semibold leading-none tabular-nums">{Math.round(a.tempC)}°</span>
-              <span className="truncate text-[12px] font-semibold text-[#8a6a4a]">{feelsWord(a.feelsC)}</span>
+              <span className="hidden truncate text-[12px] font-semibold text-[#8a6a4a] min-[400px]:inline">{feelsWord(a.feelsC)}</span>
             </div>
             <div className="mt-0.5 truncate text-[12px] text-[#5b5a4c]">{skyWord(a.code, a.isDay)} · feels {Math.round(a.feelsC)}°</div>
           </div>

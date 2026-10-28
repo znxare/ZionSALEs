@@ -290,6 +290,13 @@ export default function LiveInventoryBoard() {
 }
 
 const MAP_RATIO = 3369.9 / 2383.8;
+
+/** The un-zoomed size, in px, of a full-screen turnable map (see ZoomPanMap's `layer`), for framing things from outside. */
+export function coverLayerSize(width: number, height: number): Size {
+  const diag = Math.hypot(width, height);
+  const w = Math.max(diag, diag * MAP_RATIO);
+  return { width: w, height: w / MAP_RATIO };
+}
 const ZOOM_MIN = 1;
 const ZOOM_MAX = 8;
 
@@ -547,8 +554,11 @@ function ZoomPanMap({
   const cos = Math.cos(rad), sin = Math.sin(rad);
   const unturn = (dx: number, dy: number) => ({ x: dx * cos - dy * sin, y: dx * sin + dy * cos });
 
+  // A full-screen turnable map is bigger than the screen at zoom 1 (so its corners never show while it
+  // turns); it may zoom out further, until the whole estate fits on screen.
   function clampZoom(z: number) {
-    return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
+    const min = cover && turnable && layer.width > 0 ? Math.min(ZOOM_MIN, size.width / layer.width, size.height / layer.height) : ZOOM_MIN;
+    return Math.min(ZOOM_MAX, Math.max(min, z));
   }
 
   // Un-zoomed map layer: the viewport itself, or — with `cover` — the smallest
@@ -705,7 +715,7 @@ function ZoomPanMap({
     panAcc.current = { x: 0, y: 0 };
     pinchNext.current = null;
     samples.current = [];
-    e.currentTarget.setPointerCapture(e.pointerId);
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* the pointer already ended */ }
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.current.size === 1) {
       dragStart.current = { x: e.clientX, y: e.clientY };
@@ -733,11 +743,13 @@ function ZoomPanMap({
       } else {
         dragged.current = true;
         onUserMove?.();
-        const { d0, m, startZoom, startDist } = pinch.current;
+        const { m, startZoom, startDist } = pinch.current;
         const z = clampZoom(startZoom * (dist / startDist));
+        const r = viewportRef.current?.getBoundingClientRect();
+        const d = unturn((pts[0].x + pts[1].x) / 2 - (r?.left ?? 0) - size.width / 2, (pts[0].y + pts[1].y) / 2 - (r?.top ?? 0) - size.height / 2);
         pinchNext.current = () => {
           setZoom(z);
-          setPan(clampPan({ x: d0.x - z * (m.x - layer.width / 2), y: d0.y - z * (m.y - layer.height / 2) }, z));
+          setPan(clampPan({ x: d.x - z * (m.x - layer.width / 2), y: d.y - z * (m.y - layer.height / 2) }, z));
         };
         queueFrame();
       }
@@ -933,6 +945,8 @@ function planLevelFor(view: ViewState): number {
   return i === -1 ? PLAN_LEVELS.length - 1 : i;
 }
 
+type PlanTile = { key: string; src: string; style: React.CSSProperties };
+
 function MasterPlanImage({ view, loaded, onLoad }: { view: ViewState; loaded: boolean; onLoad: () => void }) {
   // Switch to a sharper level only once zooming settles, so a pinch doesn't
   // fire off tile requests for every in-between zoom.
@@ -949,7 +963,7 @@ function MasterPlanImage({ view, loaded, onLoad }: { view: ViewState; loaded: bo
   useEffect(() => { if (level !== 1) setL1Ready(false); }, [level]);
 
   const lvl = PLAN_LEVELS[level];
-  let tiles: { key: string; src: string; style: React.CSSProperties }[] = [];
+  let tiles: PlanTile[] = [];
   if (lvl.tiled && view.size.width > 0) {
     // Visible part of the map, as fractions of its width/height (plus half a
     // tile of margin so panning doesn't show unloaded edges).
@@ -977,11 +991,32 @@ function MasterPlanImage({ view, loaded, onLoad }: { view: ViewState; loaded: bo
   }
   if (!lvl.tiled) tiles = [];
 
+  // No blurry flash when the zoom crosses into another level: the level that was showing stays
+  // underneath until the new level's tiles in view have loaded (or 2.5 s, whichever comes first).
+  const tilesAt = useRef<Record<number, PlanTile[]>>({});
+  tilesAt.current[level] = tiles;
+  const prevLevel = useRef(level);
+  const [under, setUnder] = useState<{ level: number; tiles: PlanTile[] } | null>(null);
+  const loadedKeys = useRef(new Set<string>());
+  useEffect(() => {
+    if (prevLevel.current === level) return;
+    const was = prevLevel.current;
+    prevLevel.current = level;
+    setUnder({ level: was, tiles: tilesAt.current[was] ?? [] });
+    const t = window.setTimeout(() => setUnder(null), 2500);
+    return () => window.clearTimeout(t);
+  }, [level]);
+  const tileLoaded = (key: string) => {
+    loadedKeys.current.add(key);
+    if (under && tilesAt.current[level]?.every((t) => loadedKeys.current.has(t.key))) setUnder(null);
+  };
+  useEffect(() => { if (under && level === 1 && l1Ready) setUnder(null); }, [under, level, l1Ready]);
+
   return (
     <>
       {/* Light picture: always under the zoomed-in tiles (it fills any tile still loading), and
           under the middle picture only until that one is ready. */}
-      {!(level === 1 && l1Ready) && (
+      {!((level === 1 || under?.level === 1) && l1Ready) && (
         <img
           src="/master-plan/l0.webp"
           alt="Zion Hills master plan"
@@ -990,12 +1025,15 @@ function MasterPlanImage({ view, loaded, onLoad }: { view: ViewState; loaded: bo
           draggable={false}
         />
       )}
-      {/* Middle picture only at its own level — never kept underneath the sharp tiles. */}
-      {level === 1 && (
+      {/* Middle picture at its own level, and briefly underneath while the sharp tiles load. */}
+      {(level === 1 || under?.level === 1) && (
         <img src="/master-plan/l1.webp" alt="" aria-hidden onLoad={() => setL1Ready(true)} className="absolute inset-0 h-full w-full" draggable={false} />
       )}
+      {under && under.level !== level && under.tiles.map((t) => (
+        <img key={`u-${t.key}`} src={t.src} alt="" aria-hidden decoding="async" className="absolute" style={t.style} draggable={false} />
+      ))}
       {tiles.map((t) => (
-        <img key={t.key} src={t.src} alt="" aria-hidden decoding="async" className="absolute" style={t.style} draggable={false} />
+        <img key={t.key} src={t.src} alt="" aria-hidden decoding="async" onLoad={() => tileLoaded(t.key)} className="absolute" style={t.style} draggable={false} />
       ))}
     </>
   );
@@ -1036,13 +1074,17 @@ function PlotShapesBase({ plots, highlight, hoverId, selectedId, large, waterAle
             key={p.id}
             points={outlineOf(p).map(([x, y]) => `${x},${y}`).join(' ')}
             fill={dim ? '#ffffff' : c.fill}
-            fillOpacity={dim ? 0.08 : hot ? 0.75 : 0.5}
             stroke={dim ? '#9ca3af' : c.stroke}
-            strokeOpacity={dim ? 0.5 : 1}
-            strokeWidth={hot ? (large ? 4 : 3) : large ? 2.5 : 1.75}
             vectorEffect="non-scaling-stroke"
             strokeLinejoin="round"
-                       style={glow ? { filter: `drop-shadow(0 0 3px ${c.fill})` } : undefined}
+            // Set as styles so picking / un-picking a plot fades rather than snaps.
+            style={{
+              fillOpacity: dim ? 0.08 : hot ? 0.72 : 0.42,
+              strokeOpacity: dim ? 0.5 : hot ? 1 : 0.9,
+              strokeWidth: hot ? (large ? 3.5 : 3) : large ? 2 : 1.5,
+              transition: 'fill-opacity 180ms ease, stroke-width 180ms ease',
+              filter: glow ? `drop-shadow(0 0 3px ${c.fill})` : undefined,
+            }}
           />
         );
       })}
@@ -1189,13 +1231,40 @@ export function MasterPlanBoard({
           const safe = publicView ? (viewport.width < 640 ? { top: 100, bottom: 170, right: 72, left: 84 } : { top: 80, bottom: 130, right: 96, left: 90 }) : null;
           // Labels stay upright even when the map is turned (heading-up).
           const upright = turned ? { transform: `rotate(${turned}deg)` } : undefined;
+          const taken: { x0: number; y0: number; x1: number; y1: number }[] = [];
+          /** Claim a label's box (centre x, y in px); false if it would overlap one already placed. */
+          const claim = (x: number, y: number, w: number, h: number, force = false) => {
+            const b = { x0: x - w / 2 - 3, y0: y - h / 2 - 3, x1: x + w / 2 + 3, y1: y + h / 2 + 3 };
+            if (!force && taken.some((t) => b.x0 < t.x1 && b.x1 > t.x0 && b.y0 < t.y1 && b.y1 > t.y0)) return false;
+            taken.push(b);
+            return true;
+          };
+          const textW = (t: string, px = 6.4) => t.length * px + 24;
+          if (destination) { const [dx, dy] = toScreen(destination.pt); claim(dx, dy + 14, textW(destination.label, 7), 22, true); claim(dx, dy - 16, 26, 34, true); }
+          const placeShown = places.map((pl) => { const [px, py] = toScreen(pl.pt); return claim(px, py, textW(pl.label, 6), 20); });
+          const adLabel = new Set<string>();
+          for (const ad of adPins) {
+            const picked = ad.id === selectedAdId;
+            if (!(picked || (ad.featured && zoom >= 2.4))) continue;
+            const [ax, ay] = toScreen(ad.pt);
+            if (claim(ax, ay - 22, textW(ad.label, 6.2), 24, picked)) adLabel.add(ad.id);
+          }
           const extras = (
             <>
               {routePts && routePts.length > 1 && (
                 <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" style={{ zIndex: 15 }}>
-                  <polyline points={routePts.map((q) => toScreen(q).join(',')).join(' ')} fill="none" stroke="white" strokeWidth={11} strokeLinecap="round" strokeLinejoin="round" />
-                  <polyline points={routePts.map((q) => toScreen(q).join(',')).join(' ')} fill="none" stroke={offRoad ? '#dc2626' : '#f05a22'} strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" />
-                  <polyline points={routePts.map((q) => toScreen(q).join(',')).join(' ')} fill="none" stroke="white" strokeOpacity={0.7} strokeWidth={2} strokeDasharray="2 10" strokeLinecap="round" className={shownMarker ? undefined : 'animate-route-flow'} />
+                  {(() => {
+                    const line = routePts.map((q) => toScreen(q).join(',')).join(' ');
+                    return (
+                      <>
+                        <polyline points={line} fill="none" stroke="white" strokeOpacity={0.85} strokeWidth={12} strokeLinecap="round" strokeLinejoin="round" />
+                        <polyline points={line} fill="none" stroke={offRoad ? '#991b1b' : '#b4400f'} strokeWidth={9} strokeLinecap="round" strokeLinejoin="round" />
+                        <polyline points={line} fill="none" stroke={offRoad ? '#dc2626' : '#f05a22'} strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" />
+                        {!shownMarker && <polyline points={line} fill="none" stroke="white" strokeOpacity={0.75} strokeWidth={1.6} strokeDasharray="1.5 11" strokeLinecap="round" className="animate-route-flow" />}
+                        {!shownMarker && (() => { const [sx, sy] = toScreen(routePts[0]); return <circle cx={sx} cy={sy} r={6} fill="white" stroke="#26231f" strokeWidth={3} />; })()}
+                      </>
+                    );
+                  })()}
                 </svg>
               )}
               <Suspense fallback={null}>
@@ -1239,7 +1308,7 @@ export function MasterPlanBoard({
                       onPointerDown={(e) => e.stopPropagation()}
                       onClick={(e) => { e.stopPropagation(); onHoleTap?.(h.n); }}
                       aria-label={`Hole ${h.n}`}
-                      className={`pointer-events-auto absolute grid h-9 w-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full font-serif text-[19px] font-bold leading-none shadow-[0_8px_16px_-6px_rgba(5,14,9,0.7)] ring-[1.5px] transition ${picked ? 'scale-110 bg-gradient-to-br from-[#f7733f] to-[#d9480f] text-white ring-[#ffd9bf]' : 'bg-[#1f2a24] text-[#ffd9bf] ring-[#e3d8c2]'}`}
+                      className={`pointer-events-auto absolute grid h-9 w-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full font-serif text-[19px] font-bold leading-none shadow-[0_3px_8px_-2px_rgba(5,14,9,0.55)] ring-[1.5px] transition duration-200 ${picked ? 'scale-110 bg-[#f05a22] text-white ring-white' : 'bg-[#1f2a24] text-[#ffd9bf] ring-[#e3d8c2]'}`}
                     >
                       {h.n}
                     </button>
@@ -1261,31 +1330,31 @@ export function MasterPlanBoard({
                       onPointerDown={(e) => e.stopPropagation()}
                       onClick={(e) => { e.stopPropagation(); onAdTap?.(ad.id); }}
                       aria-label={`${ad.label}${ad.sub ? ` — ${ad.sub}` : ''}`}
-                      className="pointer-events-auto absolute flex -translate-x-1/2 -translate-y-full flex-col items-center"
+                      className={`pointer-events-auto absolute flex -translate-x-1/2 flex-col items-center ${adLabel.has(ad.id) ? '-translate-y-full' : '-translate-y-1/2 p-2.5'}`}
                     >
-                      {picked || (ad.featured && zoom >= 2.4) ? (
-                        <span className={`relative flex items-center gap-1 whitespace-nowrap rounded-full px-3 py-1 text-[11px] font-semibold tracking-wide text-white shadow-[0_8px_18px_-6px_rgba(120,40,8,0.7)] ring-[1.5px] ring-[#ffd9bf] ${sponsor ? 'bg-gradient-to-br from-[#1d3a2b] to-[#1f2a24]' : 'bg-gradient-to-br from-[#f7733f] to-[#d9480f]'} ${picked ? 'scale-110' : ''}`}>
-                          {!sponsor && <span className="absolute -inset-1 -z-10 animate-ping rounded-full bg-[#f05a22]/[0.35]" />}
+                      {adLabel.has(ad.id) ? (
+                        <span className={`flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-[3px] text-[11px] font-semibold tracking-wide text-white shadow-[0_2px_6px_-1px_rgba(38,35,31,0.45)] ring-[1.5px] ring-white transition-transform duration-200 ${sponsor ? 'bg-[#1f2a24]' : 'bg-[#f05a22]'} ${picked ? 'scale-110' : ''}`}>
                           {ad.label}
                         </span>
                       ) : (
-                        <span className="h-3 w-3 rounded-full bg-gradient-to-br from-[#f7733f] to-[#d9480f] opacity-90 shadow ring-[1.5px] ring-[#ffd9bf]" />
+                        <span className="h-2.5 w-2.5 rounded-full bg-[#f05a22] shadow-[0_1px_3px_rgba(38,35,31,0.45)] ring-[1.5px] ring-white" />
                       )}
-                      {(picked || (ad.featured && zoom >= 2.4)) && <span className={`h-2 w-px ${sponsor ? 'bg-[#e3d8c2]' : 'bg-[#ffd9bf]'}`} />}
-                      {(picked || (ad.featured && zoom >= 2.4)) && <span className={`h-2 w-2 rounded-full ring-[1.5px] ring-[#ffd9bf] ${sponsor ? 'bg-[#1f2a24]' : 'bg-[#e0541c]'}`} />}
+                      {adLabel.has(ad.id) && <span className="h-1.5 w-px bg-white" />}
+                      {adLabel.has(ad.id) && <span className={`h-2 w-2 rounded-full ring-[1.5px] ring-white ${sponsor ? 'bg-[#1f2a24]' : 'bg-[#f05a22]'}`} />}
                     </button>
                   </div>
                 );
               })}
               {places.map((pl, i) => {
+                if (!placeShown[i]) return null;
                 const [px, py] = toScreen(pl.pt);
                 return (
                   <div key={`pl-${i}`} className="absolute z-20" style={{ left: px, top: py, ...upright, transformOrigin: '0 0' }}>
                     <div
                       title={pl.kind === 'villa' ? `Villa ${pl.label}` : undefined}
-                      className={`absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 whitespace-nowrap rounded-full py-0.5 pl-1 pr-2 text-[11px] font-semibold text-white shadow ring-1 ring-white/30 ${pl.kind === 'villa' ? 'bg-[#f05a22]' : 'bg-[#13261c]/90'}`}
+                      className="absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-white/[0.94] py-[3px] pl-1.5 pr-2.5 text-[11px] font-semibold text-[#26231f] shadow-[0_1px_4px_rgba(38,35,31,0.35)]"
                     >
-                      <span className={`h-2 w-2 rounded-full ${pl.kind === 'villa' ? 'bg-white' : 'bg-[#e9dcc0]'}`} /> {pl.label}
+                      <span className={`h-2 w-2 rounded-full ring-1 ring-white ${pl.kind === 'villa' ? 'bg-[#f05a22]' : 'bg-[#1f3a2b]'}`} /> {pl.label}
                     </div>
                   </div>
                 );
@@ -1294,11 +1363,11 @@ export function MasterPlanBoard({
                 const [dx, dy] = toScreen(destination.pt);
                 return (
                   <div className="absolute z-30" style={{ left: dx, top: dy, ...upright, transformOrigin: '0 0' }}>
-                    <div className="absolute flex -translate-x-1/2 -translate-y-full flex-col items-center" style={{ marginTop: 5 }}>
-                      <div className="whitespace-nowrap rounded-full bg-red-600 px-2.5 py-1 text-[12px] font-bold text-white shadow-lg">{destination.label}</div>
-                      <div className="h-3 w-0.5 bg-red-600" />
-                      <div className="h-2.5 w-2.5 rounded-full bg-red-600 ring-2 ring-white" />
-                    </div>
+                    <svg width="28" height="36" viewBox="0 0 28 36" className="absolute -translate-x-1/2 -translate-y-full drop-shadow-[0_2px_3px_rgba(38,35,31,0.45)]" style={{ marginTop: 1 }}>
+                      <path d="M14 35C14 35 26 21.5 26 13.2A12 12 0 0 0 2 13.2C2 21.5 14 35 14 35Z" fill="#d93025" stroke="#a50e0e" strokeWidth="1" />
+                      <circle cx="14" cy="13" r="4.6" fill="#7a0b0b" fillOpacity="0.55" />
+                    </svg>
+                    <div className="absolute left-0 top-1.5 -translate-x-1/2 whitespace-nowrap text-[12.5px] font-bold text-[#a50e0e] [text-shadow:0_0_3px_#fff,0_0_3px_#fff,0_0_2px_#fff]">{destination.label}</div>
                   </div>
                 );
               })()}
