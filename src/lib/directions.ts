@@ -19,8 +19,9 @@ export interface Place {
 export const AMENITIES: Place[] = [
   { id: 'entry-main', label: 'Main entry gate', kind: 'amenity', pt: [47.0, 79.63] },
   { id: 'clubhouse', label: "Members' Club & Banquet", kind: 'amenity', pt: [40.24, 58.38] },
-  { id: 'practice', label: 'Restaurant', kind: 'amenity', pt: [48.16, 46.93] },
+  { id: 'practice', label: 'Restaurant & Golf Practice', kind: 'amenity', pt: [48.16, 46.93] },
   { id: 'sports', label: 'Sports courts', kind: 'amenity', pt: [43.83, 56.33] },
+  { id: 'service-apts', label: 'Service Apartments', kind: 'amenity', pt: [34.6, 58.9] },
 ];
 
 const HOLE_PTS: Record<number, MapPt> = {
@@ -332,7 +333,7 @@ export function yardagesFrom(pt: MapPt): Yardage[] {
   const pick = (id: string) => AMENITIES.find((a) => a.id === id)!;
   const out: Yardage[] = [
     { label: "Members' Club & Banquet", metres: by(pick('clubhouse').pt) },
-    { label: 'Restaurant', metres: by(pick('practice').pt) },
+    { label: 'Restaurant & Golf Practice', metres: by(pick('practice').pt) },
     { label: 'Sports courts', metres: by(pick('sports').pt) },
     { label: 'Main entry gate', metres: by(pick('entry-main').pt) },
   ];
