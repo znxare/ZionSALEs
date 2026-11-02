@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Navigation2, X, Search, MapPin, Home, Layers, CheckCircle2, Waves, ArrowUp, ArrowUpLeft, ArrowUpRight, CornerUpLeft, CornerUpRight, Undo2, Flag } from 'lucide-react';
+import { Navigation2, X, Search, MapPin, Home, Layers, CheckCircle2, Waves } from 'lucide-react';
 import { AMENITIES, VILLAS, PLOT_PLACES, findRoute, planMetres, describeDistance, type Place } from '@/lib/directions';
 import type { MapPt } from '@/lib/tour';
 import { routeWaterContact, WATER_ROUTE_NOTE_M } from '@/lib/water';
-import { maneuversOf, turnWords, distanceWords, type TurnKind } from '@/lib/turns';
+import { maneuversOf, distanceWords, type TurnKind } from '@/lib/turns';
 import { lxEyebrow, lxGlass, lxIvory, lxOrange } from '@/lib/luxury';
 
 // Directions and map layers, shared by the live tour (from the cart's GPS
@@ -151,16 +151,16 @@ export function DirectionsControls({ from, toGps, offRoad = false, initialDestin
           ) : (
             <div className="flex items-center gap-3">
               {guide && next && !offRoad ? (
-                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-[#f05a22] text-white"><TurnIcon kind={next.kind} className="h-9 w-9" /></div>
+                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-[#f05a22] text-white"><Navigation2 className="h-8 w-8" /></div>
               ) : (
                 <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-white ${live && offRoad ? 'bg-red-600' : 'bg-[#f05a22]'}`}><Navigation2 className="h-5 w-5" /></div>
               )}
               <div className="min-w-0 flex-1">
                 {guide && next && !offRoad ? (
                   <>
-                    <div className="truncate text-[20px] font-extrabold leading-tight text-gray-900">{next.s <= 25 ? 'Now' : `In ${distanceWords(next.s)}`}</div>
-                    <div className="truncate text-[15px] font-bold leading-tight text-[#f05a22]">{next.kind === 'arrive' ? `Arrive at ${dest.label}` : turnWords(next.kind)}</div>
-                    <div className="truncate text-[12px] text-gray-500">{dest.label} · {distanceWords(guide.total)} to go</div>
+                    <div className="truncate text-[20px] font-extrabold leading-tight text-gray-900">{next.kind === 'arrive' && next.s <= 25 ? 'Arriving' : `${distanceWords(guide.total)} to go`}</div>
+                    <div className="truncate text-[15px] font-bold leading-tight text-[#f05a22]">{next.kind === 'arrive' && next.s <= 25 ? dest.label : 'Follow the orange line'}</div>
+                    <div className="truncate text-[12px] text-gray-500">{dest.label}</div>
                   </>
                 ) : (
                   <>
@@ -259,11 +259,6 @@ function PlacePicker({ live, start, onStart, onPick, onClose }: {
   );
 }
 
-function TurnIcon({ kind, className }: { kind: TurnKind; className?: string }) {
-  const Icon = { left: CornerUpLeft, right: CornerUpRight, 'slight-left': ArrowUpLeft, 'slight-right': ArrowUpRight, uturn: Undo2, arrive: Flag }[kind] ?? ArrowUp;
-  return <Icon className={className} strokeWidth={2.5} />;
-}
-
 // ---------------------------------------------------------------------------
 // Google Maps-style panels: a route preview with a Start button, then, once started,
 // the next turn at the top and time / distance / Exit at the bottom.
@@ -313,7 +308,7 @@ function GuidedPanels({ phase, dest, live, origin, start, route, guide, next, of
         >
           <Navigation2 className="h-5 w-5" /> Start
         </button>
-        {!live && <p className="mt-1.5 hidden text-center text-[12px] text-[#8a6a4a] [@media(min-height:700px)]:block">Start uses your location to guide you turn by turn.</p>}
+        {!live && <p className="mt-1.5 hidden text-center text-[12px] text-[#8a6a4a] [@media(min-height:700px)]:block">Start uses your location to guide you along the road.</p>}
       </div>
     );
   }
@@ -340,10 +335,10 @@ function GuidedPanels({ phase, dest, live, origin, start, route, guide, next, of
           </div>
         ) : next ? (
           <div className="flex items-center gap-3">
-            <div className={`grid h-14 w-14 shrink-0 place-items-center rounded-2xl ${lxOrange}`}><TurnIcon kind={next.kind} className="h-10 w-10" /></div>
+            <div className={`grid h-14 w-14 shrink-0 place-items-center rounded-2xl ${lxOrange}`}><Navigation2 className="h-9 w-9" /></div>
             <div className="min-w-0 flex-1">
-              <div className="truncate font-serif text-[34px] font-semibold leading-none">{next.s <= 25 ? 'Now' : distanceWords(next.s)}</div>
-              <div className="mt-1 truncate text-[15px] font-medium leading-tight text-[#f3ead3]/90">{next.kind === 'arrive' ? `Arrive at ${dest.label}` : turnWords(next.kind)}</div>
+              <div className="truncate font-serif text-[34px] font-semibold leading-none">{next.kind === 'arrive' && next.s <= 25 ? 'Arriving' : distanceWords(total ?? next.s)}</div>
+              <div className="mt-1 truncate text-[15px] font-medium leading-tight text-[#f3ead3]/90">{next.kind === 'arrive' && next.s <= 25 ? dest.label : `Follow the orange line to ${dest.label}`}</div>
             </div>
           </div>
         ) : null}
