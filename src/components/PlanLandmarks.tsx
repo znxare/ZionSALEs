@@ -20,11 +20,9 @@ const at = (id: string): [number, number] => AMENITIES.find((a) => a.id === id)!
 
 const LANDMARKS: Landmark[] = [
   { id: 'gate-main', label: 'Main Entry', pt: at('entry-main'), gate: true, minZoom: 0, rank: 10 },
-  { id: 'gate-west', label: 'West Entry', pt: [15.8, 58.47], gate: true, minZoom: 0, rank: 9 },
-  { id: 'clubhouse', label: 'Club House', pt: at('clubhouse'), minZoom: 1.3, rank: 8 },
+  { id: 'clubhouse', label: 'Restaurant', pt: at('clubhouse'), minZoom: 1.3, rank: 8 },
   { id: 'sports', label: 'Sports Courts', pt: at('sports'), minZoom: 1.6, rank: 6 },
-  { id: 'practice', label: 'Golf Practice', pt: at('practice'), minZoom: 1.6, rank: 7 },
-  { id: 'parking', label: 'Parking', pt: [45.07, 74.51], minZoom: 1.6, rank: 5 },
+  { id: 'practice', label: 'Golf Practice', pt: at('practice'), minZoom: 1.3, rank: 7 },
   { id: 'commercial', label: 'Commercial & Residential', pt: [14.89, 54.36], minZoom: 1.8, rank: 4 },
 ];
 
