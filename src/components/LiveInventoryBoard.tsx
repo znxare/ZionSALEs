@@ -9,6 +9,7 @@ import { SAMPLE_PLOTS, PHASES, PLOT_STATUSES, BEDROOM_OPTIONS, STATUS_COLORS, ty
 import { WATER_BODIES } from '@/lib/waterBodies';
 import { useSmoothedAngle } from '@/lib/smoothAngle';
 import { NightLayer } from './NightLayer';
+import { PlanLandmarks, pickLandmarks } from './PlanLandmarks';
 // Optional public-map layers: each is its own download, fetched only the first time it is switched
 // on (Environment effects / Sponsor signs on the public map), so a plain map stays light.
 const WildlifeLayer = lazy(() => import('./WildlifeLayer').then((m) => ({ default: m.WildlifeLayer })));
@@ -116,7 +117,7 @@ export default function LiveInventoryBoard() {
                 window.setTimeout(() => setMapLinkCopied(false), 2000);
               });
             }}
-            title="Copy a link anyone can open — the estate map with directions, no login needed"
+            title="Copy a link anyone can open — the Zion Hills map with directions, no login needed"
             className="flex items-center gap-1.5 rounded-full border border-black/5 bg-white px-3 py-2.5 text-sm font-semibold text-gray-700 card-shadow hover:bg-gray-50 sm:px-3.5"
           >
             <Share2 className="h-4 w-4" /> <span className="hidden sm:inline">{mapLinkCopied ? 'Link copied' : 'Share map'}</span>
@@ -1242,6 +1243,7 @@ export function MasterPlanBoard({
           const textW = (t: string, px = 6.4) => t.length * px + 24;
           if (destination) { const [dx, dy] = toScreen(destination.pt); claim(dx, dy + 14, textW(destination.label, 7), 22, true); claim(dx, dy - 16, 26, 34, true); }
           const placeShown = places.map((pl) => { const [px, py] = toScreen(pl.pt); return claim(px, py, textW(pl.label, 6), 20); });
+          const landmarksShown = pickLandmarks(toScreen, zoom, claim);
           const adLabel = new Set<string>();
           for (const ad of adPins) {
             const picked = ad.id === selectedAdId;
@@ -1345,6 +1347,7 @@ export function MasterPlanBoard({
                   </div>
                 );
               })}
+              <PlanLandmarks shown={landmarksShown} upright={upright} />
               {places.map((pl, i) => {
                 if (!placeShown[i]) return null;
                 const [px, py] = toScreen(pl.pt);

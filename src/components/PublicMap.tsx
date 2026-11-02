@@ -24,7 +24,7 @@ import { SPONSORS } from '@/lib/mapInfo';
 import { lxEyebrow, lxFab, lxGlass, lxIvory, lxOrange } from '@/lib/luxury';
 import { Navigation2, X } from 'lucide-react';
 
-// The estate map for anyone with the link — opens without a login:
+// The Zion Hills map for anyone with the link — opens without a login:
 //
 //   #/map                 the master plan with directions between places
 //   #/map?to=villa-202    the same, with directions to that place already chosen
@@ -404,7 +404,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
       <div className="pointer-events-none absolute inset-x-0 top-0 z-40 flex items-start justify-between gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5">
         <div className="pointer-events-auto flex items-center gap-2.5 py-1 pl-1 pr-3">
           <img id="map-logo" src={LOGO} alt="Zion Hills Golf County" className="h-9 w-auto drop-shadow-[0_0_5px_rgba(255,252,240,0.95)] sm:h-10" />
-          <span className="hidden text-[15px] font-bold tracking-tight text-[#26231f] [text-shadow:0_0_6px_rgba(255,252,240,0.95),0_0_2px_rgba(255,252,240,0.9)] sm:inline">The Estate Map</span>
+          <span className="hidden text-[15px] font-bold tracking-tight text-[#26231f] [text-shadow:0_0_6px_rgba(255,252,240,0.95),0_0_2px_rgba(255,252,240,0.9)] sm:inline">The Zion Hills Map</span>
         </div>
         <div className="flex items-center gap-2">
           <EmergencyButton

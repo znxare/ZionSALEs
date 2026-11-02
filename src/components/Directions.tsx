@@ -166,7 +166,7 @@ export function DirectionsControls({ from, toGps, offRoad = false, initialDestin
                   <>
                     <div className="truncate text-[15px] font-bold text-gray-900">{dest.label}</div>
                     <div className={`truncate text-[13px] ${live && offRoad ? 'font-semibold text-red-600' : 'text-gray-500'}`}>
-                      {!origin ? 'Waiting for your location…' : !route ? 'No road inside the estate to here' : live && offRoad ? "You've left the road — get back on it" : live ? 'Follow the orange line' : `From ${start.label}`}
+                      {!origin ? 'Waiting for your location…' : !route ? 'No road inside Zion Hills to here' : live && offRoad ? "You've left the road — get back on it" : live ? 'Follow the orange line' : `From ${start.label}`}
                     </div>
                   </>
                 )}
@@ -299,7 +299,7 @@ function GuidedPanels({ phase, dest, live, origin, start, route, guide, next, of
             <div className={`${lxEyebrow} text-[#8a6a4a]`}>Your route</div>
             <div className="truncate font-serif text-[22px] font-semibold leading-tight text-[#26231f] sm:text-[24px]">{dest.label}</div>
             <div className="truncate text-[13px] text-[#5b5a4c]">
-              {!route ? 'No road inside the estate to here' : total != null ? `${mins} min \u00b7 ${distanceWords(total)}` : ''}
+              {!route ? 'No road inside Zion Hills to here' : total != null ? `${mins} min \u00b7 ${distanceWords(total)}` : ''}
               {route ? ` \u00b7 ${live ? 'from your location' : `from ${start.label}`}` : ''}
             </div>
             {water}

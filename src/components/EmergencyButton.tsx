@@ -83,7 +83,7 @@ export function EmergencyButton({ position, onPlan, locating, onLocate, onRouteT
               {SITE_CONTACT && (
                 <a href={`tel:${SITE_CONTACT.phone}`} className={`${call} bg-[#26231f] text-[#f3ead3] ring-1 ring-[#e3d8c2]/[0.45]`}>
                   <Phone className="h-5 w-5 shrink-0" />
-                  <span className="flex-1"><span className="block font-serif text-[20px] font-semibold leading-tight">Call {SITE_CONTACT.label}</span><span className="block text-[12px] font-medium text-white/70">{SITE_CONTACT.shown} · estate security</span></span>
+                  <span className="flex-1"><span className="block font-serif text-[20px] font-semibold leading-tight">Call {SITE_CONTACT.label}</span><span className="block text-[12px] font-medium text-white/70">{SITE_CONTACT.shown} · Zion Hills security</span></span>
                 </a>
               )}
             </div>
