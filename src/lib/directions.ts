@@ -18,7 +18,7 @@ export interface Place {
 /** Numbered places from the master plan's legend (positions of its red markers). */
 export const AMENITIES: Place[] = [
   { id: 'entry-main', label: 'Main entry gate', kind: 'amenity', pt: [47.0, 79.63] },
-  { id: 'clubhouse', label: 'Club House', kind: 'amenity', pt: [40.24, 58.38] },
+  { id: 'clubhouse', label: 'Restaurant', kind: 'amenity', pt: [40.24, 58.38] },
   { id: 'practice', label: 'Golf practice facilities', kind: 'amenity', pt: [48.16, 46.93] },
   { id: 'sports', label: 'Sports courts', kind: 'amenity', pt: [43.83, 56.33] },
 ];
@@ -331,7 +331,7 @@ export function yardagesFrom(pt: MapPt): Yardage[] {
   const by = (to: MapPt) => { const r = findRoute(pt, to); return r ? planMetres(r.points) : Infinity; };
   const pick = (id: string) => AMENITIES.find((a) => a.id === id)!;
   const out: Yardage[] = [
-    { label: 'Club House', metres: by(pick('clubhouse').pt) },
+    { label: 'Restaurant', metres: by(pick('clubhouse').pt) },
     { label: 'Golf practice', metres: by(pick('practice').pt) },
     { label: 'Sports courts', metres: by(pick('sports').pt) },
     { label: 'Main entry gate', metres: by(pick('entry-main').pt) },
