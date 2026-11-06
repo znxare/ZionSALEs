@@ -1,13 +1,13 @@
 import type { MapPt } from './tour';
 
 // Who may go where on the public map. Add an area here (points in % of the plan) and the map shades it, labels it
-// and tells a visitor who walks into it.
+// and includes its notice in the small message that appears on its own.
 
 export interface MapArea {
   id: string;
   /** Written on the map. */
   label: string;
-  /** Shown once when a visitor's location enters the area. */
+  /** Part of the small message shown when the map opens and when the visitor arrives. */
   notice: string;
   /** Where the label may sit, most important first. */
   labelAt: MapPt[];
@@ -18,7 +18,7 @@ export const PRIVATE_AREAS: MapArea[] = [
   {
     id: 'golf-course',
     label: 'Golfers only',
-    notice: 'This is the golf course, for golfers only. Please stay on the roads.',
+    notice: 'The golf course is for golfers only. Please stay on the roads.',
     labelAt: [[62.5, 85], [26, 47], [50, 58], [41.5, 33], [66, 73.5], [83, 78]],
     // Traced from the fairways, greens and rough on the master plan; roads, plots and buildings stay outside.
     polygons: [
@@ -36,16 +36,3 @@ export const PRIVATE_AREAS: MapArea[] = [
     ],
   },
 ];
-
-function inside([x, y]: MapPt, poly: MapPt[]): boolean {
-  let hit = false;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const [xi, yi] = poly[i], [xj, yj] = poly[j];
-    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) hit = !hit;
-  }
-  return hit;
-}
-
-export function privateAreaAt(pt: MapPt): MapArea | null {
-  return PRIVATE_AREAS.find((a) => a.polygons.some((p) => inside(pt, p))) ?? null;
-}
