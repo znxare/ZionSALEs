@@ -7,7 +7,6 @@ import {
 import { createPortal } from 'react-dom';
 import { SAMPLE_PLOTS, PHASES, PLOT_STATUSES, BEDROOM_OPTIONS, STATUS_COLORS, type Plot, type PlotStatus } from '@/lib/inventory';
 import { WATER_BODIES } from '@/lib/waterBodies';
-import type { MapArea } from '@/lib/mapAreas';
 import { useSmoothedAngle } from '@/lib/smoothAngle';
 import { NightLayer } from './NightLayer';
 import { PlanLandmarks, pickLandmarks } from './PlanLandmarks';
@@ -1041,7 +1040,7 @@ function MasterPlanImage({ view, loaded, onLoad }: { view: ViewState; loaded: bo
 }
 
 /** Plot outlines drawn on the map (inside the zoomed layer, in % coordinates). */
-function PlotShapesBase({ plots, highlight, hoverId, selectedId, large, waterAlert, areas }: {
+function PlotShapesBase({ plots, highlight, hoverId, selectedId, large, waterAlert }: {
   plots: Plot[];
   highlight: Set<string> | null;
   hoverId: string | null;
@@ -1049,25 +1048,9 @@ function PlotShapesBase({ plots, highlight, hoverId, selectedId, large, waterAle
   large?: boolean;
   /** The lake to outline in red (deep-water caution). */
   waterAlert?: number | null;
-  /** Places not open to everyone, shaded on the map. */
-  areas?: MapArea[];
 }) {
   return (
     <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-      {areas?.flatMap((a) => a.polygons.map((poly, i) => (
-        <polygon
-          key={`${a.id}-${i}`}
-          points={poly.map(([x, y]) => `${x},${y}`).join(' ')}
-          fill="#f05a22"
-          fillOpacity={0.13}
-          stroke="#f05a22"
-          strokeOpacity={0.75}
-          strokeWidth={1.4}
-          strokeDasharray="5 4"
-          strokeLinejoin="round"
-          vectorEffect="non-scaling-stroke"
-        />
-      )))}
       {waterAlert != null && WATER_BODIES[waterAlert] && (
         <polygon
           points={WATER_BODIES[waterAlert].map(([x, y]) => `${x},${y}`).join(' ')}
@@ -1121,7 +1104,7 @@ export type HoleTrail = { n: number; tee: [number, number]; mid: [number, number
 export type TourMarker = { pt: [number, number]; accuracyPct?: number; heading?: number | null };
 
 export function MasterPlanBoard({
-  plots, highlight = null, onSelect, large, selectedId, tooltip = 'internal', bare, cover, publicView, waterAlert = null, privateAreas, wildlife = false, night = 0, daylight = null, ambient = false, scenery = false, onReady, atmosphere = null, rain = 0, adPins = [], selectedAdId = null, onAdTap, holePins = [], holeTrail = null, onHoleTap,
+  plots, highlight = null, onSelect, large, selectedId, tooltip = 'internal', bare, cover, publicView, waterAlert = null, wildlife = false, night = 0, daylight = null, ambient = false, scenery = false, onReady, atmosphere = null, rain = 0, adPins = [], selectedAdId = null, onAdTap, holePins = [], holeTrail = null, onHoleTap,
   marker = null, focus = null, onUserMove, onMapPoint, pins = [], rotation = 0, turnable = false, tilt = 0, markerArrow = false, route = null, places = [], destination = null, offRoad = false,
 }: {
   plots: Plot[];
@@ -1164,8 +1147,6 @@ export function MasterPlanBoard({
   onAdTap?: (id: string) => void;
   /** Deep-water caution: index of the lake the position is close to (outlined in red). */
   waterAlert?: number | null;
-  /** Public map: places not open to everyone, shaded and labelled. */
-  privateAreas?: MapArea[];
   /** Live tour: the cart's position ("You are here"). */
   marker?: TourMarker | null;
   focus?: MapFocus | null;
@@ -1235,7 +1216,7 @@ export function MasterPlanBoard({
             {loaded && scenery && <Suspense fallback={null}><SkyLayer night={night} cloud={(atmosphere?.cloud ?? 30) / 100} sunrise={atmosphere?.sunrise ?? null} sunset={atmosphere?.sunset ?? null} /></Suspense>}
             {loaded && daylight && <Suspense fallback={null}><DaylightLayer light={daylight} night={night} rain={rain} /></Suspense>}
             {loaded && ambient && view.zoom >= 1.7 && <Suspense fallback={null}><CartsLayer night={night} /></Suspense>}
-            {loaded && <PlotShapes plots={plots} highlight={highlight} hoverId={hoverId} selectedId={selectedId} large={large} waterAlert={waterAlert} areas={privateAreas} />}
+            {loaded && <PlotShapes plots={plots} highlight={highlight} hoverId={hoverId} selectedId={selectedId} large={large} waterAlert={waterAlert} />}
           </>
         )}
         overlay={({ zoom, pan, size, viewport, rotation: turned }) => {
@@ -1260,11 +1241,6 @@ export function MasterPlanBoard({
           if (destination) { const [dx, dy] = toScreen(destination.pt); claim(dx, dy + 14, textW(destination.label, 7), 22, true); claim(dx, dy - 16, 26, 34, true); }
           const placeShown = places.map((pl) => { const [px, py] = toScreen(pl.pt); return claim(px, py, textW(pl.label, 6), 20); });
           const landmarksShown = pickLandmarks(toScreen, zoom, claim);
-          const areaLabels = (privateAreas ?? []).flatMap((a) => a.labelAt.flatMap((pt, i) => {
-            const [x, y] = toScreen(pt);
-            const onScreen = x > 40 && y > 12 && x < viewport.width - 40 && y < viewport.height - 12;
-            return onScreen && claim(x, y, textW(a.label, 6.4), 22) ? [{ key: `${a.id}-${i}`, label: a.label, x, y }] : [];
-          }));
           const adLabel = new Set<string>();
           for (const ad of adPins) {
             const picked = ad.id === selectedAdId;
@@ -1367,11 +1343,6 @@ export function MasterPlanBoard({
                 );
               })}
               <PlanLandmarks shown={landmarksShown} upright={upright} />
-              {areaLabels.map((l) => (
-                <div key={l.key} className="pointer-events-none absolute z-20" style={{ left: l.x, top: l.y, ...upright, transformOrigin: '0 0' }}>
-                  <div className="absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full bg-[#f05a22] px-2.5 py-[3px] text-[11px] font-semibold text-white shadow-[0_1px_4px_rgba(38,35,31,0.35)]">{l.label}</div>
-                </div>
-              ))}
               {places.map((pl, i) => {
                 if (!placeShown[i]) return null;
                 const [px, py] = toScreen(pl.pt);

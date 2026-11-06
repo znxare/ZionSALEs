@@ -1,25 +1,19 @@
 import type { MapPt } from './tour';
 
-// Who may go where on the public map. Add an area here (points in % of the plan) and the map shades it, labels it
-// and includes its notice in the small message that appears on its own.
+// Places not open to everyone. Nothing is drawn on the map: when a visitor's location is really inside one, the
+// public map shows its notice. Add an area here (points in % of the plan) to get the same.
 
 export interface MapArea {
   id: string;
-  /** Written on the map. */
-  label: string;
-  /** Part of the small message shown when the map opens and when the visitor arrives. */
+  /** The small message shown when a visitor is inside the area. */
   notice: string;
-  /** Where the label may sit, most important first. */
-  labelAt: MapPt[];
   polygons: MapPt[][];
 }
 
 export const PRIVATE_AREAS: MapArea[] = [
   {
     id: 'golf-course',
-    label: 'Golfers only',
     notice: 'The golf course is for golfers only. Please stay on the roads.',
-    labelAt: [[62.5, 85], [26, 47], [50, 58], [41.5, 33], [66, 73.5], [83, 78]],
     // Traced from the fairways, greens and rough on the master plan; roads, plots and buildings stay outside.
     polygons: [
       [[49.58,76.95],[49.53,77.74],[49.83,78.68],[50.83,80.29],[51.58,81],[54.5,82.65],[56.94,85.04],[69.33,91.44],[69.64,91.4],[70.42,89.91],[70.64,88.1],[70.56,87.12],[69.97,85.71],[68.58,83.67],[68.25,82.8],[68.31,82.1],[68.08,81.78],[64.72,81.51],[64.11,80.8],[63.64,81.23],[62.81,81.19],[61.31,80.49],[60.19,80.41],[59.78,80.02],[56.44,78.99],[55.69,78.52],[51.06,77.11],[50.39,76.36],[49.83,76.52]],
@@ -36,3 +30,16 @@ export const PRIVATE_AREAS: MapArea[] = [
     ],
   },
 ];
+
+function inside([x, y]: MapPt, poly: MapPt[]): boolean {
+  let hit = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i], [xj, yj] = poly[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) hit = !hit;
+  }
+  return hit;
+}
+
+export function privateAreaAt(pt: MapPt): MapArea | null {
+  return PRIVATE_AREAS.find((a) => a.polygons.some((p) => inside(pt, p))) ?? null;
+}

@@ -17,11 +17,11 @@ import { rainLevel } from '@/lib/sky';
 import { WelcomeGreeting, guestFromLink } from './WelcomeGreeting';
 import { useKeepAwake } from '@/lib/wake';
 import { useWaterCaution, WaterCautionBanner } from './WaterCaution';
-import { findPlace, planMetres } from '@/lib/directions';
+import { findPlace, metresFromRoad, planMetres } from '@/lib/directions';
 import { SAMPLE_PLOTS } from '@/lib/inventory';
 import { centroidOf } from '@/lib/plotMap';
 import { PROPERTY_TOUR_LINK } from '@/lib/tourRequest';
-import { PRIVATE_AREAS } from '@/lib/mapAreas';
+import { privateAreaAt } from '@/lib/mapAreas';
 import { pushState, registerInstallWorker, turnOffUpdates, turnOnUpdates, type PushState } from '@/lib/mapPush';
 import { lxEyebrow, lxFab, lxGlass, lxIvory, lxOrange } from '@/lib/luxury';
 import { Navigation2, X } from 'lucide-react';
@@ -42,8 +42,12 @@ const LOGO = '/zion-hills-logo.svg';
 // Separate downloads, fetched only when the visitor switches the layer on (More → layers).
 const HoleByHole = lazy(() => import('./HoleByHole'));
 const RainOverlay = lazy(() => import('./RainOverlay').then((m) => ({ default: m.RainOverlay })));
-const AREA_NOTICE = PRIVATE_AREAS.map((a) => a.notice).join(' ');
-const AREA_NOTICE_KEY = 'zion-map-area-notice';
+/** How far from a road counts as really on the course: real rides on the roads read up to 54 m off the plan's road lines. */
+const ON_COURSE_M = 60;
+/** Readings in a row before believing it, so one wild GPS jump says nothing. */
+const ON_COURSE_READINGS = 3;
+/** Quiet time after the message, so walking along the edge of the course doesn't repeat it. */
+const AREA_NOTICE_GAP_MS = 5 * 60 * 1000;
 const NO_HOLES: HoleReport = { pins: [], trail: null, showing: false };
 const FOLLOW_ZOOM = 2.2;
 // Driving (like Google Maps): closer in when slow, further out when faster, so there is always time to see the next turn.
@@ -328,23 +332,20 @@ export default function PublicMap({ toId }: { toId?: string }) {
     : null;
   const tilt = driveView && follow && onPlan ? DRIVE_TILT : 0;
 
-  // The small who-goes-where message: once a visit when the map opens, and once when the visitor's location first
-  // shows on the estate. GPS can't tell a road from the course beside it, so it never depends on the exact spot.
+  // The small message when a visitor is really on the golf course. Roads beside the course stay quiet.
+  const areaWatch = useRef({ readings: 0, shownAt: 0 });
   useEffect(() => {
-    if (!ready) return;
-    try { if (sessionStorage.getItem(AREA_NOTICE_KEY)) return; } catch { /* storage unavailable */ }
-    const id = window.setTimeout(() => {
-      setNote(AREA_NOTICE);
-      try { sessionStorage.setItem(AREA_NOTICE_KEY, '1'); } catch { /* storage unavailable */ }
-    }, 1200);
-    return () => window.clearTimeout(id);
-  }, [ready]);
-  const arrivedNoticed = useRef(false);
-  useEffect(() => {
-    if (!onPlan || arrivedNoticed.current) return;
-    arrivedNoticed.current = true;
-    setNote(AREA_NOTICE);
-  }, [onPlan]);
+    if (!fix || !marker || !onPlan) return;
+    const watch = areaWatch.current;
+    const area = privateAreaAt(marker.pt);
+    const here = area && metresFromRoad(marker.pt) > ON_COURSE_M ? area : null;
+    watch.readings = here ? watch.readings + 1 : 0;
+    if (here && watch.readings >= ON_COURSE_READINGS && Date.now() - watch.shownAt > AREA_NOTICE_GAP_MS) {
+      watch.shownAt = Date.now();
+      setNote(here.notice);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fix]);
 
   async function onUpdatesTap() {
     setMenuOpen(false);
@@ -394,7 +395,6 @@ export default function PublicMap({ toId }: { toId?: string }) {
           tilt={tilt}
           markerArrow={driveView}
           waterAlert={waterAlert?.index ?? null}
-          privateAreas={phase === 'idle' ? PRIVATE_AREAS : undefined}
           wildlife={env && phase === 'idle'}
           night={night}
           daylight={env ? daylight : null}
