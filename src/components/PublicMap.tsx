@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Moon, Sun, LocateFixed, CornerUpRight, Flag, Loader2, Navigation, Share2, Search, MoreHorizontal, X as CloseIcon, Sparkles, MessageCircle, Bell } from 'lucide-react';
+import { Check, Moon, Sun, LocateFixed, CornerUpRight, Flag, Loader2, Navigation, Share2, Search, MoreHorizontal, X as CloseIcon, Sparkles, MessageCircle, Bell, Lock } from 'lucide-react';
 import { MasterPlanBoard, coverLayerSize, type AdPin, type MapFocus, type TourMarker } from './LiveInventoryBoard';
 import type { HoleReport } from './HoleByHole';
 import { useMapLayers } from '@/lib/mapLayers';
@@ -17,10 +17,11 @@ import { rainLevel } from '@/lib/sky';
 import { WelcomeGreeting, guestFromLink } from './WelcomeGreeting';
 import { useKeepAwake } from '@/lib/wake';
 import { useWaterCaution, WaterCautionBanner } from './WaterCaution';
-import { findPlace, planMetres } from '@/lib/directions';
+import { findPlace, metresFromRoad, OFF_ROAD_M, planMetres } from '@/lib/directions';
 import { SAMPLE_PLOTS } from '@/lib/inventory';
 import { centroidOf } from '@/lib/plotMap';
 import { PROPERTY_TOUR_LINK } from '@/lib/tourRequest';
+import { PRIVATE_AREAS, privateAreaAt } from '@/lib/mapAreas';
 import { pushState, registerInstallWorker, turnOffUpdates, turnOnUpdates, type PushState } from '@/lib/mapPush';
 import { lxEyebrow, lxFab, lxGlass, lxIvory, lxOrange } from '@/lib/luxury';
 import { Navigation2, X } from 'lucide-react';
@@ -79,6 +80,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
   const { layers, set: setLayer } = useMapLayers();
   const holesOn = layers.holes;
   const env = layers.environment;
+  const areasOn = layers.areas;
   const [holeSel, setHoleSel] = useState<number | null>(null);
   const [holeReport, setHoleReport] = useState<HoleReport>(NO_HOLES);
   const [holeFrame, setHoleFrame] = useState(0);
@@ -325,6 +327,14 @@ export default function PublicMap({ toId }: { toId?: string }) {
     : null;
   const tilt = driveView && follow && onPlan ? DRIVE_TILT : 0;
 
+  // A short note when a visitor's location is well inside a private area; GPS drift on a road beside one doesn't count.
+  const areaHere = onPlan && marker && metresFromRoad(marker.pt) > OFF_ROAD_M ? privateAreaAt(marker.pt) : null;
+  const areaHereId = areaHere?.id ?? null;
+  useEffect(() => {
+    if (areaHere) setNote(areaHere.notice);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [areaHereId]);
+
   async function onUpdatesTap() {
     setMenuOpen(false);
     if (updates === 'blocked') { setNote('Notifications are blocked — allow them for this site in your phone settings.'); return; }
@@ -338,7 +348,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
   }
 
   async function share() {
-    const url = `${window.location.origin}/#/map`;
+    const url = `${window.location.origin}/map`;
     const nav = navigator as Navigator & { share?: (d: { title: string; url: string }) => Promise<void> };
     try {
       if (nav.share) { await nav.share({ title: 'Zion Hills Golf County — map & directions', url }); return; }
@@ -373,6 +383,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
           tilt={tilt}
           markerArrow={driveView}
           waterAlert={waterAlert?.index ?? null}
+          privateAreas={areasOn && phase === 'idle' ? PRIVATE_AREAS : undefined}
           wildlife={env && phase === 'idle'}
           night={night}
           daylight={env ? daylight : null}
@@ -454,6 +465,9 @@ export default function PublicMap({ toId }: { toId?: string }) {
                 </button>
                 <button onClick={() => { setLayer('holes', !holesOn); setHoleSel(null); setMenuOpen(false); }} aria-label="Hole by hole" aria-pressed={holesOn} className={`${menuItem} ${holesOn ? '!text-[#f26a35]' : ''}`}>
                   <Flag className="h-4 w-4" strokeWidth={1.8} /> Hole by hole {holesOn && <Check className="h-4 w-4" />}
+                </button>
+                <button onClick={() => { setLayer('areas', !areasOn); setMenuOpen(false); }} aria-label="Private areas" aria-pressed={areasOn} className={`${menuItem} ${areasOn ? '!text-[#f26a35]' : ''}`}>
+                  <Lock className="h-4 w-4" strokeWidth={1.8} /> Private areas {areasOn && <Check className="h-4 w-4" />}
                 </button>
                 {updates !== 'unavailable' && (
                   <button onClick={onUpdatesTap} aria-label="Get updates" aria-pressed={updates === 'on'} className={`${menuItem} ${updates === 'on' ? '!text-[#f26a35]' : ''}`}>

@@ -8,10 +8,12 @@ export interface MapLayers {
   environment: boolean;
   /** Hole-by-hole badges, the hole you are on, and the hole cards. */
   holes: boolean;
+  /** Places not open to everyone, such as the golf course. On unless the visitor turns it off. */
+  areas: boolean;
 }
 
 const KEY = 'zion-map-layers';
-const DEFAULTS: MapLayers = { environment: false, holes: false };
+const DEFAULTS: MapLayers = { environment: false, holes: false, areas: true };
 
 function read(): MapLayers {
   try { return { ...DEFAULTS, ...(JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<MapLayers>) }; } catch { return DEFAULTS; }
