@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Moon, Sun, LocateFixed, CornerUpRight, Flag, Loader2, Navigation, Share2, Search, MoreHorizontal, X as CloseIcon, Sparkles, MessageCircle } from 'lucide-react';
+import { Check, Moon, Sun, LocateFixed, CornerUpRight, Flag, Loader2, Navigation, Share2, Search, MoreHorizontal, X as CloseIcon, Sparkles, MessageCircle, Bell } from 'lucide-react';
 import { MasterPlanBoard, coverLayerSize, type AdPin, type MapFocus, type TourMarker } from './LiveInventoryBoard';
 import type { HoleReport } from './HoleByHole';
 import { useMapLayers } from '@/lib/mapLayers';
@@ -21,6 +21,7 @@ import { findPlace, planMetres } from '@/lib/directions';
 import { SAMPLE_PLOTS } from '@/lib/inventory';
 import { centroidOf } from '@/lib/plotMap';
 import { PROPERTY_TOUR_LINK } from '@/lib/tourRequest';
+import { pushState, registerInstallWorker, turnOffUpdates, turnOnUpdates, type PushState } from '@/lib/mapPush';
 import { lxEyebrow, lxFab, lxGlass, lxIvory, lxOrange } from '@/lib/luxury';
 import { Navigation2, X } from 'lucide-react';
 
@@ -71,6 +72,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
   const [adSel, setAdSel] = useState<string | null>(null);
   const [pickerSignal, setPickerSignal] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [updates, setUpdates] = useState<PushState>(pushState);
   useKeepAwake(); // the screen stays on while the map is open
   const [ready, setReady] = useState(false);
   // The hole layer: numbered badges; tap one for its card. When the visitor is on a hole, only that hole shows.
@@ -118,6 +120,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
 
   useEffect(() => {
     document.title = 'Map & directions · Zion Hills Golf County';
+    registerInstallWorker();
     void loadPublicCalibration().then(setCal);
   }, []);
 
@@ -322,6 +325,18 @@ export default function PublicMap({ toId }: { toId?: string }) {
     : null;
   const tilt = driveView && follow && onPlan ? DRIVE_TILT : 0;
 
+  async function onUpdatesTap() {
+    setMenuOpen(false);
+    if (updates === 'blocked') { setNote('Notifications are blocked — allow them for this site in your phone settings.'); return; }
+    try {
+      const next = await (updates === 'on' ? turnOffUpdates() : turnOnUpdates());
+      setUpdates(next);
+      setNote(next === 'on' ? "You're on the list for Zion Hills updates." : next === 'off' && updates === 'on' ? 'Updates are off.' : null);
+    } catch {
+      setNote("Updates couldn't be changed right now. Please try again.");
+    }
+  }
+
   async function share() {
     const url = `${window.location.origin}/#/map`;
     const nav = navigator as Navigator & { share?: (d: { title: string; url: string }) => Promise<void> };
@@ -440,6 +455,11 @@ export default function PublicMap({ toId }: { toId?: string }) {
                 <button onClick={() => { setLayer('holes', !holesOn); setHoleSel(null); setMenuOpen(false); }} aria-label="Hole by hole" aria-pressed={holesOn} className={`${menuItem} ${holesOn ? '!text-[#f26a35]' : ''}`}>
                   <Flag className="h-4 w-4" strokeWidth={1.8} /> Hole by hole {holesOn && <Check className="h-4 w-4" />}
                 </button>
+                {updates !== 'unavailable' && (
+                  <button onClick={onUpdatesTap} aria-label="Get updates" aria-pressed={updates === 'on'} className={`${menuItem} ${updates === 'on' ? '!text-[#f26a35]' : ''}`}>
+                    <Bell className="h-4 w-4" strokeWidth={1.8} /> Get updates {updates === 'on' && <Check className="h-4 w-4" />}
+                  </button>
+                )}
                 <button onClick={() => { void share(); setMenuOpen(false); }} aria-label="Share this map" className={menuItem}>
                   <Share2 className="h-4 w-4" strokeWidth={1.8} /> Share this map
                 </button>

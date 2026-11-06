@@ -17,7 +17,17 @@
 </head>
   <body>
     <div id="root"><div id="boot-splash" style="position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;background:#f6f1e7"><img src="/zion-hills-logo.svg" alt="" style="height:64px;width:auto" /></div></div>
-    <script>if (!/^#\/map/.test(location.hash)) { var b = document.getElementById('boot-splash'); if (b) b.remove(); }</script>
+    <script>
+      // Only the public map is installable, so the CRM never offers "Install app".
+      if (/^#\/map/.test(location.hash)) {
+        [['manifest', '/manifest.webmanifest'], ['apple-touch-icon', '/icons/apple-touch-icon.png']].forEach(function (l) {
+          var el = document.createElement('link'); el.rel = l[0]; el.href = l[1]; document.head.appendChild(el);
+        });
+        var t = document.createElement('meta'); t.name = 'theme-color'; t.content = '#f05a22'; document.head.appendChild(t);
+      } else {
+        var b = document.getElementById('boot-splash'); if (b) b.remove();
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
