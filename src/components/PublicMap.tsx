@@ -20,7 +20,7 @@ import { useWaterCaution, WaterCautionBanner } from './WaterCaution';
 import { findPlace, planMetres } from '@/lib/directions';
 import { SAMPLE_PLOTS } from '@/lib/inventory';
 import { centroidOf } from '@/lib/plotMap';
-import { GOLF_TOUR_LINK } from '@/lib/tourRequest';
+import { PROPERTY_TOUR_LINK } from '@/lib/tourRequest';
 import { lxEyebrow, lxFab, lxGlass, lxIvory, lxOrange } from '@/lib/luxury';
 import { Navigation2, X } from 'lucide-react';
 
@@ -520,8 +520,8 @@ export default function PublicMap({ toId }: { toId?: string }) {
 
       {phase === 'idle' && !adPlot && !(holesOn && holeReport.showing) && (
         <div className="pointer-events-none absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-3 right-[4.5rem] z-40 flex flex-col gap-2 sm:left-24 sm:right-auto sm:w-[22rem]">
-          <a href={GOLF_TOUR_LINK} target="_blank" rel="noopener noreferrer" className={`pointer-events-auto flex items-center justify-center gap-2 rounded-full py-2.5 text-[14px] font-semibold transition active:scale-[0.98] ${lxOrange}`}>
-            <MessageCircle className="h-[18px] w-[18px]" strokeWidth={2} /> Request 18-hole golf tour
+          <a href={PROPERTY_TOUR_LINK} target="_blank" rel="noopener noreferrer" className={`pointer-events-auto flex items-center justify-center gap-2 rounded-full py-2.5 text-[14px] font-semibold transition active:scale-[0.98] ${lxOrange}`}>
+            <MessageCircle className="h-[18px] w-[18px]" strokeWidth={2} /> Request property tour
           </a>
           <MapInfoCard />
         </div>
