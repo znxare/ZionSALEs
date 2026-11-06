@@ -6,14 +6,12 @@ import { useCallback, useState } from 'react';
 export interface MapLayers {
   /** Weather, sky, light on the water, wildlife, flags and carts. */
   environment: boolean;
-  /** The course sponsors' signs and their pins. */
-  sponsors: boolean;
   /** Hole-by-hole badges, the hole you are on, and the hole cards. */
   holes: boolean;
 }
 
 const KEY = 'zion-map-layers';
-const DEFAULTS: MapLayers = { environment: false, sponsors: false, holes: false };
+const DEFAULTS: MapLayers = { environment: false, holes: false };
 
 function read(): MapLayers {
   try { return { ...DEFAULTS, ...(JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<MapLayers>) }; } catch { return DEFAULTS; }

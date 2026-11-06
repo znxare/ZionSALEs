@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Moon, Sun, LocateFixed, CornerUpRight, Flag, Loader2, Navigation, Share2, Search, MoreHorizontal, X as CloseIcon, Sparkles, Megaphone } from 'lucide-react';
+import { Check, Moon, Sun, LocateFixed, CornerUpRight, Flag, Loader2, Navigation, Share2, Search, MoreHorizontal, X as CloseIcon, Sparkles, MessageCircle } from 'lucide-react';
 import { MasterPlanBoard, coverLayerSize, type AdPin, type MapFocus, type TourMarker } from './LiveInventoryBoard';
 import type { HoleReport } from './HoleByHole';
 import { useMapLayers } from '@/lib/mapLayers';
@@ -20,7 +20,7 @@ import { useWaterCaution, WaterCautionBanner } from './WaterCaution';
 import { findPlace, planMetres } from '@/lib/directions';
 import { SAMPLE_PLOTS } from '@/lib/inventory';
 import { centroidOf } from '@/lib/plotMap';
-import { SPONSORS } from '@/lib/mapInfo';
+import { GOLF_TOUR_LINK } from '@/lib/tourRequest';
 import { lxEyebrow, lxFab, lxGlass, lxIvory, lxOrange } from '@/lib/luxury';
 import { Navigation2, X } from 'lucide-react';
 
@@ -107,7 +107,6 @@ export default function PublicMap({ toId }: { toId?: string }) {
     }
     const ids = new Set(featured.map((f) => f.p.id));
     const pins: AdPin[] = spots.map(({ p, pt }) => ({ id: p.id, pt, kind: 'plot', featured: ids.has(p.id), label: `Plot ${p.plotNo} · can be yours`, sub: `${p.bedrooms} BHK villa · vacant` }));
-    SPONSORS.forEach((s, n) => { if (s.pt) pins.push({ id: `sponsor-${n}`, pt: s.pt, kind: 'sponsor', featured: true, label: s.name, sub: s.tagline }); });
     return pins;
   }, []);
   const adPlot = adSel ? SAMPLE_PLOTS.find((p) => p.id === adSel) ?? null : null;
@@ -363,12 +362,11 @@ export default function PublicMap({ toId }: { toId?: string }) {
           night={night}
           daylight={env ? daylight : null}
           scenery={env}
-          sponsors={layers.sponsors}
           onReady={() => setReady(true)}
           atmosphere={atmosphere}
           rain={env ? rain : 0}
           ambient={env && phase === 'idle'}
-          adPins={phase === 'idle' ? adPins.filter((a) => a.kind !== 'sponsor' || layers.sponsors) : []}
+          adPins={phase === 'idle' ? adPins : []}
           holePins={holesOn ? holeReport.pins : []}
           holeTrail={holesOn ? holeReport.trail : null}
           onHoleTap={openHole}
@@ -438,9 +436,6 @@ export default function PublicMap({ toId }: { toId?: string }) {
               <div className="pointer-events-auto absolute bottom-full right-0 mb-2.5 flex flex-col items-end gap-2" style={{ animation: 'zh-bubble .2s ease-out both' }}>
                 <button onClick={() => { setLayer('environment', !env); setMenuOpen(false); }} aria-label="Environment effects" aria-pressed={env} className={`${menuItem} ${env ? '!text-[#f26a35]' : ''}`}>
                   <Sparkles className="h-4 w-4" strokeWidth={1.8} /> Environment effects {env && <Check className="h-4 w-4" />}
-                </button>
-                <button onClick={() => { setLayer('sponsors', !layers.sponsors); setMenuOpen(false); }} aria-label="Sponsor signs" aria-pressed={layers.sponsors} className={`${menuItem} ${layers.sponsors ? '!text-[#f26a35]' : ''}`}>
-                  <Megaphone className="h-4 w-4" strokeWidth={1.8} /> Sponsor signs {layers.sponsors && <Check className="h-4 w-4" />}
                 </button>
                 <button onClick={() => { setLayer('holes', !holesOn); setHoleSel(null); setMenuOpen(false); }} aria-label="Hole by hole" aria-pressed={holesOn} className={`${menuItem} ${holesOn ? '!text-[#f26a35]' : ''}`}>
                   <Flag className="h-4 w-4" strokeWidth={1.8} /> Hole by hole {holesOn && <Check className="h-4 w-4" />}
@@ -524,7 +519,12 @@ export default function PublicMap({ toId }: { toId?: string }) {
       )}
 
       {phase === 'idle' && !adPlot && !(holesOn && holeReport.showing) && (
-        <MapInfoCard className="absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-3 right-[4.5rem] z-40 sm:left-24 sm:right-auto sm:w-[22rem]" />
+        <div className="pointer-events-none absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-3 right-[4.5rem] z-40 flex flex-col gap-2 sm:left-24 sm:right-auto sm:w-[22rem]">
+          <a href={GOLF_TOUR_LINK} target="_blank" rel="noopener noreferrer" className={`pointer-events-auto flex items-center justify-center gap-2 rounded-full py-2.5 text-[14px] font-semibold transition active:scale-[0.98] ${lxOrange}`}>
+            <MessageCircle className="h-[18px] w-[18px]" strokeWidth={2} /> Request 18-hole golf tour
+          </a>
+          <MapInfoCard />
+        </div>
       )}
 
       {env && rain > 0.02 && <Suspense fallback={null}><RainOverlay level={rain} /></Suspense>}

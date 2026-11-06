@@ -11,14 +11,13 @@ import { useSmoothedAngle } from '@/lib/smoothAngle';
 import { NightLayer } from './NightLayer';
 import { PlanLandmarks, pickLandmarks } from './PlanLandmarks';
 // Optional public-map layers: each is its own download, fetched only the first time it is switched
-// on (Environment effects / Sponsor signs on the public map), so a plain map stays light.
+// on (Environment effects on the public map), so a plain map stays light.
 const WildlifeLayer = lazy(() => import('./WildlifeLayer').then((m) => ({ default: m.WildlifeLayer })));
 const DaylightLayer = lazy(() => import('./DaylightLayer').then((m) => ({ default: m.DaylightLayer })));
 const CartsLayer = lazy(() => import('./CartsLayer').then((m) => ({ default: m.CartsLayer })));
 const AmbientLayer = lazy(() => import('./AmbientLayer').then((m) => ({ default: m.AmbientLayer })));
 const TerrainLayer = lazy(() => import('./TerrainLayer').then((m) => ({ default: m.TerrainLayer })));
 const SkyLayer = lazy(() => import('./SkyLayer').then((m) => ({ default: m.SkyLayer })));
-const SponsorSigns = lazy(() => import('./SponsorSigns').then((m) => ({ default: m.SponsorSigns })));
 import type { Atmosphere } from '@/lib/mapInfo';
 import type { Daylight } from '@/lib/daylight';
 import { BUDGETS, inBudget, outlineOf, centroidOf, plotAt, SHAPE_COLORS, plotShareLink, type BudgetId } from '@/lib/plotMap';
@@ -1095,8 +1094,8 @@ function PlotShapesBase({ plots, highlight, hoverId, selectedId, large, waterAle
 
 const PlotShapes = memo(PlotShapesBase);
 
-/** An advert drawn on the map itself: a vacant plot ("can be yours") or a sponsor's board. */
-export type AdPin = { id: string; pt: [number, number]; label: string; sub?: string; featured?: boolean; kind?: 'plot' | 'sponsor' };
+/** An advert drawn on the map itself: a vacant plot ("can be yours"). */
+export type AdPin = { id: string; pt: [number, number]; label: string; sub?: string; featured?: boolean };
 
 /** The hole layer: a numbered badge per hole, and (for the hole you are on / have tapped) its line from tee to green. */
 export type HolePin = { n: number; pt: [number, number] };
@@ -1105,7 +1104,7 @@ export type HoleTrail = { n: number; tee: [number, number]; mid: [number, number
 export type TourMarker = { pt: [number, number]; accuracyPct?: number; heading?: number | null };
 
 export function MasterPlanBoard({
-  plots, highlight = null, onSelect, large, selectedId, tooltip = 'internal', bare, cover, publicView, waterAlert = null, wildlife = false, night = 0, daylight = null, ambient = false, scenery = false, sponsors = false, onReady, atmosphere = null, rain = 0, adPins = [], selectedAdId = null, onAdTap, holePins = [], holeTrail = null, onHoleTap,
+  plots, highlight = null, onSelect, large, selectedId, tooltip = 'internal', bare, cover, publicView, waterAlert = null, wildlife = false, night = 0, daylight = null, ambient = false, scenery = false, onReady, atmosphere = null, rain = 0, adPins = [], selectedAdId = null, onAdTap, holePins = [], holeTrail = null, onHoleTap,
   marker = null, focus = null, onUserMove, onMapPoint, pins = [], rotation = 0, turnable = false, tilt = 0, markerArrow = false, route = null, places = [], destination = null, offRoad = false,
 }: {
   plots: Plot[];
@@ -1131,8 +1130,6 @@ export function MasterPlanBoard({
   onReady?: () => void;
   /** The ground and sky around the estate: contours, cloud shadows, sun / moon, stars, birds, kites. */
   scenery?: boolean;
-  /** Public map: the course sponsors' signs (a separate layer the visitor can switch on). */
-  sponsors?: boolean;
   atmosphere?: Atmosphere | null;
   /** 0..1 how hard it is raining (ripples on the lakes). */
   rain?: number;
@@ -1270,7 +1267,6 @@ export function MasterPlanBoard({
                 </svg>
               )}
               <Suspense fallback={null}>
-                {sponsors && publicView && <SponsorSigns toScreen={toScreen} zoom={zoom} upright={upright} safe={safe} viewport={viewport} />}
                 {ambient && <AmbientLayer toScreen={toScreen} zoom={zoom} upright={upright} sun={1 - night} safe={safe} viewport={viewport} />}
                 {wildlife && zoom >= 1.8 && <WildlifeLayer toScreen={toScreen} zoom={zoom} upright={upright} night={night} safe={safe} viewport={viewport} />}
               </Suspense>
@@ -1321,7 +1317,6 @@ export function MasterPlanBoard({
                 const picked = ad.id === selectedAdId;
                 if (!ad.featured && !picked && zoom < 1.9) return null;
                 const [ax, ay] = toScreen(ad.pt);
-                const sponsor = ad.kind === 'sponsor';
                 // Keep adverts out of the zones the buttons and cards live in.
                 const clear = !safe || (ay > safe.top && ay < viewport.height - safe.bottom && ax < viewport.width - safe.right && ax > safe.left);
                 if (!clear && !picked) return null;
@@ -1335,14 +1330,14 @@ export function MasterPlanBoard({
                       className={`pointer-events-auto absolute flex -translate-x-1/2 flex-col items-center ${adLabel.has(ad.id) ? '-translate-y-full' : '-translate-y-1/2 p-2.5'}`}
                     >
                       {adLabel.has(ad.id) ? (
-                        <span className={`flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-[3px] text-[11px] font-semibold tracking-wide text-white shadow-[0_2px_6px_-1px_rgba(38,35,31,0.45)] ring-[1.5px] ring-white transition-transform duration-200 ${sponsor ? 'bg-[#1f2a24]' : 'bg-[#f05a22]'} ${picked ? 'scale-110' : ''}`}>
+                        <span className={`flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-[3px] text-[11px] font-semibold tracking-wide text-white shadow-[0_2px_6px_-1px_rgba(38,35,31,0.45)] ring-[1.5px] ring-white transition-transform duration-200 bg-[#f05a22] ${picked ? 'scale-110' : ''}`}>
                           {ad.label}
                         </span>
                       ) : (
                         <span className="h-2.5 w-2.5 rounded-full bg-[#f05a22] shadow-[0_1px_3px_rgba(38,35,31,0.45)] ring-[1.5px] ring-white" />
                       )}
                       {adLabel.has(ad.id) && <span className="h-1.5 w-px bg-white" />}
-                      {adLabel.has(ad.id) && <span className={`h-2 w-2 rounded-full ring-[1.5px] ring-white ${sponsor ? 'bg-[#1f2a24]' : 'bg-[#f05a22]'}`} />}
+                      {adLabel.has(ad.id) && <span className={`h-2 w-2 rounded-full ring-[1.5px] ring-white bg-[#f05a22]`} />}
                     </button>
                   </div>
                 );

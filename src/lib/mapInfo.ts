@@ -1,15 +1,10 @@
 import { useEffect, useState } from 'react';
 
-// What the public map's info card shows besides the vacant-plot adverts: the weather and air
-// quality at the estate right now (Open-Meteo, a free service that needs no key), sun and UV,
-// a few facts, and sponsor slots.
+// What the public map's info card shows: the weather and air quality at the estate right now
+// (Open-Meteo, a free service that needs no key), sun and UV, and a few facts.
 
 // The estate (from the GPS calibration ride).
 const LAT = 13.05, LNG = 78.145;
-
-/** Sponsors shown in the map's info card. Add { name, tagline }, optionally a logo URL and, to put a board for them on the map itself, a position on the plan (% of the plan). */
-export interface Sponsor { name: string; tagline: string; logo?: string; pt?: [number, number] }
-export const SPONSORS: Sponsor[] = [];
 
 /** Fixed facts about the estate. */
 export const ESTATE_FACTS: { title: string; text: string }[] = [
