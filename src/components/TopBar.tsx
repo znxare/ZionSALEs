@@ -69,7 +69,7 @@ export default function TopBar({ user, onSearch, onAdd, onSignOut }: Props) {
       <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between px-3 py-2.5 sm:px-6 sm:py-3 lg:px-8">
         <a href="#/" className="flex items-center gap-2.5">
           <img
-            src="/zion-hills-logo.svg"
+            src="/zion-hills-logo-site.svg"
             alt="Zion Hills"
             className="h-8 w-auto sm:h-9"
           />
