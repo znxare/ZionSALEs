@@ -1,9 +1,6 @@
 import { lazy, memo, Suspense, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type WheelEvent as ReactWheelEvent } from 'react';
-import { Search, X, List as ListIcon, Map as MapIcon, ChevronDown, BedDouble, CheckCircle2, Trash2, Receipt, Tag, Clock3, Plus, Minus, RotateCcw, Presentation, Share2, FileText, Ruler, Home, MessageCircle, Smartphone, Tablet, Eye, Construction, Flag, Lock, Ticket, type LucideIcon } from 'lucide-react';
-import { ACCESS_SHORT, type AccessBadge, type AccessKind } from '@/lib/accessZones';
-
-/** From this zoom the access badges show their few words. */
-const ACCESS_LABEL_ZOOM = 2.2;
+import { Search, X, List as ListIcon, Map as MapIcon, ChevronDown, BedDouble, CheckCircle2, Trash2, Receipt, Tag, Clock3, Plus, Minus, RotateCcw, Presentation, Share2, FileText, Ruler, Home, MessageCircle, Smartphone, Tablet, Eye, Flag } from 'lucide-react';
+import { ACCESS_HEX, PHASE_II, PHASE_II_LABEL_AT, type AccessKind } from '@/lib/accessZones';
 import { createPortal } from 'react-dom';
 import { SAMPLE_PLOTS, PHASES, PLOT_STATUSES, BEDROOM_OPTIONS, STATUS_COLORS, type Plot, type PlotStatus } from '@/lib/inventory';
 import { WATER_BODIES } from '@/lib/waterBodies';
@@ -1101,15 +1098,10 @@ export type AdPin = { id: string; pt: [number, number]; label: string; sub?: str
 export type HolePin = { n: number; pt: [number, number] };
 export type HoleTrail = { n: number; tee: [number, number]; mid: [number, number]; green: [number, number] };
 
-/** Badge colour and icon per kind of access: danger red, golf green, residents charcoal, paid orange. */
-export const ACCESS_COLOR: Record<AccessKind, string> = { construction: 'bg-[#b3261e]', golfers: 'bg-[#1f3a2b]', residents: 'bg-[#3f3e34]', limited: 'bg-[#f05a22]' };
-const ACCESS_HEX: Record<AccessKind, string> = { construction: '#b3261e', golfers: '#1f3a2b', residents: '#3f3e34', limited: '#f05a22' };
-export const ACCESS_ICON: Record<AccessKind, LucideIcon> = { construction: Construction, golfers: Flag, residents: Lock, limited: Ticket };
-
 export type TourMarker = { pt: [number, number]; accuracyPct?: number; heading?: number | null };
 
 export function MasterPlanBoard({
-  plots, highlight = null, onSelect, large, selectedId, tooltip = 'internal', bare, cover, publicView, waterAlert = null, wildlife = false, night = 0, daylight = null, ambient = false, scenery = false, onReady, atmosphere = null, rain = 0, adPins = [], selectedAdId = null, onAdTap, accessBadges = [], selectedAccessId = null, onAccessTap, accessOutline = null, holePins = [], holeTrail = null, onHoleTap,
+  plots, highlight = null, onSelect, large, selectedId, tooltip = 'internal', bare, cover, publicView, waterAlert = null, wildlife = false, night = 0, daylight = null, ambient = false, scenery = false, onReady, atmosphere = null, rain = 0, adPins = [], selectedAdId = null, onAdTap, phaseII = false, accessOutline = null, holePins = [], holeTrail = null, onHoleTap,
   marker = null, focus = null, onUserMove, onMapPoint, pins = [], rotation = 0, turnable = false, tilt = 0, markerArrow = false, route = null, places = [], destination = null, offRoad = false,
 }: {
   plots: Plot[];
@@ -1150,11 +1142,9 @@ export function MasterPlanBoard({
   adPins?: AdPin[];
   selectedAdId?: string | null;
   onAdTap?: (id: string) => void;
-  /** Public map: who may go where, as small round badges; tapping one opens its card. */
-  accessBadges?: AccessBadge[];
-  selectedAccessId?: string | null;
-  onAccessTap?: (id: string) => void;
-  /** The area of the badge whose card is open, outlined on the plan. */
+  /** Public map: Phase II (a construction site) marked with a thin dashed line and its name. */
+  phaseII?: boolean;
+  /** The area picked in the "Who can go where" card, outlined on the plan. */
   accessOutline?: { kind: AccessKind; polygons: [number, number][][] } | null;
   /** Deep-water caution: index of the lake the position is close to (outlined in red). */
   waterAlert?: number | null;
@@ -1228,6 +1218,13 @@ export function MasterPlanBoard({
             {loaded && daylight && <Suspense fallback={null}><DaylightLayer light={daylight} night={night} rain={rain} /></Suspense>}
             {loaded && ambient && view.zoom >= 1.7 && <Suspense fallback={null}><CartsLayer night={night} /></Suspense>}
             {loaded && <PlotShapes plots={plots} highlight={highlight} hoverId={hoverId} selectedId={selectedId} large={large} waterAlert={waterAlert} />}
+            {loaded && phaseII && (
+              <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                {PHASE_II.map((poly, i) => (
+                  <polygon key={i} points={poly.map(([x, y]) => `${x},${y}`).join(' ')} fill="none" stroke={ACCESS_HEX.construction} strokeOpacity={0.85} strokeWidth={2} strokeDasharray="7 6" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+                ))}
+              </svg>
+            )}
             {loaded && accessOutline && (
               <svg key={accessOutline.polygons.length + accessOutline.kind} className="pointer-events-none absolute inset-0 h-full w-full animate-fade-in" viewBox="0 0 100 100" preserveAspectRatio="none">
                 {accessOutline.polygons.map((poly, i) => (
@@ -1268,8 +1265,8 @@ export function MasterPlanBoard({
           const textW = (t: string, px = 6.4) => t.length * px + 24;
           if (destination) { const [dx, dy] = toScreen(destination.pt); claim(dx, dy + 14, textW(destination.label, 7), 22, true); claim(dx, dy - 16, 26, 34, true); }
           const placeShown = places.map((pl) => { const [px, py] = toScreen(pl.pt); return claim(px, py, textW(pl.label, 6), 20); });
-          const accessLabelled = zoom >= ACCESS_LABEL_ZOOM;
-          for (const ab of accessBadges) { const [bx, by] = toScreen(ab.pt); claim(accessLabelled ? bx + textW(ACCESS_SHORT[ab.kind], 6.6) / 2 - 15 : bx, by, accessLabelled ? textW(ACCESS_SHORT[ab.kind], 6.6) + 6 : 34, 34, true); }
+          const phaseLabel = phaseII ? toScreen(PHASE_II_LABEL_AT) : null;
+          if (phaseLabel) claim(phaseLabel[0], phaseLabel[1], 150, 40, true);
           const landmarksShown = pickLandmarks(toScreen, zoom, claim);
           const adLabel = new Set<string>();
           for (const ad of adPins) {
@@ -1343,28 +1340,14 @@ export function MasterPlanBoard({
                   </div>
                 );
               })}
-              {accessBadges.map((ab) => {
-                const [bx, by] = toScreen(ab.pt);
-                const picked = ab.id === selectedAccessId;
-                const Icon = ACCESS_ICON[ab.kind];
-                return (
-                  <div key={`access-${ab.id}`} className={`absolute ${picked ? 'z-30' : 'z-20'}`} style={{ left: bx, top: by, ...upright, transformOrigin: '0 0' }}>
-                    <button
-                      type="button"
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={(e) => { e.stopPropagation(); onAccessTap?.(ab.id); }}
-                      aria-label={`${ab.title}: ${ab.note}`}
-                      aria-pressed={picked}
-                      className={`pointer-events-auto absolute -translate-y-1/2 p-1.5 ${accessLabelled ? '-translate-x-[21px]' : '-translate-x-1/2'}`}
-                    >
-                      <span className={`flex h-[30px] items-center rounded-full text-white shadow-[0_2px_6px_-1px_rgba(38,35,31,0.5)] ring-2 ring-white transition-transform duration-200 ${ACCESS_COLOR[ab.kind]} ${picked ? 'scale-125' : ''}`}>
-                        <span className="grid h-[30px] w-[30px] place-items-center"><Icon className="h-[15px] w-[15px]" strokeWidth={2.2} /></span>
-                        {accessLabelled && <span className="-ml-1 whitespace-nowrap pr-3 text-[12px] font-semibold">{ACCESS_SHORT[ab.kind]}</span>}
-                      </span>
-                    </button>
+              {phaseLabel && (
+                <div className="pointer-events-none absolute z-20" style={{ left: phaseLabel[0], top: phaseLabel[1], ...upright, transformOrigin: '0 0' }}>
+                  <div className="absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-center leading-tight text-[#b3261e] [text-shadow:0_0_3px_#fff,0_0_3px_#fff,0_0_6px_#fff]">
+                    <div className="text-[15px] font-bold tracking-[0.3em]">PHASE II</div>
+                    <div className="text-[11px] font-semibold">construction · no entry</div>
                   </div>
-                );
-              })}
+                </div>
+              )}
               {adPins.map((ad) => {
                 const picked = ad.id === selectedAdId;
                 if (!ad.featured && !picked && zoom < 1.9) return null;

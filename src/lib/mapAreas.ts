@@ -31,7 +31,7 @@ export const PRIVATE_AREAS: MapArea[] = [
   },
 ];
 
-export function inside([x, y]: MapPt, poly: MapPt[]): boolean {
+function inside([x, y]: MapPt, poly: MapPt[]): boolean {
   let hit = false;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
     const [xi, yi] = poly[i], [xj, yj] = poly[j];
