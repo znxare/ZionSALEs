@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Moon, Sun, LocateFixed, CornerUpRight, Flag, Loader2, Navigation, Share2, Search, MoreHorizontal, X as CloseIcon, Sparkles, MessageCircle, Bell } from 'lucide-react';
-import { MasterPlanBoard, coverLayerSize, type AdPin, type MapFocus, type TourMarker } from './LiveInventoryBoard';
+import { ACCESS_COLOR, ACCESS_ICON, MasterPlanBoard, coverLayerSize, type AdPin, type MapFocus, type TourMarker } from './LiveInventoryBoard';
 import type { HoleReport } from './HoleByHole';
 import { useMapLayers } from '@/lib/mapLayers';
 import { DirectionsControls, type DirectionsPhase, type DirectionsView } from './Directions';
@@ -21,6 +21,7 @@ import { findPlace, metresFromRoad, planMetres } from '@/lib/directions';
 import { SAMPLE_PLOTS } from '@/lib/inventory';
 import { centroidOf } from '@/lib/plotMap';
 import { PROPERTY_TOUR_LINK } from '@/lib/tourRequest';
+import { ACCESS_BADGES, inPhaseII } from '@/lib/accessZones';
 import { privateAreaAt } from '@/lib/mapAreas';
 import { pushState, registerInstallWorker, turnOffUpdates, turnOnUpdates, type PushState } from '@/lib/mapPush';
 import { lxEyebrow, lxFab, lxGlass, lxIvory, lxOrange } from '@/lib/luxury';
@@ -48,6 +49,9 @@ const ON_COURSE_M = 60;
 const ON_COURSE_READINGS = 3;
 /** Quiet time after the message, so walking along the edge of the course doesn't repeat it. */
 const AREA_NOTICE_GAP_MS = 5 * 60 * 1000;
+/** The Phase II warning ignores positions less sure than this (a wide GPS circle could be on the road outside). */
+const SITE_MAX_ACCURACY_M = 25;
+const ACCESS_HINT_KEY = 'zion-access-hint';
 const NO_HOLES: HoleReport = { pins: [], trail: null, showing: false };
 const FOLLOW_ZOOM = 2.2;
 // Driving (like Google Maps): closer in when slow, further out when faster, so there is always time to see the next turn.
@@ -119,6 +123,9 @@ export default function PublicMap({ toId }: { toId?: string }) {
     return pins;
   }, []);
   const adPlot = adSel ? SAMPLE_PLOTS.find((p) => p.id === adSel) ?? null : null;
+  // Who may go where: a badge per area, tap for a short card.
+  const [accessSel, setAccessSel] = useState<string | null>(null);
+  const accessCard = accessSel ? ACCESS_BADGES.find((b) => b.id === accessSel) ?? null : null;
   const [phase, setPhase] = useState<DirectionsPhase>('idle');
   const turn = useRef(0);
   const initialDest = useMemo(() => (toId ? findPlace(toId) : undefined), [toId]);
@@ -303,6 +310,17 @@ export default function PublicMap({ toId }: { toId?: string }) {
     return () => window.removeEventListener('pointerup', ask);
   }, []);
 
+  // The first time someone opens the map, say once that the round badges can be tapped.
+  useEffect(() => {
+    if (!ready || toId) return;
+    try { if (localStorage.getItem(ACCESS_HINT_KEY)) return; } catch { return; }
+    const t = window.setTimeout(() => {
+      setNote('Tap a round badge to see where visitors can go.');
+      try { localStorage.setItem(ACCESS_HINT_KEY, '1'); } catch { /* storage unavailable */ }
+    }, 4500);
+    return () => window.clearTimeout(t);
+  }, [ready]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Messages fade away on their own.
   useEffect(() => {
     if (!note) return;
@@ -334,8 +352,20 @@ export default function PublicMap({ toId }: { toId?: string }) {
 
   // The small message when a visitor is really on the golf course. Roads beside the course stay quiet.
   const areaWatch = useRef({ readings: 0, shownAt: 0 });
+  const siteWatch = useRef({ readings: 0, shownAt: 0 });
   useEffect(() => {
     if (!fix || !marker || !onPlan) return;
+    const site = siteWatch.current;
+    const inSite = fix.accuracy <= SITE_MAX_ACCURACY_M && inPhaseII(marker.pt);
+    site.readings = inSite ? site.readings + 1 : 0;
+    if (inSite) {
+      if (site.readings >= ON_COURSE_READINGS && Date.now() - site.shownAt > AREA_NOTICE_GAP_MS) {
+        site.shownAt = Date.now();
+        setNote('You are in Phase II, a construction site. Danger zone: please turn back to the main roads.');
+        try { navigator.vibrate?.([180, 90, 180]); } catch { /* not supported */ }
+      }
+      return;
+    }
     const watch = areaWatch.current;
     const area = privateAreaAt(marker.pt);
     const here = area && metresFromRoad(marker.pt) > ON_COURSE_M ? area : null;
@@ -404,11 +434,16 @@ export default function PublicMap({ toId }: { toId?: string }) {
           rain={env ? rain : 0}
           ambient={env && phase === 'idle'}
           adPins={phase === 'idle' ? adPins : []}
+          accessBadges={phase === 'idle' ? ACCESS_BADGES : []}
+          selectedAccessId={accessSel}
+          accessOutline={accessCard?.area ? { kind: accessCard.kind, polygons: accessCard.area } : null}
+          onAccessTap={(id) => { setAdSel(null); setAccessSel((cur) => (cur === id ? null : id)); }}
           holePins={holesOn ? holeReport.pins : []}
           holeTrail={holesOn ? holeReport.trail : null}
           onHoleTap={openHole}
           selectedAdId={adSel}
           onAdTap={(id) => {
+            setAccessSel(null);
             setAdSel(id);
             const pin = adPins.find((a) => a.id === id);
             if (pin) { setFollow(false); setFocus({ pt: pin.pt, zoom: 2.4, exact: true, nonce: Date.now() }); }
@@ -543,6 +578,20 @@ export default function PublicMap({ toId }: { toId?: string }) {
         </Suspense>
       )}
 
+      {phase === 'idle' && !(holesOn && holeReport.showing) && !adPlot && accessCard && (() => {
+        const Icon = ACCESS_ICON[accessCard.kind];
+        return (
+          <div data-dock="left" className={`pointer-events-auto absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-3 right-[4.5rem] z-40 flex animate-slide-up items-start gap-3 rounded-[20px] p-3 sm:left-24 sm:right-auto sm:w-[22rem] ${lxIvory}`}>
+            <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-white ${ACCESS_COLOR[accessCard.kind]}`}><Icon className="h-5 w-5" strokeWidth={2} /></span>
+            <div className="min-w-0 flex-1 pt-0.5">
+              <div className="text-[15px] font-semibold leading-tight text-[#26231f]">{accessCard.title}</div>
+              <div className="mt-0.5 text-[13px] leading-snug text-[#5b5a4c]">{accessCard.note}</div>
+            </div>
+            <button onClick={() => setAccessSel(null)} aria-label="Close" className="rounded-full p-1.5 text-[#8a6a4a] hover:bg-[#e3d8c2]/[0.15]"><X className="h-4 w-4" /></button>
+          </div>
+        );
+      })()}
+
       {phase === 'idle' && !(holesOn && holeReport.showing) && adPlot && (
         <div data-dock="left" className={`pointer-events-auto absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-3 right-[4.5rem] z-40 animate-slide-up rounded-[22px] p-3 sm:left-24 sm:p-3.5 sm:right-auto sm:w-[26rem] ${lxIvory}`}>
           <div className="flex items-start gap-3">
@@ -560,7 +609,7 @@ export default function PublicMap({ toId }: { toId?: string }) {
         </div>
       )}
 
-      {phase === 'idle' && !adPlot && !(holesOn && holeReport.showing) && (
+      {phase === 'idle' && !adPlot && !accessCard && !(holesOn && holeReport.showing) && (
         <div className="pointer-events-none absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-3 right-[4.5rem] z-40 flex flex-col gap-2 sm:left-24 sm:right-auto sm:w-[22rem]">
           <a href={PROPERTY_TOUR_LINK} target="_blank" rel="noopener noreferrer" className={`pointer-events-auto flex items-center justify-center gap-2 rounded-full py-2.5 text-[14px] font-semibold transition active:scale-[0.98] ${lxOrange}`}>
             <MessageCircle className="h-[18px] w-[18px]" strokeWidth={2} /> Request property tour
